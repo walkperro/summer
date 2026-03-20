@@ -1,0 +1,137 @@
+{
+  "preset_pack_id": "summer_output_presets_v2",
+  "language_system_version": "2.0",
+  "global_rules": {
+    "approval_round_strategy": "Generate native approvals first, lock identity and composition, then finish only the approved finals for website delivery.",
+    "consistency_priority": "Favor likeness consistency, crop survivability, and editorial realism over novelty.",
+    "provider_parameter_policy": {
+      "temperature": "Omit unless the provider explicitly supports it.",
+      "seed": "Include only if the provider supports it and a locked repeatable look is needed."
+    },
+    "required_prompt_sections": [
+      "subject_lock",
+      "camera_language",
+      "lighting_language",
+      "styling_language",
+      "environment_language",
+      "cinematic_language",
+      "composition_language",
+      "realism_guards"
+    ],
+    "required_review_points": [
+      "text-safe composition guidance",
+      "mobile crop safety guidance",
+      "skin texture realism",
+      "facial-feature preservation",
+      "anti-drift stability",
+      "anti-generic-AI-face negatives"
+    ]
+  },
+  "presets": [
+    {
+      "id": "desktop_hero",
+      "use_case": "Primary homepage hero and homepage fade sequence wide image",
+      "aspect_ratio": "16:9",
+      "recommended_native_generation": "Use native wide high-res generation first rather than relying on later expansion.",
+      "approval_round_goal": "Approve composition, facial integrity, text-safe architecture, and realistic finish.",
+      "final_export_goal": "3840x2160",
+      "recommended_framing": "Subject offset from center with one calm negative-space field for headline and CTA copy.",
+      "likeness_priority": "highest",
+      "composition_language": {
+        "text_safe_guidance": "Keep one broad low-detail lane free of bright highlights, hands, or busy edges for desktop typography.",
+        "mobile_crop_safety_guidance": "Keep face and upper torso protected in the central vertical corridor so a derived mobile crop still reads cleanly.",
+        "subject_placement": "off-center for layout flexibility",
+        "eye_line": "strong enough to read at homepage scale"
+      },
+      "realism_review_points": [
+        "facial structure survives wide framing",
+        "skin remains detailed and non-waxy",
+        "no generic AI glamour drift in final hero polish"
+      ]
+    },
+    {
+      "id": "mobile_hero",
+      "use_case": "Mobile homepage hero and portrait-led campaign crop",
+      "aspect_ratio": "9:16",
+      "recommended_native_generation": "Generate portrait-native first whenever possible rather than forcing a crop from desktop wides.",
+      "approval_round_goal": "Approve face scale, vertical balance, crop safety, and top-third readability.",
+      "final_export_goal": "2160x3840",
+      "recommended_framing": "Tight vertical portrait with controlled headroom and elegant shoulder or torso context.",
+      "likeness_priority": "highest",
+      "composition_language": {
+        "text_safe_guidance": "Protect a readable top or side copy zone without sacrificing facial scale.",
+        "mobile_crop_safety_guidance": "Forehead, eyes, nose, mouth, chin, and shoulder line must remain intact inside the portrait-safe crop.",
+        "subject_placement": "center-weighted with breathing room",
+        "eye_line": "clear and immediate on small screens"
+      },
+      "realism_review_points": [
+        "face remains recognizable at tighter crop",
+        "skin texture still looks real after mobile sharpening",
+        "no beauty-filter flattening or symmetry artifacts"
+      ]
+    },
+    {
+      "id": "editorial_portrait",
+      "use_case": "About page portrait, press image, and premium editorial tiles",
+      "aspect_ratio": "4:5",
+      "recommended_native_generation": "Use portrait-native high-res generation with identity lock prioritized over styling variance.",
+      "approval_round_goal": "Approve facial fidelity, skin texture realism, and premium editorial lighting.",
+      "final_export_goal": "2400x3000",
+      "recommended_framing": "Chest-up or waist-up portrait depending section needs, with enough breathing room for elegant crop adjustments.",
+      "likeness_priority": "highest",
+      "composition_language": {
+        "text_safe_guidance": "Keep at least one outer edge visually calm for optional quote or biography overlays.",
+        "mobile_crop_safety_guidance": "Protect full head and shoulder shape so portrait crops remain balanced across responsive placements.",
+        "subject_placement": "near-center with subtle offset options",
+        "eye_line": "direct or softly off-axis, but always emotionally readable"
+      },
+      "realism_review_points": [
+        "pore detail and lip texture remain visible",
+        "facial proportions stay true under flattering light",
+        "no generic beauty-ad sameness"
+      ]
+    },
+    {
+      "id": "portfolio_card",
+      "use_case": "Grid cards, testimonial modules, and modular campaign thumbnails",
+      "aspect_ratio": "4:5",
+      "recommended_native_generation": "Reuse approved editorial or hero images, then crop only from compositions that preserve face and silhouette clarity.",
+      "approval_round_goal": "Approve readable silhouette, crop versatility, and identity retention at smaller sizes.",
+      "final_export_goal": "1600x2000",
+      "recommended_framing": "Single-subject crop with clean shape separation from background and no edge tangles.",
+      "likeness_priority": "high",
+      "composition_language": {
+        "text_safe_guidance": "Keep the crop clean enough for optional badge or micro-copy overlays without crowding the face.",
+        "mobile_crop_safety_guidance": "Ensure facial center of gravity stays intact when cards are displayed in tighter responsive layouts.",
+        "subject_placement": "centered or slightly offset depending silhouette",
+        "eye_line": "clear even at thumbnail scale"
+      },
+      "realism_review_points": [
+        "subject still reads as the same person at small size",
+        "skin and eyes avoid waxiness after resizing",
+        "no awkward hand, shoulder, or chin crops"
+      ]
+    },
+    {
+      "id": "social_teaser",
+      "use_case": "Launch teaser, social post, and story-adjacent promotional asset",
+      "aspect_ratio": "4:5",
+      "recommended_native_generation": "Generate from already approved prompt concepts so campaign styling stays consistent across channels.",
+      "approval_round_goal": "Approve fast-scrolling impact while retaining true identity and realistic finish.",
+      "final_export_goal": "2160x2700",
+      "recommended_framing": "Bold portrait crop with strong eye line, simple background hierarchy, and immediate readability.",
+      "likeness_priority": "high",
+      "composition_language": {
+        "text_safe_guidance": "Allow a small but usable copy or logo zone without turning the frame into an ad template.",
+        "mobile_crop_safety_guidance": "Keep the core face and hero silhouette intact for story and feed variations.",
+        "subject_placement": "center-biased for flexible social crops",
+        "eye_line": "instant and scroll-stopping without feeling aggressive"
+      },
+      "realism_review_points": [
+        "high-impact crop still preserves real facial features",
+        "skin texture survives export sharpening",
+        "no synthetic campaign-face drift"
+      ]
+    }
+  ]
+}

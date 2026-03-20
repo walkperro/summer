@@ -1,0 +1,80 @@
+{
+  "profile_id": "summer_identity_v1",
+  "subject": "Personal-brand identity for a premium fitness model and trainer website",
+  "source_reference_sets": {
+    "likeness": "/storage/emulated/0/summer_final_likeness",
+    "body": "/storage/emulated/0/summer_final_body",
+    "style": "/storage/emulated/0/summer_final_style"
+  },
+  "observed_identity": {
+    "face_structure": "Long oval face with defined cheekbones, a softly angular jaw, a narrower chin, balanced forehead height, and a straight refined nose. The face reads elegant and athletic rather than round, baby-faced, or highly exaggerated.",
+    "eye_color": "Light blue-green to gray-blue eyes with clear contrast and a calm, direct gaze.",
+    "brows": "Medium-density brows with a soft natural arch; polished but not overly sculpted or blocky.",
+    "lips": "Naturally full lips with a fuller lower lip, moderate upper-lip volume, and a defined cupid's bow. Keep the lips soft and real, never overfilled.",
+    "jaw": "Clean, feminine jawline with subtle angular definition; avoid squaring it off or making it too delicate.",
+    "hair": {
+      "base_color_range": [
+        "dark blonde",
+        "ash bronde",
+        "beige blonde",
+        "light brown lowlights"
+      ],
+      "styling_variants": [
+        "smooth straight lengths with a clean side or soft center part",
+        "loose polished editorial waves",
+        "sleek athletic ponytail",
+        "soft textured glam volume for black-and-white portrait work"
+      ]
+    },
+    "athletic_body_description": "Lean athletic female build with visible training tone through shoulders, arms, waist, glutes, and legs. Proportions are balanced and strong, with a model-like frame, defined but not bulky musculature, and a feminine athletic silhouette.",
+    "visible_tattoo_rules": {
+      "guidance": [
+        "Preserve only tattoos that are naturally visible in the reference-driven pose, crop, wardrobe, or hairstyle.",
+        "Known tattoo visibility appears subtle and placement-specific across the hand, forearm or arm, neck or behind-ear area, and lower leg or foot depending on image selection.",
+        "If a chosen reference setup hides a tattoo, do not force it into the image.",
+        "Keep tattoo scale, density, and placement understated and believable.",
+        "Do not invent extra tattoos, sleeves, chest pieces, or large back work."
+      ]
+    }
+  },
+  "likeness_must_preserve_rules": [
+    "Preserve the long oval face shape, cheekbone structure, jawline taper, and natural adult proportions.",
+    "Preserve the light blue-green eye color and realistic eye spacing.",
+    "Preserve the straight refined nose and avoid shortening or button-nose drift.",
+    "Preserve the natural lip shape and fullness without cosmetic over-enhancement.",
+    "Preserve the subject as a fit, elegant, athletic blonde-bronde woman rather than a generic glamour archetype.",
+    "Use 2 to 3 likeness images in every generation round to anchor the face before adding body or style references.",
+    "Favor clean skin texture and realistic beauty detail over artificial smoothing or plastic skin."
+  ],
+  "likeness_avoid_rules": [
+    "Do not turn her into a generic AI blonde with widened eyes, smaller nose, or inflated lips.",
+    "Do not round the face, soften the jaw too much, or erase the cheekbone definition.",
+    "Do not overfill lips, over-contour the face, or push makeup into heavy influencer glam.",
+    "Do not exaggerate bust, hips, glutes, or hourglass proportions beyond the real athletic build.",
+    "Do not make the hair platinum, yellow-blonde, or unrealistically bright.",
+    "Do not add extra tattoos or move existing tattoos to new body locations.",
+    "Do not over-sexualize wardrobe, expression, or posing."
+  ],
+  "style_direction_rules": [
+    "Visual tone should feel premium, elegant, athletic, feminine, and editorial.",
+    "Blend luxury fitness energy with refined portrait photography rather than commercial gym clichés.",
+    "Use black-and-white Hollywood glam selectively for iconic hero moments.",
+    "Use warm neutral editorial lighting for trust, softness, and premium approachability.",
+    "Use selective color sparingly and intentionally, never as a gimmick.",
+    "Keep wardrobe elevated, body-aware, and strong without feeling overtly sexualized.",
+    "Prefer believable posture, realistic anatomy, and subtle physical tension over extreme action posing."
+  ],
+  "brand_tone_rules": [
+    "Confident but not aggressive",
+    "Luxury but not flashy",
+    "Feminine but not fragile",
+    "Athletic but not harsh",
+    "Editorial but still warm and human",
+    "High-discipline, high-trust, high-taste"
+  ],
+  "google_ai_studio_reference_principles": {
+    "default_attachment_strategy": "Attach 2 to 3 likeness references first, then 1 body reference, then 1 style reference. Use 5 images max unless a prompt truly needs 6.",
+    "consistency_rule": "Reuse the same core likeness trio across the first approval round to reduce identity drift.",
+    "creative_control_rule": "Keep prompt language specific and premium, but do not overload the prompt with too many competing aesthetic instructions."
+  }
+}

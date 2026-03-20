@@ -1,0 +1,528 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "website-image-director/json-plan.schema.json",
+  "title": "Website Image Director JSON Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task",
+    "verb",
+    "section",
+    "goal",
+    "subject",
+    "subject_lock",
+    "action",
+    "scene",
+    "composition",
+    "composition_language",
+    "style",
+    "camera",
+    "camera_language",
+    "lighting",
+    "lighting_language",
+    "styling_language",
+    "environment_language",
+    "cinematic_language",
+    "realism_guards",
+    "materials",
+    "references",
+    "text_overlay_zone",
+    "edit",
+    "constraints"
+  ],
+  "properties": {
+    "task": {
+      "type": "string",
+      "enum": [
+        "generate",
+        "edit",
+        "generate_with_references"
+      ]
+    },
+    "verb": {
+      "type": "string",
+      "minLength": 1
+    },
+    "section": {
+      "type": "string",
+      "enum": [
+        "hero",
+        "about",
+        "services",
+        "testimonial",
+        "cta"
+      ]
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary",
+        "secondary",
+        "attributes"
+      ],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "secondary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subject_lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_anchor",
+        "immutable_features",
+        "facial_feature_preservation",
+        "body_truths",
+        "anti_drift"
+      ],
+      "properties": {
+        "identity_anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "immutable_features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "facial_feature_preservation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "body_truths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "anti_drift": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location",
+        "environment",
+        "time_of_day"
+      ],
+      "properties": {
+        "location": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "time_of_day": {
+          "type": "string"
+        }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shot_type",
+        "framing",
+        "angle",
+        "depth"
+      ],
+      "properties": {
+        "shot_type": {
+          "type": "string"
+        },
+        "framing": {
+          "type": "string"
+        },
+        "angle": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "string"
+        }
+      }
+    },
+    "composition_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visual_hierarchy",
+        "text_safe_guidance",
+        "mobile_crop_safety_guidance",
+        "subject_placement",
+        "eye_line"
+      ],
+      "properties": {
+        "visual_hierarchy": {
+          "type": "string"
+        },
+        "text_safe_guidance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mobile_crop_safety_guidance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_placement": {
+          "type": "string"
+        },
+        "eye_line": {
+          "type": "string"
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visual_direction",
+        "editorial_reference",
+        "mood"
+      ],
+      "properties": {
+        "visual_direction": {
+          "type": "string"
+        },
+        "editorial_reference": {
+          "type": "string"
+        },
+        "mood": {
+          "type": "string"
+        }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lens",
+        "aperture",
+        "rendering"
+      ],
+      "properties": {
+        "lens": {
+          "type": "string"
+        },
+        "aperture": {
+          "type": "string"
+        },
+        "rendering": {
+          "type": "string"
+        }
+      }
+    },
+    "camera_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_feel",
+        "lens_behavior",
+        "focus_strategy",
+        "motion_treatment"
+      ],
+      "properties": {
+        "capture_feel": {
+          "type": "string"
+        },
+        "lens_behavior": {
+          "type": "string"
+        },
+        "focus_strategy": {
+          "type": "string"
+        },
+        "motion_treatment": {
+          "type": "string"
+        }
+      }
+    },
+    "lighting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "setup",
+        "quality",
+        "priority"
+      ],
+      "properties": {
+        "setup": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string"
+        }
+      }
+    },
+    "lighting_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_light_character",
+        "shadow_behavior",
+        "highlight_behavior",
+        "skin_treatment"
+      ],
+      "properties": {
+        "key_light_character": {
+          "type": "string"
+        },
+        "shadow_behavior": {
+          "type": "string"
+        },
+        "highlight_behavior": {
+          "type": "string"
+        },
+        "skin_treatment": {
+          "type": "string"
+        }
+      }
+    },
+    "styling_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wardrobe",
+        "grooming",
+        "makeup",
+        "overall_finish"
+      ],
+      "properties": {
+        "wardrobe": {
+          "type": "string"
+        },
+        "grooming": {
+          "type": "string"
+        },
+        "makeup": {
+          "type": "string"
+        },
+        "overall_finish": {
+          "type": "string"
+        }
+      }
+    },
+    "environment_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spatial_mood",
+        "background_strategy",
+        "surface_materials",
+        "color_world"
+      ],
+      "properties": {
+        "spatial_mood": {
+          "type": "string"
+        },
+        "background_strategy": {
+          "type": "string"
+        },
+        "surface_materials": {
+          "type": "string"
+        },
+        "color_world": {
+          "type": "string"
+        }
+      }
+    },
+    "cinematic_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visual_arc",
+        "emotional_temperature",
+        "editorial_energy",
+        "luxury_signal"
+      ],
+      "properties": {
+        "visual_arc": {
+          "type": "string"
+        },
+        "emotional_temperature": {
+          "type": "string"
+        },
+        "editorial_energy": {
+          "type": "string"
+        },
+        "luxury_signal": {
+          "type": "string"
+        }
+      }
+    },
+    "realism_guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skin_texture_rules",
+        "facial_feature_preservation_rules",
+        "anatomy_rules",
+        "anti_drift_instructions",
+        "anti_generic_ai_face_negatives"
+      ],
+      "properties": {
+        "skin_texture_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "facial_feature_preservation_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "anatomy_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "anti_drift_instructions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "anti_generic_ai_face_negatives": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "influence"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "influence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "text_overlay_zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "placement",
+        "purpose",
+        "keep_clean"
+      ],
+      "properties": {
+        "placement": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "keep_clean": {
+          "type": "boolean"
+        }
+      }
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change",
+        "preserve"
+      ],
+      "properties": {
+        "change": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserve": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aspect_ratio",
+        "must_have",
+        "avoid"
+      ],
+      "properties": {
+        "aspect_ratio": {
+          "type": "string"
+        },
+        "must_have": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

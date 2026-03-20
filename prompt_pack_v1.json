@@ -1,0 +1,574 @@
+{
+  "pack_id": "summer_prompt_pack_v2",
+  "intended_platform": "Google AI Studio and Nano Banana reference-driven image generation",
+  "core_generation_rules": {
+    "likeness_priority": "highest",
+    "consistency_over_variance": true,
+    "reference_usage": "Use the listed attachments in the shown order. Likeness references always outrank style references. Keep the same core likeness anchors across adjacent prompts whenever possible.",
+    "fine_tune_workflow_included": false,
+    "prose_standard": "Write prompts like a luxury creative director briefing an editorial photographer and retoucher.",
+    "required_prompt_sections": [
+      "subject_lock",
+      "camera_language",
+      "lighting_language",
+      "styling_language",
+      "environment_language",
+      "cinematic_language",
+      "composition_language",
+      "realism_guards"
+    ],
+    "required_output_guards": [
+      "text-safe composition guidance",
+      "mobile crop safety guidance",
+      "skin texture realism rules",
+      "facial-feature preservation rules",
+      "anti-drift instructions",
+      "anti-generic-AI-face negatives"
+    ]
+  },
+  "prompts": [
+    {
+      "id": "bw_hollywood_glam_close_portrait",
+      "title": "Black-and-White Hollywood Glam Close Portrait",
+      "section": "hero",
+      "workflow": "generate_with_references",
+      "language_system_version": "2.0",
+      "use_case": "Homepage hero fade sequence opener or premium editorial key art",
+      "prompt": "Create a cinematic black-and-white hero portrait of the attached woman with old-Hollywood restraint and modern editorial precision. Preserve her exact face architecture, jaw taper, cheekbone structure, refined nose line, natural lip shape, and athletic feminine presence. Use sculpted luminous studio light, rich grayscale separation, polished hair, and poised direct eye contact. Keep the image timeless, expensive, elegant, strong, and text-safe for a premium homepage rather than retro-costumed, overly sexy, or generically glamorous. Preserve skin texture, believable asymmetry, and a true recognizable likeness.",
+      "avoid": [
+        "generic AI face",
+        "widened eyes",
+        "button nose",
+        "overfilled lips",
+        "over-retouched plastic skin",
+        "hyper-sexualized styling",
+        "frozen facial symmetry",
+        "harsh gritty fitness-ad aesthetic"
+      ],
+      "aspect_ratio": "4:5",
+      "recommended_framing": "tight head-and-shoulders portrait with elegant headroom and a calm text-safe side lane",
+      "likeness_priority": "highest",
+      "generation_stage": "approval_round_native_high_res",
+      "export_goal": "Approve the facial anchor portrait first, then adapt the approved look for hero and editorial crops.",
+      "creative_direction": {
+        "subject_lock": {
+          "identity_anchor": "Preserve the attached woman exactly as an adult elegant athletic blonde-bronde subject with refined bone structure and believable asymmetry.",
+          "facial_feature_preservation": [
+            "keep the long oval face shape and cheekbone width",
+            "preserve the straight refined nose and natural lip volume",
+            "keep the jaw feminine and defined rather than softened or squared off"
+          ],
+          "anti_drift": [
+            "likeness overrides monochrome glam styling",
+            "do not drift into retro cosplay or generic beauty-campaign sameness"
+          ]
+        },
+        "camera_language": {
+          "capture_feel": "precise studio portrait with expensive optical discipline",
+          "lens_behavior": "85mm portrait compression with clean facial proportions and soft edge rolloff",
+          "focus_strategy": "critical focus on the near eye with crisp lip and cheek detail"
+        },
+        "lighting_language": {
+          "key_light_character": "soft directional beauty light with sculpted cheekbone definition",
+          "shadow_behavior": "velvety cinematic falloff with readable eye sockets and jaw contour",
+          "skin_treatment": "retain pores, lip texture, and realistic tonal transitions"
+        },
+        "styling_language": {
+          "wardrobe": "minimal black styling with no distracting trim",
+          "grooming": "polished editorial hair with controlled volume",
+          "makeup": "monochrome-friendly glam with restraint, not costume makeup"
+        },
+        "environment_language": {
+          "spatial_mood": "quiet studio drama with no clutter",
+          "background_strategy": "deep monochrome backdrop with gentle tonal lift for hair separation"
+        },
+        "cinematic_language": {
+          "visual_arc": "stillness becoming iconography in a single frame",
+          "editorial_energy": "old-Hollywood poise interpreted through modern campaign discipline"
+        },
+        "composition_language": {
+          "text_safe_guidance": "Keep a clean low-detail lane on one side for homepage headline and CTA copy.",
+          "mobile_crop_safety_guidance": "Protect forehead, eyes, nose line, chin, and top of shoulders inside a centered vertical crop zone.",
+          "subject_placement": "slightly off-center for hero flexibility"
+        },
+        "realism_guards": {
+          "skin_texture_rules": [
+            "preserve fine skin texture and natural under-eye detail",
+            "avoid waxy retouching or porcelain blur"
+          ],
+          "anti_generic_ai_face_negatives": [
+            "no influencer-glam face swap",
+            "no frozen symmetry",
+            "no generic AI blonde polish"
+          ]
+        }
+      },
+      "google_ai_studio_attachments": {
+        "likeness": [
+          "summer_final_likeness/black_closeup.png",
+          "summer_final_likeness/purple_closeup_1.png",
+          "summer_final_likeness/purple_closeup_4.png"
+        ],
+        "body": [
+          "summer_final_body/red_top_sitting.png"
+        ],
+        "style": [
+          "summer_final_style/black_and_white_pose.png"
+        ],
+        "attachment_notes": "Use the three likeness files as anchors. Add the black-and-white style image last so mood influences the portrait without replacing identity."
+      }
+    },
+    {
+      "id": "luxury_fitness_studio_portrait",
+      "title": "Luxury Fitness Studio Portrait",
+      "section": "services",
+      "workflow": "generate_with_references",
+      "language_system_version": "2.0",
+      "use_case": "Homepage secondary hero, coaching section banner, or services lead image",
+      "prompt": "Create a luxury fitness studio portrait of the attached woman in a refined minimalist training environment with calm authority and premium editorial realism. Preserve her true face, hair tone, athletic proportions, and any naturally visible tattoo accuracy. Use elevated activewear, soft high-end studio lighting, believable posture, and a clean expensive space that signals discipline and trust rather than intensity or aggression. Keep room for website copy, preserve real skin texture, and avoid generic stock-gym energy.",
+      "avoid": [
+        "cheap gym background",
+        "bodybuilding bulk",
+        "generic smiling stock photo energy",
+        "extra tattoos",
+        "inflated curves",
+        "heavy contour makeup",
+        "cartoon abs",
+        "plastic skin"
+      ],
+      "aspect_ratio": "16:9",
+      "recommended_framing": "mid-length to three-quarter portrait with room for website text and clean shoulder-line separation",
+      "likeness_priority": "highest",
+      "generation_stage": "approval_round_native_high_res",
+      "export_goal": "Approve a wide homepage-ready studio image before any finishing pass or crop variations.",
+      "creative_direction": {
+        "subject_lock": {
+          "identity_anchor": "Keep the subject recognizable as the same athletic feminine woman from the likeness references, with facial structure preserved ahead of styling.",
+          "facial_feature_preservation": [
+            "preserve eye spacing, nose line, jaw taper, and natural lip shape",
+            "keep the face adult, elegant, and athletic rather than generic wellness-model pretty"
+          ],
+          "anti_drift": [
+            "do not let studio polish turn into beauty-filter drift",
+            "maintain real body proportions and subtle tattoo logic"
+          ]
+        },
+        "camera_language": {
+          "capture_feel": "high-end editorial portrait with controlled fitness context",
+          "lens_behavior": "85mm to 100mm portrait compression with honest proportions",
+          "focus_strategy": "sharp eyes and clean fabric detail with soft background falloff"
+        },
+        "lighting_language": {
+          "key_light_character": "soft architectural light that wraps the face and shoulders",
+          "shadow_behavior": "gentle sculpting that keeps the body toned but believable",
+          "skin_treatment": "healthy skin realism with pores and tonal nuance intact"
+        },
+        "styling_language": {
+          "wardrobe": "elevated black or neutral activewear with luxury fit and minimal branding",
+          "grooming": "clean polished hair and refined athletic presentation",
+          "makeup": "subtle editorial structure with no influencer-heavy contour"
+        },
+        "environment_language": {
+          "spatial_mood": "minimal, modern, expensive, disciplined",
+          "background_strategy": "clean studio lines and refined equipment kept secondary to the portrait"
+        },
+        "cinematic_language": {
+          "visual_arc": "strength translated as quiet command rather than action spectacle",
+          "editorial_energy": "premium campaign calm with warm authority"
+        },
+        "composition_language": {
+          "text_safe_guidance": "Reserve a broad calm side field for section headline copy and service messaging.",
+          "mobile_crop_safety_guidance": "Keep face, upper torso, and strongest shoulder line inside the central crop-safe corridor for mobile reuse.",
+          "subject_placement": "offset from center with clear negative space"
+        },
+        "realism_guards": {
+          "skin_texture_rules": [
+            "keep real skin and fabric response under soft light",
+            "avoid plastic smoothing and fake muscle carving"
+          ],
+          "anti_generic_ai_face_negatives": [
+            "no generic gym-influencer face",
+            "no symmetry artifacts",
+            "no overfilled lips"
+          ]
+        }
+      },
+      "google_ai_studio_attachments": {
+        "likeness": [
+          "summer_final_likeness/black_top_midshot.png",
+          "summer_final_likeness/black_closeup.png",
+          "summer_final_likeness/peach_closeup_mid_shot.png"
+        ],
+        "body": [
+          "summer_final_body/squat_band.png"
+        ],
+        "style": [
+          "summer_final_style/black_cutout_top.png"
+        ],
+        "attachment_notes": "Keep the black wardrobe and studio-clean styling consistent across likeness and style references. Likeness comes first."
+      }
+    },
+    {
+      "id": "warm_neutral_editorial_headshot",
+      "title": "Warm Neutral Editorial Headshot",
+      "section": "about",
+      "workflow": "generate_with_references",
+      "language_system_version": "2.0",
+      "use_case": "About page, press-style profile image, or trust-building biography section",
+      "prompt": "Create a warm neutral editorial headshot of the attached woman for a premium trainer and fitness personality website. Preserve her exact face shape, eye structure, jawline, lip proportions, and refined athletic beauty. Use warm beige, soft stone, or oat-toned styling, flattering editorial light, subtle grooming, and direct but approachable eye contact. The portrait should feel polished, grounded, modern, and luxurious, with real skin texture, believable asymmetry, and enough calm frame space to support website layout needs.",
+      "avoid": [
+        "overly orange skin",
+        "generic beauty ad styling",
+        "too much smile",
+        "overfilled lips",
+        "fake lashes look",
+        "extreme blur",
+        "AI symmetry artifacts",
+        "plastic skin"
+      ],
+      "aspect_ratio": "4:5",
+      "recommended_framing": "tight vertical portrait from chest up with breathing room around head and shoulders",
+      "likeness_priority": "highest",
+      "generation_stage": "approval_round_native_high_res",
+      "export_goal": "Approve as the primary trust portrait before wider hero and story variations.",
+      "creative_direction": {
+        "subject_lock": {
+          "identity_anchor": "Preserve the same elegant athletic woman from the likeness references with no beauty-filter drift or generic wellness-face replacement.",
+          "facial_feature_preservation": [
+            "keep face length, cheekbone definition, light-eye structure, jaw taper, and refined nose line",
+            "preserve real lip shape and believable asymmetry"
+          ],
+          "anti_drift": [
+            "warm color grading must not soften facial identity",
+            "keep the expression human, credible, and adult"
+          ]
+        },
+        "camera_language": {
+          "capture_feel": "intimate editorial portrait with premium magazine clarity",
+          "lens_behavior": "85mm portrait compression with natural facial honesty",
+          "focus_strategy": "sharp eyes, clean skin detail, soft ear and background falloff"
+        },
+        "lighting_language": {
+          "key_light_character": "creamy directional softness with flattering facial shape",
+          "shadow_behavior": "delicate cheek and jaw contour without muddiness",
+          "skin_treatment": "retain pores, lip texture, and realistic tonal variation"
+        },
+        "styling_language": {
+          "wardrobe": "neutral refined wardrobe in stone, beige, taupe, oat, or soft black",
+          "grooming": "clean polished hair with natural movement",
+          "makeup": "subtle editorial enhancement rather than beauty-ad glam"
+        },
+        "environment_language": {
+          "spatial_mood": "warm, airy, minimal, expensive",
+          "background_strategy": "soft neutral background with no distracting color noise"
+        },
+        "cinematic_language": {
+          "visual_arc": "trust portrait with campaign polish",
+          "editorial_energy": "quiet luxury and human warmth rather than spectacle"
+        },
+        "composition_language": {
+          "text_safe_guidance": "Keep one outer frame edge calm and uncluttered for optional biography copy or quote overlays.",
+          "mobile_crop_safety_guidance": "Protect the full head, shoulders, and upper torso in a tall safe zone so vertical crops remain balanced.",
+          "subject_placement": "near-center with slight offset for layout flexibility"
+        },
+        "realism_guards": {
+          "skin_texture_rules": [
+            "preserve natural pores, lip texture, and realistic under-eye detail",
+            "avoid airbrushed beauty-pass smoothing"
+          ],
+          "anti_generic_ai_face_negatives": [
+            "no doll-like symmetry",
+            "no tiny nose drift",
+            "no fake-lash beauty-ad face"
+          ]
+        }
+      },
+      "google_ai_studio_attachments": {
+        "likeness": [
+          "summer_final_likeness/black_closeup.png",
+          "summer_final_likeness/peach_closeup_mid_shot.png",
+          "summer_final_likeness/purple_closeup_4.png"
+        ],
+        "body": [
+          "summer_final_body/red_top_sitting.png"
+        ],
+        "style": [
+          "summer_final_style/peach_on_yellow.png"
+        ],
+        "attachment_notes": "The peach/yellow style image should only steer warmth and polish. Keep the final palette neutral, restrained, and expensive."
+      }
+    },
+    {
+      "id": "premium_rooftop_athletic_portrait",
+      "title": "Premium Rooftop Athletic Portrait",
+      "section": "hero",
+      "workflow": "generate_with_references",
+      "language_system_version": "2.0",
+      "use_case": "Homepage scroll transition, coaching page hero, or movement-focused banner",
+      "prompt": "Create a premium rooftop athletic portrait of the attached woman in soft luxury evening light. Preserve her exact facial structure, realistic athletic build, hair tone, and subtle tattoo accuracy. Show elegant physical strength and trainer credibility with composed posture, elevated activewear, and a modern rooftop setting that feels cinematic rather than sporty-commercial. Keep breathable negative space for web design, preserve believable skin and body detail, and avoid cluttered skyline noise or generic influencer posing.",
+      "avoid": [
+        "extreme action freeze frame",
+        "oversaturated sunset",
+        "hard sports-commercial look",
+        "overly muscular proportions",
+        "cheap city skyline clutter",
+        "generic influencer pose",
+        "extra tattoos",
+        "plastic skin"
+      ],
+      "aspect_ratio": "16:9",
+      "recommended_framing": "wide three-quarter athletic portrait with environmental context, elegant negative space, and crop-safe headroom",
+      "likeness_priority": "high",
+      "generation_stage": "approval_round_native_high_res",
+      "export_goal": "Approve a wide rooftop image for homepage and section transitions before upscale or crop variants.",
+      "creative_direction": {
+        "subject_lock": {
+          "identity_anchor": "Keep the rooftop image fully tied to the facial likeness references, with body styling secondary to identity.",
+          "facial_feature_preservation": [
+            "preserve face shape, nose line, jaw contour, lips, and eye spacing",
+            "keep the subject adult, athletic, feminine, and recognizable"
+          ],
+          "anti_drift": [
+            "do not let outdoor atmosphere push the face toward generic campaign beauty",
+            "keep body proportions slim-athletic and believable"
+          ]
+        },
+        "camera_language": {
+          "capture_feel": "wide editorial hero with premium outdoor portrait discipline",
+          "lens_behavior": "70mm to 90mm perspective with graceful environmental compression",
+          "focus_strategy": "subject sharp, skyline and architecture softened into context"
+        },
+        "lighting_language": {
+          "key_light_character": "soft evening-edge light with polished skin rendering",
+          "shadow_behavior": "clean shaping along jaw, arms, and torso without sports-ad harshness",
+          "skin_treatment": "real texture with luminous but restrained highlights"
+        },
+        "styling_language": {
+          "wardrobe": "elevated activewear in refined tonal colors with no loud branding",
+          "grooming": "clean hair with controlled movement",
+          "makeup": "light editorial polish that holds up outdoors"
+        },
+        "environment_language": {
+          "spatial_mood": "modern rooftop luxury with breathable air and architectural calm",
+          "background_strategy": "city context stays elegant and secondary rather than busy or touristy"
+        },
+        "cinematic_language": {
+          "visual_arc": "athletic authority translated into elegant evening stillness",
+          "editorial_energy": "campaign-level calm instead of action-ad aggression"
+        },
+        "composition_language": {
+          "text_safe_guidance": "Leave a generous low-detail side zone for headline and supporting copy.",
+          "mobile_crop_safety_guidance": "Keep face, upper torso, and the strongest body line inside the central vertical crop area for mobile hero use.",
+          "subject_placement": "offset from center with horizon and posture supporting the layout"
+        },
+        "realism_guards": {
+          "skin_texture_rules": [
+            "keep realistic skin and fabric texture in evening light",
+            "avoid over-graded sunset skin or over-sharpened body detail"
+          ],
+          "anti_generic_ai_face_negatives": [
+            "no generic influencer pose-face blend",
+            "no enlarged eyes",
+            "no impossible waist or glute exaggeration"
+          ]
+        }
+      },
+      "google_ai_studio_attachments": {
+        "likeness": [
+          "summer_final_likeness/black_top_midshot.png",
+          "summer_final_likeness/peach_closeup_mid_shot.png"
+        ],
+        "body": [
+          "summer_final_body/rooftop_side_peach.png",
+          "summer_final_body/grass_stretch_standing.png"
+        ],
+        "style": [
+          "summer_final_style/peach_rooftop.png"
+        ],
+        "attachment_notes": "Use the rooftop body image as the primary composition anchor and keep the face locked with two close likeness references."
+      }
+    },
+    {
+      "id": "cinematic_lifestyle_portrait",
+      "title": "Cinematic Lifestyle Portrait",
+      "section": "about",
+      "workflow": "generate_with_references",
+      "language_system_version": "2.0",
+      "use_case": "Homepage mid-scroll fade, personal story section, or campaign-style brand tile",
+      "prompt": "Create a cinematic lifestyle portrait of the attached woman that blends luxury fitness energy with refined personal-brand editorial photography. Preserve her true face, realistic body proportions, and hair tone. Use warm natural contrast, tasteful interior or soft-location styling, and composed feminine confidence. The image should feel intimate, aspirational, and expensive, like a magazine portrait for a high-end trainer brand, with real skin detail, believable posture, and calm negative space for layout flexibility.",
+      "avoid": [
+        "messy background clutter",
+        "cheap influencer apartment aesthetic",
+        "overly seductive expression",
+        "unreal anatomy",
+        "face drift",
+        "heavy glam makeup",
+        "extra tattoos",
+        "plastic skin"
+      ],
+      "aspect_ratio": "16:9",
+      "recommended_framing": "waist-up or seated three-quarter frame with cinematic composition and one calm text-safe side zone",
+      "likeness_priority": "high",
+      "generation_stage": "approval_round_native_high_res",
+      "export_goal": "Approve as a softer brand image that complements the stronger hero and fitness portraits.",
+      "creative_direction": {
+        "subject_lock": {
+          "identity_anchor": "Preserve the subject as the same elegant athletic woman from the likeness references, not a generic lifestyle model.",
+          "facial_feature_preservation": [
+            "keep face length, nose line, eye structure, and lip proportions consistent",
+            "retain realistic adult asymmetry and recognizable expression"
+          ],
+          "anti_drift": [
+            "do not let lifestyle warmth genericize the face",
+            "keep the mood intimate and premium rather than casual influencer content"
+          ]
+        },
+        "camera_language": {
+          "capture_feel": "magazine-style environmental portrait with emotional closeness",
+          "lens_behavior": "85mm portrait feel or medium telephoto intimacy with soft background separation",
+          "focus_strategy": "eyes and face remain crisp while background shapes dissolve gently"
+        },
+        "lighting_language": {
+          "key_light_character": "warm natural-leaning editorial light with subtle contrast",
+          "shadow_behavior": "soft contour that preserves the face and body without drama overload",
+          "skin_treatment": "real skin and tactile fabric response"
+        },
+        "styling_language": {
+          "wardrobe": "refined denim, knit, or minimalist fitted styling with quiet luxury tone",
+          "grooming": "soft polished hair with believable movement",
+          "makeup": "restrained editorial grooming, no heavy glam"
+        },
+        "environment_language": {
+          "spatial_mood": "tasteful interior or soft location with calm luxury cues",
+          "background_strategy": "no clutter, no obvious influencer-signifier props, no cheap decor"
+        },
+        "cinematic_language": {
+          "visual_arc": "personal-story intimacy with campaign polish",
+          "editorial_energy": "quiet aspiration and feminine confidence"
+        },
+        "composition_language": {
+          "text_safe_guidance": "Keep one side or upper quadrant visually calm for copy overlays without interrupting the portrait mood.",
+          "mobile_crop_safety_guidance": "Protect the face and seated or waist-up body line inside a centered vertical crop area.",
+          "subject_placement": "slightly offset with gentle environmental framing"
+        },
+        "realism_guards": {
+          "skin_texture_rules": [
+            "preserve pores, lip detail, and natural tonal transitions",
+            "avoid glamour-filter softness"
+          ],
+          "anti_generic_ai_face_negatives": [
+            "no generic lifestyle-ad face",
+            "no waxy skin",
+            "no over-sexualized expression"
+          ]
+        }
+      },
+      "google_ai_studio_attachments": {
+        "likeness": [
+          "summer_final_likeness/black_closeup.png",
+          "summer_final_likeness/black_top_midshot.png"
+        ],
+        "body": [
+          "summer_final_body/red_top_sitting.png"
+        ],
+        "style": [
+          "summer_final_style/jeans_sitting.png"
+        ],
+        "attachment_notes": "Use the seated jeans style image for posture and mood only. Preserve a premium restrained website tone and keep likeness dominant."
+      }
+    },
+    {
+      "id": "monochrome_selective_color_hero",
+      "title": "Monochrome with Selective Color Hero Portrait",
+      "section": "hero",
+      "workflow": "generate_with_references",
+      "language_system_version": "2.0",
+      "use_case": "Homepage signature hero image or launch campaign banner",
+      "prompt": "Create a signature homepage hero portrait of the attached woman using a predominantly monochrome luxury palette with highly restrained selective color. Preserve her exact face, jawline, lip proportions, eye structure, hair tone, and elegant athletic build. The image should feel cinematic, premium, modern, and iconic. Keep the palette mostly black, white, silver, charcoal, or soft grayscale, introducing one accent color only if it strengthens the composition. The selective color must feel luxurious and minimal, never loud, synthetic, or gimmicky. Preserve real skin texture, recognizable identity, and hero-safe negative space.",
+      "avoid": [
+        "multiple accent colors",
+        "neon color treatment",
+        "generic cyberpunk look",
+        "heavy vignette",
+        "over-sexualized body pose",
+        "platinum blonde drift",
+        "extra tattoos",
+        "posterized skin texture",
+        "generic AI glamour"
+      ],
+      "aspect_ratio": "16:9",
+      "recommended_framing": "wide hero portrait with strong eye contact, text-safe negative space, and mobile-safe central subject mass",
+      "likeness_priority": "highest",
+      "generation_stage": "approval_round_native_high_res",
+      "export_goal": "Approve as the highest-impact homepage hero before creating desktop and mobile finals.",
+      "creative_direction": {
+        "subject_lock": {
+          "identity_anchor": "Keep the subject unmistakably tied to the likeness references, with facial structure preserved ahead of all color treatment and mood styling.",
+          "facial_feature_preservation": [
+            "preserve the exact face architecture, jaw taper, straight refined nose, and natural lips",
+            "keep athletic elegance and believable asymmetry intact"
+          ],
+          "anti_drift": [
+            "selective color is secondary to likeness",
+            "do not drift into synthetic campaign-face perfection or cyberpunk stylization"
+          ]
+        },
+        "camera_language": {
+          "capture_feel": "campaign-ready still frame with graphic discipline",
+          "lens_behavior": "70mm to 90mm portrait perspective with elegant compression and clean edge separation",
+          "focus_strategy": "face remains crisp, accent-color cue remains controlled and readable"
+        },
+        "lighting_language": {
+          "key_light_character": "sculpted directional light with polished highlight control",
+          "shadow_behavior": "deep but readable shadow architecture",
+          "skin_treatment": "real skin detail preserved through monochrome grading"
+        },
+        "styling_language": {
+          "wardrobe": "sleek monochrome styling with one restrained accent-color detail only if elegant",
+          "grooming": "clean editorial hair and refined grooming",
+          "makeup": "minimal but structured premium finish"
+        },
+        "environment_language": {
+          "spatial_mood": "quiet luxury with graphic clarity",
+          "background_strategy": "simplified monochrome environment with no clutter and no gimmick props"
+        },
+        "cinematic_language": {
+          "visual_arc": "heroic stillness anchored by a single visual hook",
+          "editorial_energy": "high-fashion campaign restraint with athletic edge"
+        },
+        "composition_language": {
+          "text_safe_guidance": "Reserve one broad calm field for headline copy so the accent color never competes with typography.",
+          "mobile_crop_safety_guidance": "Keep face, upper torso, and accent-color cue inside the central vertical corridor for tight mobile hero crops.",
+          "subject_placement": "offset composition with deliberate luxury negative space"
+        },
+        "realism_guards": {
+          "skin_texture_rules": [
+            "maintain natural pores and tonal transitions even under monochrome treatment",
+            "do not posterize or over-smooth the skin"
+          ],
+          "anti_generic_ai_face_negatives": [
+            "no generic AI blonde",
+            "no enlarged eyes",
+            "no tiny nose drift",
+            "no beauty-filter perfection"
+          ]
+        }
+      },
+      "google_ai_studio_attachments": {
+        "likeness": [
+          "summer_final_likeness/black_closeup.png",
+          "summer_final_likeness/black_top_midshot.png",
+          "summer_final_likeness/purple_closeup_4.png"
+        ],
+        "body": [
+          "summer_final_body/rooftop_side_peach.png"
+        ],
+        "style": [
+          "summer_final_style/black_and_white_pose.png",
+          "summer_final_style/black_cutout_top.png"
+        ],
+        "attachment_notes": "Attach the monochrome style references last. If using an accent color, keep it singular, restrained, and subordinate to likeness."
+      }
+    }
+  ]
+}
