@@ -53,7 +53,6 @@ export async function getPromptReferenceManifest(promptId: string) {
         return {
           role,
           relativePath,
-          absolutePath,
           exists: await fileExists(absolutePath),
         };
       }),
@@ -61,7 +60,7 @@ export async function getPromptReferenceManifest(promptId: string) {
   );
 
   return {
-    referenceRoot: DEFAULT_REFERENCE_ROOT,
+    referenceRootLabel: "local references provider",
     attachments: manifest,
   };
 }

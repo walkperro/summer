@@ -99,3 +99,73 @@ Default anchor trio for the first round:
 - `summer_final_likeness/purple_closeup_4.png`
 
 Swap in `summer_final_likeness/peach_closeup_mid_shot.png` when you want warmer editorial softness, and `summer_final_likeness/purple_closeup_1.png` when you want athletic ponytail energy.
+
+## Train With Me Section
+
+Creative direction for the new fitness-reference system:
+
+- modeling + fitness crossover
+- premium editorial sports campaign energy
+- realistic skin texture with visible pores
+- believable sweat sheen rather than glossy beauty shine
+- no fake brand logos
+- no fake background text
+- no awkward static poses unless explicitly requested
+- clean activewear styling
+- same exact woman across every output in the set
+
+Imported `summer_fit` references now in the project:
+
+- `summer_fit/fit_pushup_intensity_close.jpg`
+- `summer_fit/fit_pushup_intensity_profile.jpg`
+- `summer_fit/fit_band_squat_profile.jpg`
+- `summer_fit/fit_concrete_seated_editorial.jpg`
+- `summer_fit/fit_side_profile_architectural.jpg`
+- `summer_fit/fit_stretch_recovery_standing.jpg`
+
+### Prompt Mapping
+
+- `train_with_me_pushup_intensity`
+  - primary refs: `summer_fit/fit_pushup_intensity_close.jpg`, `summer_fit/fit_pushup_intensity_profile.jpg`
+  - likeness support: `summer_fit/fit_concrete_seated_editorial.jpg`
+  - optional fourth ref: `summer_fit/fit_side_profile_architectural.jpg`
+
+- `train_with_me_concrete_seated`
+  - primary ref: `summer_fit/fit_concrete_seated_editorial.jpg`
+  - likeness support: `summer_fit/fit_pushup_intensity_close.jpg`
+  - optional third ref: `summer_fit/fit_side_profile_architectural.jpg`
+
+- `train_with_me_band_squat`
+  - primary ref: `summer_fit/fit_band_squat_profile.jpg`
+  - likeness support: `summer_fit/fit_concrete_seated_editorial.jpg`
+  - optional third ref: `summer_fit/fit_pushup_intensity_close.jpg`
+
+- `train_with_me_side_profile_architectural`
+  - primary ref: `summer_fit/fit_side_profile_architectural.jpg`
+  - likeness support: `summer_fit/fit_concrete_seated_editorial.jpg`
+  - optional third ref: `summer_fit/fit_pushup_intensity_profile.jpg`
+
+- `train_with_me_stretch_recovery`
+  - primary ref: `summer_fit/fit_stretch_recovery_standing.jpg`
+  - likeness support: `summer_fit/fit_concrete_seated_editorial.jpg`
+  - optional third ref: `summer_fit/fit_pushup_intensity_profile.jpg`
+
+- `fit_ref_enhance_editorial`
+  - single source ref: whichever original `summer_fit` image needs cleanup
+  - do not add extra source images during enhancement mode unless likeness drift becomes an issue in a later tool revision
+
+### Recommended Section Order
+
+1. `train_with_me_pushup_intensity`
+2. `train_with_me_band_squat`
+3. `train_with_me_side_profile_architectural`
+4. `train_with_me_concrete_seated`
+5. `train_with_me_stretch_recovery`
+
+Why this order works:
+
+- Open with the highest-intensity action frame to establish athletic credibility immediately.
+- Follow with the squat frame while the campaign still feels performance-led.
+- Use the side-profile architectural frame as the premium visual reset.
+- Move into the concrete seated frame once the same-woman likeness is already locked across action images.
+- Close with stretch recovery so the section resolves with polish, breath, and editorial calm.

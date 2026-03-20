@@ -7,7 +7,9 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const prompts = await Promise.all(
-    getPromptEntries().map(async (prompt) => {
+    getPromptEntries()
+      .filter((prompt) => prompt.workflow === "generate_with_references")
+      .map(async (prompt) => {
       const manifest = await getPromptReferenceManifest(prompt.id);
 
       return {
@@ -22,10 +24,10 @@ export async function GET() {
         recommended_framing: prompt.recommended_framing,
         export_goal: prompt.export_goal,
         creative_direction: prompt.creative_direction,
-        reference_root: manifest.referenceRoot,
+        reference_root: manifest.referenceRootLabel,
         attachments: manifest.attachments,
       };
-    }),
+      }),
   );
 
   return NextResponse.json({ prompts });

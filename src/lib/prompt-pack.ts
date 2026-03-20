@@ -1,5 +1,7 @@
 import promptPack from "../../prompt_pack_v1.json";
 
+import { fitPromptEntries } from "@/lib/prompt-pack-fit";
+
 export type PromptAttachmentSet = {
   likeness: string[];
   body: string[];
@@ -80,7 +82,12 @@ export type PromptPack = {
   prompts: PromptPackEntry[];
 };
 
-export const imagePromptPack = promptPack as PromptPack;
+const basePromptPack = promptPack as PromptPack;
+
+export const imagePromptPack: PromptPack = {
+  ...basePromptPack,
+  prompts: [...basePromptPack.prompts, ...fitPromptEntries],
+};
 
 export function getPromptEntries() {
   return imagePromptPack.prompts;
