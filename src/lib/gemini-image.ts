@@ -2,7 +2,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = (
   process.env.NANO_BANANA_MODEL ||
   process.env.GEMINI_IMAGE_MODEL ||
-  "gemini-2.5-flash-image-preview"
+  "gemini-3.1-flash-image-preview"
 )
   .trim()
   .replace(/^models\//, "");
