@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 type DecisionPayload = {
   decision?: "approve" | "reject";
-  workflow?: "fit_generate_campaign" | "fit_enhance_reference";
+  workflow?: "fit_generate_campaign" | "fit_enhance_reference" | "fit_refine_final";
   assetPathname?: string;
   assetUrl?: string;
   context?: Record<string, unknown>;

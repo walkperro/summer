@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type PromptManifest = {
@@ -54,6 +55,23 @@ type FitAsset = {
   pathname: string;
 };
 
+type PreserveFlags = {
+  preserve_face: boolean;
+  preserve_composition: boolean;
+  preserve_background: boolean;
+  preserve_outfit: boolean;
+  preserve_body_shape: boolean;
+  preserve_pose: boolean;
+};
+
+type RefinementPreset = {
+  id: string;
+  title: string;
+  summary: string;
+  recommendedUse: string;
+  instructions: string[];
+};
+
 type FitPrompt = {
   id: string;
   title: string;
@@ -80,6 +98,9 @@ type FitManifest = {
   fitReferenceSource: string;
   likenessReferences: FitReference[];
   likenessReferenceSource: string;
+  refinementPresets: RefinementPreset[];
+  defaultPreserveFlags: PreserveFlags;
+  refinementHelp: string[];
   storageConfigured: boolean;
 };
 
@@ -104,17 +125,51 @@ type FitEnhancementResult = {
   decision?: "approve" | "reject";
 };
 
+type RefineSource = {
+  id: string;
+  title: string;
+  sourceType: "generated" | "enhanced" | "uploaded";
+  previewUrl: string;
+  imageUrl?: string;
+  imageDataUrl?: string;
+  assetPathname?: string;
+  subtitle: string;
+};
+
+type RefineResult = {
+  savedToBlob: boolean;
+  temporary?: boolean;
+  asset?: FitAsset;
+  imageDataUrl?: string;
+  metadata: {
+    source_image_id: string;
+    source_type: "generated" | "enhanced" | "uploaded";
+    refinement_preset: string;
+    custom_instruction: string;
+    preserve_flags: PreserveFlags;
+    output_size: string;
+    created_at: string;
+    source_title: string;
+    keep_original_aspect_ratio: boolean;
+    model: string;
+  };
+  responseText?: string;
+  warning?: string;
+  decision?: "approve" | "reject";
+};
+
 type AsyncState = {
   loading: boolean;
   error: string | null;
 };
 
-type TabId = "prompt-review" | "fit-generate" | "fit-enhance";
+type TabId = "prompt-review" | "fit-generate" | "fit-enhance" | "fit-refine";
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: "prompt-review", label: "Prompt Review Wall" },
   { id: "fit-generate", label: "Generate Fit Campaign" },
   { id: "fit-enhance", label: "Enhance Original Fit Ref" },
+  { id: "fit-refine", label: "Refine Final Images" },
 ];
 
 function buttonClass(isActive: boolean) {
@@ -143,6 +198,23 @@ export default function ReviewPage() {
   const [selectedEnhancementMode, setSelectedEnhancementMode] = useState("natural_cleanup");
   const [fitEnhanceState, setFitEnhanceState] = useState<AsyncState>({ loading: false, error: null });
   const [fitEnhancementResults, setFitEnhancementResults] = useState<FitEnhancementResult[]>([]);
+
+  const [selectedRefineSourceId, setSelectedRefineSourceId] = useState("");
+  const [uploadedRefineSource, setUploadedRefineSource] = useState<RefineSource | null>(null);
+  const [selectedRefinementPreset, setSelectedRefinementPreset] = useState("final_luxury_finish");
+  const [refinementCustomInstruction, setRefinementCustomInstruction] = useState("");
+  const [refinementPreserveFlags, setRefinementPreserveFlags] = useState<PreserveFlags>({
+    preserve_face: true,
+    preserve_composition: true,
+    preserve_background: true,
+    preserve_outfit: true,
+    preserve_body_shape: true,
+    preserve_pose: true,
+  });
+  const [refineExport4k, setRefineExport4k] = useState(false);
+  const [refineKeepOriginalAspectRatio, setRefineKeepOriginalAspectRatio] = useState(true);
+  const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
+  const [fitRefineResults, setFitRefineResults] = useState<RefineResult[]>([]);
 
   useEffect(() => {
     async function loadImageLab() {
@@ -182,6 +254,7 @@ export default function ReviewPage() {
             availableLikenessReferences.slice(0, Math.min(2, availableLikenessReferences.length)).map((reference) => reference.id),
           );
         }
+        setRefinementPreserveFlags(fitData.defaultPreserveFlags);
       } catch (error) {
         setLoadError(error instanceof Error ? error.message : "Unknown loading error.");
       } finally {
@@ -204,6 +277,37 @@ export default function ReviewPage() {
   const selectedFitReferenceCount = selectedFitReferenceIds.length;
   const selectedLikenessReferenceCount = selectedLikenessReferenceIds.length;
   const fitWorkflowUnavailable = !fitManifest?.storageConfigured || fitReferences.length === 0;
+  const refineSourceOptions = useMemo(() => {
+    const generatedSources: RefineSource[] = fitCampaignResults.map((result) => ({
+      id: `generated-${result.asset.pathname}`,
+      title: fitManifest?.fitCampaignPrompts.find((prompt) => prompt.id === result.promptId)?.title ?? result.promptId,
+      sourceType: "generated",
+      previewUrl: result.asset.url,
+      imageUrl: result.asset.url,
+      assetPathname: result.asset.pathname,
+      subtitle: `Generated • ${result.fit_refs_used.length} fit refs • ${result.likeness_refs_used.length} likeness refs`,
+    }));
+    const enhancedSources: RefineSource[] = fitEnhancementResults.map((result) => ({
+      id: `enhanced-${result.asset.pathname}`,
+      title: result.source?.title || result.sourceId,
+      sourceType: "enhanced",
+      previewUrl: result.asset.url,
+      imageUrl: result.asset.url,
+      assetPathname: result.asset.pathname,
+      subtitle: `Enhanced original • ${result.enhancementMode}`,
+    }));
+
+    return [...generatedSources, ...enhancedSources, ...(uploadedRefineSource ? [uploadedRefineSource] : [])];
+  }, [fitCampaignResults, fitEnhancementResults, fitManifest, uploadedRefineSource]);
+  const selectedRefineSource = refineSourceOptions.find((source) => source.id === selectedRefineSourceId) ?? null;
+  const selectedRefinementPresetDefinition =
+    fitManifest?.refinementPresets.find((preset) => preset.id === selectedRefinementPreset) ?? null;
+
+  useEffect(() => {
+    if (!selectedRefineSourceId && refineSourceOptions[0]) {
+      setSelectedRefineSourceId(refineSourceOptions[0].id);
+    }
+  }, [selectedRefineSourceId, refineSourceOptions]);
 
   useEffect(() => {
     if (!selectedFitPrompt || fitReferences.length === 0) {
@@ -376,7 +480,7 @@ export default function ReviewPage() {
   }
 
   async function recordDecision(
-    workflow: "fit_generate_campaign" | "fit_enhance_reference",
+    workflow: "fit_generate_campaign" | "fit_enhance_reference" | "fit_refine_final",
     assetPathname: string,
     decision: "approve" | "reject",
     context: Record<string, unknown>,
@@ -435,6 +539,165 @@ export default function ReviewPage() {
       setFitEnhanceState({
         loading: false,
         error: error instanceof Error ? error.message : "Failed to save enhancement decision.",
+      });
+    }
+  }
+
+  function togglePreserveFlag(flag: keyof PreserveFlags) {
+    setRefinementPreserveFlags((current) => ({
+      ...current,
+      [flag]: !current[flag],
+    }));
+  }
+
+  function readFileAsDataUrl(file: File) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result !== "string") {
+          reject(new Error("Failed to read file as data URL."));
+          return;
+        }
+
+        resolve(reader.result);
+      };
+
+      reader.onerror = () => reject(new Error("Failed to read uploaded file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleRefineUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      const source: RefineSource = {
+        id: `uploaded-${Date.now()}`,
+        title: file.name.replace(/\.[^.]+$/, ""),
+        sourceType: "uploaded",
+        previewUrl: imageDataUrl,
+        imageDataUrl,
+        subtitle: "Uploaded local image",
+      };
+
+      setUploadedRefineSource(source);
+      setSelectedRefineSourceId(source.id);
+    } catch (error) {
+      setFitRefineState({
+        loading: false,
+        error: error instanceof Error ? error.message : "Failed to prepare uploaded refine source.",
+      });
+    }
+  }
+
+  async function fetchImageUrlAsDataUrl(imageUrl: string) {
+    const response = await fetch(imageUrl);
+
+    if (!response.ok) {
+      throw new Error("Failed to load source image for refinement.");
+    }
+
+    const blob = await response.blob();
+
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result !== "string") {
+          reject(new Error("Failed to convert source image to data URL."));
+          return;
+        }
+
+        resolve(reader.result);
+      };
+
+      reader.onerror = () => reject(new Error("Failed to convert source image to data URL."));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function resolveRefineSourceDataUrl(source: RefineSource) {
+    if (source.imageDataUrl) {
+      return source.imageDataUrl;
+    }
+
+    if (source.imageUrl) {
+      return fetchImageUrlAsDataUrl(source.imageUrl);
+    }
+
+    throw new Error("Selected refine source has no available image data.");
+  }
+
+  async function runFinalRefinement() {
+    if (!selectedRefineSource) {
+      setFitRefineState({ loading: false, error: "Select a source image to refine." });
+      return;
+    }
+
+    setFitRefineState({ loading: true, error: null });
+
+    try {
+      const sourceImageDataUrl = await resolveRefineSourceDataUrl(selectedRefineSource);
+      const response = await fetch("/api/review/fit/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sourceImageId: selectedRefineSource.assetPathname || selectedRefineSource.id,
+          sourceType: selectedRefineSource.sourceType,
+          sourceTitle: selectedRefineSource.title,
+          sourceImageDataUrl,
+          refinementPreset: selectedRefinementPreset,
+          customInstruction: refinementCustomInstruction,
+          preserveFlags: refinementPreserveFlags,
+          export4k: refineExport4k || selectedRefinementPreset === "final_4k_upscale",
+          keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
+        }),
+      });
+
+      const data = (await response.json()) as RefineResult & { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Final refinement failed.");
+      }
+
+      setFitRefineResults((current) => [data, ...current]);
+      setFitRefineState({ loading: false, error: null });
+    } catch (error) {
+      setFitRefineState({
+        loading: false,
+        error: error instanceof Error ? error.message : "Unknown final refinement error.",
+      });
+    }
+  }
+
+  async function handleRefineDecision(result: RefineResult, decision: "approve" | "reject") {
+    if (!result.asset?.pathname) {
+      return;
+    }
+
+    try {
+      await recordDecision("fit_refine_final", result.asset.pathname, decision, {
+        source_image_id: result.metadata.source_image_id,
+        source_type: result.metadata.source_type,
+        refinement_preset: result.metadata.refinement_preset,
+        output_size: result.metadata.output_size,
+      });
+
+      setFitRefineResults((current) =>
+        current.map((entry) =>
+          entry.asset?.pathname === result.asset?.pathname ? { ...entry, decision } : entry,
+        ),
+      );
+    } catch (error) {
+      setFitRefineState({
+        loading: false,
+        error: error instanceof Error ? error.message : "Failed to save final refine decision.",
       });
     }
   }
@@ -1063,6 +1326,248 @@ export default function ReviewPage() {
                     {result.responseText ? (
                       <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">{result.responseText}</div>
                     ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "fit-refine" ? (
+          <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="flex flex-col gap-6 rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-black/45">Final Stage</p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight">Refine Final Images</h2>
+                <p className="mt-3 text-sm leading-7 text-black/65">
+                  Use this finishing bay to polish an existing generated image, enhanced reference output, or uploaded source into a final website-ready asset without inventing a new composition.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-black/10 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Source image</p>
+                    <p className="mt-2 text-sm leading-6 text-black/60">
+                      Choose a generated campaign image, an enhanced original output, or upload a local image for controlled final refinement.
+                    </p>
+                  </div>
+                  <label className="rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/75 transition hover:border-black/25 hover:text-black">
+                    Upload local image
+                    <input type="file" accept="image/*" className="hidden" onChange={handleRefineUpload} />
+                  </label>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {refineSourceOptions.map((source) => {
+                    const selected = selectedRefineSourceId === source.id;
+
+                    return (
+                      <button
+                        key={source.id}
+                        type="button"
+                        onClick={() => setSelectedRefineSourceId(source.id)}
+                        className={`overflow-hidden rounded-[1.5rem] border text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"} hover:border-black/25`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={source.previewUrl} alt={source.title} className="h-44 w-full object-cover" />
+                        <div className="space-y-2 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold">{source.title}</p>
+                            <span className="rounded-full border border-current/15 px-2 py-1 text-[10px] uppercase tracking-[0.18em]">
+                              {selected ? "Selected" : source.sourceType}
+                            </span>
+                          </div>
+                          <p className={`text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{source.subtitle}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {refineSourceOptions.length === 0 ? (
+                  <p className="mt-4 text-sm leading-6 text-black/50">
+                    No generated or enhanced sources are loaded yet. Generate, enhance, or upload an image to begin final refinement.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="rounded-3xl border border-black/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement preset</p>
+                  <select
+                    value={selectedRefinementPreset}
+                    onChange={(event) => setSelectedRefinementPreset(event.target.value)}
+                    className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
+                  >
+                    {fitManifest?.refinementPresets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="rounded-3xl border border-black/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Output controls</p>
+                  <div className="mt-3 space-y-3 text-sm text-black/70">
+                    <label className="flex items-center gap-3">
+                      <input type="checkbox" checked={refineKeepOriginalAspectRatio} onChange={() => setRefineKeepOriginalAspectRatio((current) => !current)} />
+                      Keep original aspect ratio
+                    </label>
+                    <label className="flex items-center gap-3">
+                      <input type="checkbox" checked={refineExport4k || selectedRefinementPreset === "final_4k_upscale"} onChange={() => setRefineExport4k((current) => !current)} />
+                      Export 4K if selected
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {selectedRefinementPresetDefinition ? (
+                <div className="rounded-3xl bg-[#f7f4ef] p-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Preset summary</p>
+                  <h3 className="mt-2 text-xl font-semibold">{selectedRefinementPresetDefinition.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-black/75">{selectedRefinementPresetDefinition.summary}</p>
+                  <p className="mt-3 text-sm leading-6 text-black/65">Recommended use: {selectedRefinementPresetDefinition.recommendedUse}</p>
+                </div>
+              ) : null}
+
+              <div className="rounded-3xl border border-black/10 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-black/45">Preserve Rules</p>
+                <p className="mt-2 text-sm leading-6 text-black/60">
+                  These stay on by default so the refinement behaves like controlled finishing rather than a new generation pass.
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {(Object.keys(refinementPreserveFlags) as Array<keyof PreserveFlags>).map((flag) => (
+                    <label key={flag} className="flex items-center justify-between rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black/70">
+                      <span>{flag.replace(/_/g, " ")}</span>
+                      <input type="checkbox" checked={refinementPreserveFlags[flag]} onChange={() => togglePreserveFlag(flag)} />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label className="rounded-3xl border border-black/10 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-black/45">Custom instruction</p>
+                <textarea
+                  value={refinementCustomInstruction}
+                  onChange={(event) => setRefinementCustomInstruction(event.target.value)}
+                  placeholder="remove tattoos; make her smile slightly; convert to refined black and white; increase pores and sweat detail subtly; remove brand logos from outfit; clean flyaway hairs; keep the same exact face and composition"
+                  className="mt-3 min-h-32 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm leading-6 text-black outline-none"
+                />
+              </label>
+
+              <div className="rounded-3xl border border-black/10 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-black/45">Recommended Uses</p>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-black/65">
+                  {fitManifest?.refinementHelp.map((item) => (
+                    <li key={item}>- {item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {!fitManifest?.storageConfigured ? (
+                <div className="rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                  Blob is not configured, but refinement still works. The refined result will preview in-session as a temporary image and will not be permanently saved yet.
+                </div>
+              ) : null}
+
+              {fitRefineState.error ? (
+                <div className="rounded-3xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-800">
+                  {fitRefineState.error}
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={runFinalRefinement}
+                disabled={!selectedRefineSource || fitRefineState.loading}
+                className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
+              >
+                {fitRefineState.loading ? "Refining final image…" : "Run final refinement"}
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {fitRefineResults.length === 0 ? (
+                <div className="flex min-h-[32rem] items-center justify-center rounded-[2rem] border border-black/10 bg-white p-10 text-center text-sm leading-7 text-black/45 shadow-sm">
+                  Choose a source image and run a refinement preset to preview a before/after final polish pass here.
+                </div>
+              ) : null}
+
+              {fitRefineResults.map((result) => {
+                const afterUrl = result.asset?.url || result.imageDataUrl || "";
+                const source = refineSourceOptions.find((item) => (item.assetPathname || item.id) === result.metadata.source_image_id) || selectedRefineSource;
+                const presetTitle = fitManifest?.refinementPresets.find((preset) => preset.id === result.metadata.refinement_preset)?.title || result.metadata.refinement_preset;
+
+                return (
+                  <article key={`${result.metadata.created_at}-${result.metadata.source_image_id}`} className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">Before / after</p>
+                        <h3 className="mt-2 text-2xl font-semibold tracking-tight">{result.metadata.source_title}</h3>
+                        <p className="mt-2 text-sm text-black/60">{presetTitle} • {result.metadata.output_size}</p>
+                      </div>
+                      {result.decision ? (
+                        <span className="rounded-full bg-[#f7f4ef] px-3 py-2 text-xs uppercase tracking-[0.2em] text-black/65">{result.decision}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <div className="overflow-hidden rounded-[1.5rem] border border-black/10 bg-[#ebe5dc]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={source?.previewUrl || ""} alt={`${result.metadata.source_title} before`} className="h-full w-full object-cover" />
+                        <div className="border-t border-black/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-black/45">Before</div>
+                      </div>
+                      <div className="overflow-hidden rounded-[1.5rem] border border-black/10 bg-[#ebe5dc]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={afterUrl} alt={`${result.metadata.source_title} after`} className="h-full w-full object-cover" />
+                        <div className="border-t border-black/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-black/45">After</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {afterUrl ? (
+                        <a
+                          href={result.asset?.downloadUrl || result.asset?.url || afterUrl}
+                          download
+                          target={result.asset ? "_blank" : undefined}
+                          rel={result.asset ? "noreferrer" : undefined}
+                          className="rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/75 transition hover:border-black/25 hover:text-black"
+                        >
+                          Download
+                        </a>
+                      ) : null}
+                      {result.asset?.pathname ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleRefineDecision(result, "approve")}
+                            className="rounded-full bg-black px-4 py-3 text-sm font-medium text-white transition hover:bg-black/85"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRefineDecision(result, "reject")}
+                            className="rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-medium text-black/70 transition hover:border-black/25 hover:text-black"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
+                      <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement metadata</p>
+                      <p className="mt-2"><span className="font-semibold">Source:</span> {result.metadata.source_type}</p>
+                      <p className="mt-2"><span className="font-semibold">Preset:</span> {presetTitle}</p>
+                      <p className="mt-2"><span className="font-semibold">Custom instruction:</span> {result.metadata.custom_instruction || "None"}</p>
+                      <p className="mt-2"><span className="font-semibold">Output size:</span> {result.metadata.output_size}</p>
+                      <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
+                      {result.warning ? <p className="mt-3 text-amber-900">{result.warning}</p> : null}
+                      {result.responseText ? <p className="mt-3">{result.responseText}</p> : null}
+                    </div>
                   </article>
                 );
               })}

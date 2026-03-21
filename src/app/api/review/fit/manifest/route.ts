@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isBlobStorageConfigured } from "@/lib/blob-storage";
+import { DEFAULT_PRESERVE_FLAGS, FINAL_REFINEMENT_HELP, FINAL_REFINEMENT_PRESETS } from "@/lib/final-refinement";
 import { listLikenessReferences } from "@/lib/likeness-references";
 import {
   FIT_ASPECT_RATIOS,
@@ -43,6 +44,9 @@ export async function GET() {
     fitReferenceSource: fitReferenceManifest.source,
     likenessReferences: likenessReferenceManifest.references,
     likenessReferenceSource: likenessReferenceManifest.source,
+    refinementPresets: FINAL_REFINEMENT_PRESETS,
+    defaultPreserveFlags: DEFAULT_PRESERVE_FLAGS,
+    refinementHelp: FINAL_REFINEMENT_HELP,
     storageConfigured: isBlobStorageConfigured(),
   });
 }
