@@ -4,9 +4,10 @@ import { isBlobStorageConfigured, uploadBinaryAsset, uploadJsonAsset } from "@/l
 import {
   buildFinalRefinementPrompt,
   getCameraDirectionWarnings,
+  getCameraSelectionSummary,
   getFinalRefinementStackWarnings,
-  type CameraAngleId,
-  type LensLookId,
+  normalizeCameraPresetIds,
+  type CameraDirectionPresetId,
   type PreserveFlags,
   type RefinementPresetId,
   type ReframeIntensity,
@@ -25,8 +26,7 @@ type RefineRequest = {
   preserveFlags?: PreserveFlags;
   export4k?: boolean;
   keepOriginalAspectRatio?: boolean;
-  cameraAngle?: CameraAngleId;
-  lensLook?: LensLookId;
+  cameraPresetIds?: CameraDirectionPresetId[];
   reframeIntensity?: ReframeIntensity;
 };
 
@@ -58,8 +58,7 @@ export async function POST(request: NextRequest) {
     preserveFlags,
     export4k,
     keepOriginalAspectRatio,
-    cameraAngle,
-    lensLook,
+    cameraPresetIds,
     reframeIntensity,
   } = (await request.json()) as RefineRequest;
 
@@ -71,8 +70,8 @@ export async function POST(request: NextRequest) {
     !refinementStack ||
     refinementStack.length === 0 ||
     !preserveFlags ||
-    !cameraAngle ||
-    !lensLook ||
+    !cameraPresetIds ||
+    cameraPresetIds.length === 0 ||
     !reframeIntensity
   ) {
     return NextResponse.json({ error: "Missing required refinement payload fields." }, { status: 400 });
@@ -80,6 +79,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const sourceImage = parseDataUrl(sourceImageDataUrl);
+    const normalizedCameraPresetIds = normalizeCameraPresetIds(cameraPresetIds);
+    const cameraSummary = getCameraSelectionSummary(normalizedCameraPresetIds);
     const promptText = buildFinalRefinementPrompt({
       stack: refinementStack,
       customInstruction,
@@ -88,8 +89,7 @@ export async function POST(request: NextRequest) {
       sourceType,
       export4k: Boolean(export4k),
       keepOriginalAspectRatio: keepOriginalAspectRatio !== false,
-      cameraAngle,
-      lensLook,
+      cameraPresetIds: normalizedCameraPresetIds,
       reframeIntensity,
     });
 
@@ -106,8 +106,7 @@ export async function POST(request: NextRequest) {
     const outputSize = export4k || refinementStack.includes("final_4k_upscale") ? "4k" : "source_preserved";
     const stackWarnings = getFinalRefinementStackWarnings(refinementStack, customInstruction);
     const cameraWarnings = getCameraDirectionWarnings({
-      cameraAngle,
-      lensLook,
+      presetIds: normalizedCameraPresetIds,
       reframeIntensity,
       preserveFlags,
     });
@@ -121,8 +120,11 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
       source_title: sourceTitle,
       keep_original_aspect_ratio: keepOriginalAspectRatio !== false,
-      camera_angle: cameraAngle,
-      lens_look: lensLook,
+      camera_preset_ids: normalizedCameraPresetIds,
+      camera_angle: cameraSummary.primaryAngle.id,
+      lens_look: cameraSummary.primaryLens.id,
+      camera_modifiers: cameraSummary.modifiers.map((modifier) => modifier.id),
+      camera_direction_narrative: cameraSummary.narrative,
       reframe_intensity: reframeIntensity,
       allow_reframing: preserveFlags.allow_reframing,
       allow_perspective_shift: preserveFlags.allow_perspective_shift,

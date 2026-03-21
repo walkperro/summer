@@ -1,54 +1,26 @@
-type PreserveFlags = {
-  preserve_face: boolean;
-  preserve_composition: boolean;
-  preserve_background: boolean;
-  preserve_outfit: boolean;
-  preserve_body_shape: boolean;
-  preserve_pose: boolean;
-  allow_reframing: boolean;
-  allow_perspective_shift: boolean;
-};
-
-type CameraAngleId =
-  | "keep_original_angle"
-  | "eye_level"
-  | "low_angle_heroic"
-  | "high_angle"
-  | "three_quarter_portrait"
-  | "side_profile"
-  | "floor_level"
-  | "overhead"
-  | "dutch_tilt"
-  | "close_crop_beauty"
-  | "wide_environmental";
-
-type LensLookId =
-  | "keep_original_lens_feel"
-  | "24mm_wide_editorial"
-  | "35mm_cinematic"
-  | "50mm_natural"
-  | "85mm_portrait"
-  | "135mm_compressed_portrait"
-  | "macro_close_detail"
-  | "fisheye";
-
-type ReframeIntensity = "subtle" | "moderate" | "strong";
-
-type CameraOption = {
-  id: string;
-  title: string;
-  description: string;
-  previewLabel: string;
-  previewAccent: string;
-};
-
-type CameraRecipe = {
-  id: "premium_portrait" | "cinematic_fitness" | "editorial_environmental" | "experimental_fisheye";
-  title: string;
-  camera_angle: CameraAngleId;
-  lens_look: LensLookId;
-  reframe_intensity: ReframeIntensity;
-};
+import {
+  buildCameraDirectionPromptLines,
+  CAMERA_ANGLE_OPTIONS,
+  CAMERA_RECIPES,
+  DEFAULT_PRESERVE_FLAGS,
+  getCameraAngleOption,
+  getCameraDirectionWarnings,
+  getCameraPreviewGenerationPlan,
+  getCameraPreviewGenerationPlans,
+  getCameraRecipe,
+  getCameraSelectionSummary,
+  getLensLookOption,
+  LENS_LOOK_OPTIONS,
+  normalizeCameraPresetIds,
+  type CameraAngleId,
+  type CameraDirectionPresetId,
+  type CameraOption,
+  type CameraPreviewGenerationPlan,
+  type CameraRecipe,
+  type LensLookId,
+  type PreserveFlags,
+  type ReframeIntensity,
+} from "@/lib/camera-direction";
 
 type RefinementPresetId =
   | "final_bw_editorial"
@@ -85,48 +57,20 @@ type StackWarning = {
   message: string;
 };
 
-export const DEFAULT_PRESERVE_FLAGS: PreserveFlags = {
-  preserve_face: true,
-  preserve_composition: true,
-  preserve_background: true,
-  preserve_outfit: true,
-  preserve_body_shape: true,
-  preserve_pose: true,
-  allow_reframing: false,
-  allow_perspective_shift: false,
+export {
+  CAMERA_ANGLE_OPTIONS,
+  CAMERA_RECIPES,
+  DEFAULT_PRESERVE_FLAGS,
+  LENS_LOOK_OPTIONS,
+  getCameraAngleOption,
+  getCameraDirectionWarnings,
+  getCameraPreviewGenerationPlan,
+  getCameraPreviewGenerationPlans,
+  getCameraRecipe,
+  getCameraSelectionSummary,
+  getLensLookOption,
+  normalizeCameraPresetIds,
 };
-
-export const CAMERA_ANGLE_OPTIONS: CameraOption[] = [
-  { id: "keep_original_angle", title: "Keep Original Angle", description: "Preserve the current camera angle and framing logic.", previewLabel: "Original", previewAccent: "#c9b18a" },
-  { id: "eye_level", title: "Eye Level", description: "Balanced, natural perspective with straightforward editorial clarity.", previewLabel: "Eye Level", previewAccent: "#b7c4d6" },
-  { id: "low_angle_heroic", title: "Low Angle Heroic", description: "Adds premium power and a subtle heroic campaign feel.", previewLabel: "Low Hero", previewAccent: "#9aa7c9" },
-  { id: "high_angle", title: "High Angle", description: "Looks slightly down at the subject for softer spatial hierarchy.", previewLabel: "High Angle", previewAccent: "#c7c2de" },
-  { id: "three_quarter_portrait", title: "Three-Quarter Portrait", description: "Elegant portrait framing with premium shoulder and face geometry.", previewLabel: "3/4", previewAccent: "#d6b5b2" },
-  { id: "side_profile", title: "Side Profile", description: "Profile-led composition that emphasizes sculptural facial and body lines.", previewLabel: "Profile", previewAccent: "#cbb996" },
-  { id: "floor_level", title: "Floor Level", description: "Grounded sports-campaign angle with dramatic low perspective.", previewLabel: "Floor", previewAccent: "#9fb7aa" },
-  { id: "overhead", title: "Overhead", description: "Top-down editorial reframe for graphic composition and shape control.", previewLabel: "Overhead", previewAccent: "#aebfc9" },
-  { id: "dutch_tilt", title: "Dutch Tilt", description: "Intentional stylized tilt for kinetic editorial mood.", previewLabel: "Tilt", previewAccent: "#d8b48f" },
-  { id: "close_crop_beauty", title: "Close Crop Beauty", description: "Face-led close crop with beauty/editorial focus and premium intimacy.", previewLabel: "Close", previewAccent: "#d5a8a8" },
-  { id: "wide_environmental", title: "Wide Environmental", description: "Shows more environment and spatial drama around the subject.", previewLabel: "Wide", previewAccent: "#a6c6cf" },
-];
-
-export const LENS_LOOK_OPTIONS: CameraOption[] = [
-  { id: "keep_original_lens_feel", title: "Keep Original Lens Feel", description: "Preserve the current lens feel and perspective behavior.", previewLabel: "Original Lens", previewAccent: "#c9b18a" },
-  { id: "24mm_wide_editorial", title: "24mm Wide Editorial", description: "More environment, more spatial drama, broader editorial sweep.", previewLabel: "24mm", previewAccent: "#9ebfd2" },
-  { id: "35mm_cinematic", title: "35mm Cinematic", description: "Versatile cinematic storytelling look with premium movement feel.", previewLabel: "35mm", previewAccent: "#b5badc" },
-  { id: "50mm_natural", title: "50mm Natural", description: "Balanced natural perspective with restrained editorial polish.", previewLabel: "50mm", previewAccent: "#c1cfb4" },
-  { id: "85mm_portrait", title: "85mm Portrait", description: "Flattering portrait compression and premium face-led refinement.", previewLabel: "85mm", previewAccent: "#d7b4b4" },
-  { id: "135mm_compressed_portrait", title: "135mm Compressed Portrait", description: "Long-lens compression with elegant background flattening.", previewLabel: "135mm", previewAccent: "#cab2d8" },
-  { id: "macro_close_detail", title: "Macro Close Detail", description: "Close-detail interpretation for texture, skin, or material-led finals.", previewLabel: "Macro", previewAccent: "#d3c39f" },
-  { id: "fisheye", title: "Fisheye", description: "Extreme stylized distortion; use sparingly and only when clearly intentional.", previewLabel: "Fisheye", previewAccent: "#e2a57b" },
-];
-
-export const CAMERA_RECIPES: CameraRecipe[] = [
-  { id: "premium_portrait", title: "Premium Portrait", camera_angle: "eye_level", lens_look: "85mm_portrait", reframe_intensity: "subtle" },
-  { id: "cinematic_fitness", title: "Cinematic Fitness", camera_angle: "low_angle_heroic", lens_look: "35mm_cinematic", reframe_intensity: "moderate" },
-  { id: "editorial_environmental", title: "Editorial Environmental", camera_angle: "wide_environmental", lens_look: "24mm_wide_editorial", reframe_intensity: "moderate" },
-  { id: "experimental_fisheye", title: "Experimental Fisheye", camera_angle: "floor_level", lens_look: "fisheye", reframe_intensity: "strong" },
-];
 
 export const FINAL_REFINEMENT_PRESETS: RefinementPreset[] = [
   {
@@ -307,18 +251,6 @@ export const FINAL_REFINEMENT_HELP = [
   "keep push-up and Train With Me images serious and intense",
 ];
 
-export function getCameraAngleOption(cameraAngle: string) {
-  return CAMERA_ANGLE_OPTIONS.find((option) => option.id === cameraAngle);
-}
-
-export function getLensLookOption(lensLook: string) {
-  return LENS_LOOK_OPTIONS.find((option) => option.id === lensLook);
-}
-
-export function getCameraRecipe(recipeId: string) {
-  return CAMERA_RECIPES.find((recipe) => recipe.id === recipeId);
-}
-
 export function getFinalRefinementPreset(presetId: string) {
   return FINAL_REFINEMENT_PRESETS.find((preset) => preset.id === presetId);
 }
@@ -379,51 +311,6 @@ export function getFinalRefinementStackWarnings(stack: RefinementPresetId[], cus
   return warnings;
 }
 
-export function getCameraDirectionWarnings(options: {
-  cameraAngle: CameraAngleId;
-  lensLook: LensLookId;
-  reframeIntensity: ReframeIntensity;
-  preserveFlags: PreserveFlags;
-}) {
-  const warnings: StackWarning[] = [];
-  const nonOriginalCamera =
-    options.cameraAngle !== "keep_original_angle" || options.lensLook !== "keep_original_lens_feel";
-
-  if (nonOriginalCamera && options.preserveFlags.preserve_composition && options.reframeIntensity === "strong") {
-    warnings.push({
-      id: "composition-vs-strong-camera",
-      level: "warning",
-      message: "`preserve composition` is ON while a strong camera reinterpretation is selected. Results will likely stay subtle unless you allow reframing.",
-    });
-  }
-
-  if (nonOriginalCamera && !options.preserveFlags.allow_reframing) {
-    warnings.push({
-      id: "camera-without-reframing",
-      level: "warning",
-      message: "A new camera angle or lens is selected, but `allow reframing` is OFF. Camera direction will behave like mild lens/angle influence only.",
-    });
-  }
-
-  if (nonOriginalCamera && options.preserveFlags.allow_reframing) {
-    warnings.push({
-      id: "camera-reinterpretation-enabled",
-      level: "warning",
-      message: "`allow reframing` is ON, so the result may become a controlled reinterpretation rather than pure cleanup.",
-    });
-  }
-
-  if (options.lensLook === "fisheye") {
-    warnings.push({
-      id: "fisheye-warning",
-      level: "warning",
-      message: "Experimental effect — best for special editorial use, not standard portraits.",
-    });
-  }
-
-  return warnings;
-}
-
 export function buildFinalRefinementPrompt(options: {
   stack: RefinementPresetId[];
   customInstruction?: string;
@@ -432,8 +319,7 @@ export function buildFinalRefinementPrompt(options: {
   sourceType: "generated" | "enhanced" | "uploaded";
   export4k: boolean;
   keepOriginalAspectRatio: boolean;
-  cameraAngle: CameraAngleId;
-  lensLook: LensLookId;
+  cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
 }) {
   const presets = options.stack.map((presetId) => getFinalRefinementPreset(presetId)).filter(Boolean) as RefinementPreset[];
@@ -442,69 +328,52 @@ export function buildFinalRefinementPrompt(options: {
     throw new Error("Refinement stack cannot be empty.");
   }
 
+  const normalizedCameraPresetIds = normalizeCameraPresetIds(options.cameraPresetIds);
   const preserveInstructions = Object.entries(options.preserveFlags)
     .filter(([, enabled]) => enabled)
     .map(([key]) => key.replace(/_/g, " "));
   const stackWarnings = getFinalRefinementStackWarnings(options.stack, options.customInstruction);
   const cameraWarnings = getCameraDirectionWarnings({
-    cameraAngle: options.cameraAngle,
-    lensLook: options.lensLook,
+    presetIds: normalizedCameraPresetIds,
     reframeIntensity: options.reframeIntensity,
     preserveFlags: options.preserveFlags,
   });
-  const cameraAngle = getCameraAngleOption(options.cameraAngle);
-  const lensLook = getLensLookOption(options.lensLook);
-  const keepOriginalCamera = options.cameraAngle === "keep_original_angle" && options.lensLook === "keep_original_lens_feel";
+  const cameraSummary = getCameraSelectionSummary(normalizedCameraPresetIds);
+  const cameraAngle = getCameraAngleOption(cameraSummary.primaryAngle.id);
+  const lensLook = getLensLookOption(cameraSummary.primaryLens.id);
 
   return [
-    `Refine the attached image as a premium editorial finishing pass for a website-ready final asset.`,
-    `This is a stacked refinement workflow, not a request for a new composition. The selected source image is the primary source of truth.`,
+    "Refine the attached image as a premium editorial finishing pass for a website-ready final asset.",
+    "This is a stacked refinement workflow, not a request for a new composition. The selected source image is the primary source of truth.",
     `Source image title: ${options.sourceTitle}`,
     `Source type: ${options.sourceType}`,
     `Ordered refinement stack: ${presets.map((preset, index) => `${index + 1}. ${preset.title}`).join(" -> ")}`,
     `Keep original aspect ratio: ${options.keepOriginalAspectRatio ? "yes" : "no"}`,
     `Export 4K: ${options.export4k ? "yes" : "no"}`,
-    `Camera angle: ${cameraAngle?.title || options.cameraAngle}`,
-    `Lens look: ${lensLook?.title || options.lensLook}`,
+    `Primary camera angle: ${cameraAngle?.title || cameraSummary.primaryAngle.title}`,
+    `Primary lens look: ${lensLook?.title || cameraSummary.primaryLens.title}`,
+    `Camera modifiers: ${cameraSummary.modifiers.length > 0 ? cameraSummary.modifiers.map((modifier) => modifier.title).join(" • ") : "none"}`,
     `Reframe intensity: ${options.reframeIntensity}`,
     "",
     "Retouching language:",
     "- Use premium Nike-style editorial sports campaign or luxury portrait retouch language depending on the image.",
     "- Preserve the same exact woman.",
+    "- Preserve body proportions.",
     "- Do not age her up.",
     "- Do not overfill lips.",
     "- Do not change facial structure.",
     "- Do not make skin plastic.",
     "- Do not create a fake beauty-filter look.",
     "- Do not change the composition unless explicitly instructed.",
-    "- Do not introduce fake text or logos.",
+    "- Do not introduce fake text, logos, or graphics.",
     "- Do not overdo sweat or sharpening.",
     "- Do not distort anatomy badly.",
     "",
-    ...(keepOriginalCamera
-      ? [
-          "Camera direction:",
-          "- Keep the original angle and original lens feel.",
-          "- Do not introduce composition changes or camera reinterpretation.",
-          "",
-        ]
-      : [
-          "Camera direction:",
-          `- Apply a controlled camera reinterpretation toward ${cameraAngle?.title || options.cameraAngle}.`,
-          `- Shape the lens feel toward ${lensLook?.title || options.lensLook}.`,
-          `- Reframe intensity: ${options.reframeIntensity}.`,
-          options.preserveFlags.allow_reframing
-            ? "- Reframing is allowed, but identity, realism, and anatomy must stay controlled."
-            : "- Reframing is not allowed, so treat camera direction as subtle influence only.",
-          options.preserveFlags.allow_perspective_shift
-            ? "- Mild perspective shift is allowed if it remains tasteful and anatomically believable."
-            : "- Do not introduce noticeable perspective shift.",
-          options.lensLook === "fisheye"
-            ? "- If using fisheye, keep it tasteful, intentional, and editorial rather than gimmicky."
-            : "- Keep lens reinterpretation premium and realistic rather than gimmicky.",
-          "- Preserve the same exact woman and keep facial identity dominant.",
-          "",
-        ]),
+    ...buildCameraDirectionPromptLines({
+      presetIds: normalizedCameraPresetIds,
+      reframeIntensity: options.reframeIntensity,
+      preserveFlags: options.preserveFlags,
+    }),
     "Execute these refinement steps in the following order as one controlled finishing instruction set:",
     ...presets.flatMap((preset, index) => [
       `${index + 1}. ${preset.title}`,
@@ -519,7 +388,7 @@ export function buildFinalRefinementPrompt(options: {
     "",
     "Realism and finishing rules:",
     "- Keep realism high and preserve the same environment unless explicitly requested otherwise.",
-    "- Preserve the original composition and overall shot.",
+    "- Preserve the original composition and overall shot unless Camera Direction explicitly allows a controlled reinterpretation.",
     "- Improve skin, hands, hair, fabric, tonal depth, and polish only where requested by the stack.",
     "- Keep pores, subtle skin texture, and believable sweat sheen premium but human.",
     ...(options.export4k ? ["- Prepare the output for 4K delivery with clean detail and no fake texture."] : []),
@@ -535,7 +404,9 @@ export function buildFinalRefinementPrompt(options: {
 
 export type {
   CameraAngleId,
+  CameraDirectionPresetId,
   CameraOption,
+  CameraPreviewGenerationPlan,
   CameraRecipe,
   LensLookId,
   PreserveFlags,

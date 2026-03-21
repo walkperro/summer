@@ -3,6 +3,14 @@
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  applyCameraPresetToggle,
+  getCameraDirectionWarnings as getSharedCameraDirectionWarnings,
+  getCameraSelectionSummary,
+  normalizeCameraPresetIds,
+  type CameraDirectionPresetId,
+} from "@/lib/camera-direction";
+
 type PromptManifest = {
   id: string;
   title: string;
@@ -79,8 +87,13 @@ type CameraOption = {
   id: string;
   title: string;
   description: string;
+  shortDescription: string;
   previewLabel: string;
   previewAccent: string;
+  previewImageUrl: string;
+  previewAlt: string;
+  kind: "angle" | "lens";
+  category: "angle_core" | "framing_modifier" | "lens_core" | "experimental_modifier";
 };
 
 type RefinementRecipe = {
@@ -92,8 +105,7 @@ type RefinementRecipe = {
 type CameraRecipe = {
   id: string;
   title: string;
-  camera_angle: string;
-  lens_look: string;
+  preset_ids: CameraDirectionPresetId[];
   reframe_intensity: "subtle" | "moderate" | "strong";
 };
 
@@ -186,8 +198,11 @@ type RefineResult = {
     created_at: string;
     source_title: string;
     keep_original_aspect_ratio: boolean;
+    camera_preset_ids: string[];
     camera_angle: string;
     lens_look: string;
+    camera_modifiers: string[];
+    camera_direction_narrative: string;
     reframe_intensity: string;
     allow_reframing: boolean;
     allow_perspective_shift: boolean;
@@ -255,8 +270,11 @@ export default function ReviewPage() {
     allow_reframing: false,
     allow_perspective_shift: false,
   });
-  const [selectedCameraAngle, setSelectedCameraAngle] = useState("keep_original_angle");
-  const [selectedLensLook, setSelectedLensLook] = useState("keep_original_lens_feel");
+  const [selectedCameraPresetIds, setSelectedCameraPresetIds] = useState<CameraDirectionPresetId[]>(() =>
+    normalizeCameraPresetIds(["keep_original_angle", "keep_original_lens_feel"]),
+  );
+  const [cameraSelectionFeedback, setCameraSelectionFeedback] = useState<string | null>(null);
+  const [showReframingHelp, setShowReframingHelp] = useState(false);
   const [selectedReframeIntensity, setSelectedReframeIntensity] = useState<"subtle" | "moderate" | "strong">("subtle");
   const [refineExport4k, setRefineExport4k] = useState(false);
   const [refineKeepOriginalAspectRatio, setRefineKeepOriginalAspectRatio] = useState(true);
@@ -356,6 +374,10 @@ export default function ReviewPage() {
         .filter((preset): preset is RefinementPreset => Boolean(preset)),
     [fitManifest, selectedRefinementStack],
   );
+  const cameraSelectionSummary = useMemo(
+    () => getCameraSelectionSummary(selectedCameraPresetIds as CameraDirectionPresetId[]),
+    [selectedCameraPresetIds],
+  );
   const refinementStackWarnings = useMemo(() => {
     const warnings: StackWarning[] = [];
     const bwIndex = selectedRefinementStack.indexOf("final_bw_editorial");
@@ -399,44 +421,15 @@ export default function ReviewPage() {
 
     return warnings;
   }, [selectedRefinementStack, refinementCustomInstruction]);
-  const cameraDirectionWarnings = useMemo(() => {
-    const warnings: StackWarning[] = [];
-    const cameraChanged = selectedCameraAngle !== "keep_original_angle" || selectedLensLook !== "keep_original_lens_feel";
-
-    if (cameraChanged && refinementPreserveFlags.preserve_composition && selectedReframeIntensity === "strong") {
-      warnings.push({
-        id: "composition-vs-strong-camera",
-        level: "warning",
-        message: "`preserve composition` is ON while a strong camera shift is selected. Results will likely remain subtle unless you allow reframing.",
-      });
-    }
-
-    if (cameraChanged && !refinementPreserveFlags.allow_reframing) {
-      warnings.push({
-        id: "camera-without-reframing",
-        level: "warning",
-        message: "A new angle or lens is selected, but `allow reframing` is OFF. Camera direction will behave like mild influence only.",
-      });
-    }
-
-    if (cameraChanged && refinementPreserveFlags.allow_reframing) {
-      warnings.push({
-        id: "camera-reinterpretation-note",
-        level: "warning",
-        message: "Camera Direction is acting as a controlled reinterpretation layer, not just cleanup.",
-      });
-    }
-
-    if (selectedLensLook === "fisheye") {
-      warnings.push({
-        id: "fisheye-warning",
-        level: "warning",
-        message: "Experimental effect — best for special editorial use, not standard portraits.",
-      });
-    }
-
-    return warnings;
-  }, [selectedCameraAngle, selectedLensLook, selectedReframeIntensity, refinementPreserveFlags]);
+  const cameraDirectionWarnings = useMemo(
+    () =>
+      getSharedCameraDirectionWarnings({
+        presetIds: selectedCameraPresetIds as CameraDirectionPresetId[],
+        reframeIntensity: selectedReframeIntensity,
+        preserveFlags: refinementPreserveFlags,
+      }),
+    [selectedCameraPresetIds, selectedReframeIntensity, refinementPreserveFlags],
+  );
 
   useEffect(() => {
     if (!selectedRefineSourceId && refineSourceOptions[0]) {
@@ -811,9 +804,19 @@ export default function ReviewPage() {
       return;
     }
 
-    setSelectedCameraAngle(recipe.camera_angle);
-    setSelectedLensLook(recipe.lens_look);
+    setSelectedCameraPresetIds(normalizeCameraPresetIds(recipe.preset_ids));
+    setCameraSelectionFeedback(null);
     setSelectedReframeIntensity(recipe.reframe_intensity);
+  }
+
+  function toggleCameraPreset(presetId: string) {
+    const result = applyCameraPresetToggle(
+      selectedCameraPresetIds as CameraDirectionPresetId[],
+      presetId as CameraDirectionPresetId,
+    );
+
+    setSelectedCameraPresetIds(result.selection);
+    setCameraSelectionFeedback(result.warning?.message || null);
   }
 
   async function runFinalRefinement() {
@@ -846,8 +849,7 @@ export default function ReviewPage() {
           preserveFlags: refinementPreserveFlags,
           export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
           keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
-          cameraAngle: selectedCameraAngle,
-          lensLook: selectedLensLook,
+          cameraPresetIds: selectedCameraPresetIds,
           reframeIntensity: selectedReframeIntensity,
         }),
       });
@@ -1730,9 +1732,12 @@ export default function ReviewPage() {
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Camera direction:</span>{" "}
-                  {fitManifest?.cameraAngleOptions.find((option) => option.id === selectedCameraAngle)?.title || selectedCameraAngle}
+                  {cameraSelectionSummary.primaryAngle.title}
                   {" • "}
-                  {fitManifest?.lensLookOptions.find((option) => option.id === selectedLensLook)?.title || selectedLensLook}
+                  {cameraSelectionSummary.primaryLens.title}
+                  {cameraSelectionSummary.modifiers.length > 0
+                    ? ` • ${cameraSelectionSummary.modifiers.map((modifier) => modifier.title).join(" • ")}`
+                    : ""}
                   {" • "}
                   {selectedReframeIntensity}
                 </p>
@@ -1745,7 +1750,7 @@ export default function ReviewPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Direction</p>
                   <p className="mt-2 text-sm leading-6 text-black/60">
-                    Optionally reinterpret the angle, framing, and lens feel of the existing image. This is separate from basic cleanup and can act like a controlled camera reframe layer.
+                    Build one coordinated camera-language direction instead of one-off effects. Combine one main angle and one main lens for best results, then layer compatible modifiers when they add clarity.
                   </p>
                 </div>
 
@@ -1762,40 +1767,34 @@ export default function ReviewPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <label className="rounded-3xl border border-black/10 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Angle</p>
-                    <select
-                      value={selectedCameraAngle}
-                      onChange={(event) => setSelectedCameraAngle(event.target.value)}
-                      className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
-                    >
-                      {fitManifest?.cameraAngleOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="rounded-3xl border border-black/10 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Lens Look</p>
-                    <select
-                      value={selectedLensLook}
-                      onChange={(event) => setSelectedLensLook(event.target.value)}
-                      className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
-                    >
-                      {fitManifest?.lensLookOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
                 <div className="mt-4 rounded-3xl border border-black/10 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Reframe Intensity</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Reframing</p>
+                    <button
+                      type="button"
+                      aria-expanded={showReframingHelp}
+                      aria-label="What reframing means"
+                      onClick={() => setShowReframingHelp((current) => !current)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-[#f7f4ef] text-sm font-semibold text-black/70 transition hover:border-black/25 hover:text-black"
+                    >
+                      ?
+                    </button>
+                  </div>
+                  {showReframingHelp ? (
+                    <div className="mt-3 rounded-2xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
+                      <p>
+                        Reframing changes how the image feels as if it were shot from a different camera angle, crop, or lens perspective. Subtle reframing keeps the original composition mostly intact. Strong reframing can reinterpret the shot more dramatically while still trying to preserve the same person, pose, and mood.
+                      </p>
+                      <p className="mt-3">
+                        `preserve composition` ON keeps changes subtle. `allow reframing` ON allows a stronger reinterpretation. Angle and lens changes are not just filters — they can affect perspective, crop, and spatial feel.
+                      </p>
+                      <p className="mt-3 text-black/60">
+                        Use reframing when you want the same image to feel more cinematic, closer, wider, lower, more compressed, or more stylized.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <p className="mt-4 text-xs uppercase tracking-[0.2em] text-black/45">Reframe Intensity</p>
                   <div className="mt-3 flex flex-wrap gap-3">
                     {(["subtle", "moderate", "strong"] as const).map((value) => (
                       <button
@@ -1812,27 +1811,32 @@ export default function ReviewPage() {
 
                 <div className="mt-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Angle / Lens Preview Gallery</p>
+                  <p className="mt-2 text-sm leading-6 text-black/60">
+                    Select one primary angle and one primary lens. Modifiers like `Close Crop Beauty` and `Dutch Tilt` can be layered when compatible. `Fisheye` is experimental and best used sparingly.
+                  </p>
                   <div className="mt-4 grid gap-4 lg:grid-cols-2">
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-black/45">Camera angles</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {fitManifest?.cameraAngleOptions.map((option) => {
-                          const selected = selectedCameraAngle === option.id;
+                          const selected = selectedCameraPresetIds.includes(option.id as CameraDirectionPresetId);
 
                           return (
                             <button
                               key={option.id}
                               type="button"
-                              onClick={() => setSelectedCameraAngle(option.id)}
+                              onClick={() => toggleCameraPreset(option.id)}
                               className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
                             >
-                              <div className="h-24 rounded-2xl border border-black/10 p-3" style={{ background: `linear-gradient(135deg, ${option.previewAccent}, #f3ede4)` }}>
-                                <div className="flex h-full items-center justify-center rounded-xl border border-white/60 bg-white/20 text-xs font-semibold uppercase tracking-[0.18em]">
+                              <div className="relative h-32 overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
                                   {option.previewLabel}
                                 </div>
                               </div>
                               <p className="mt-3 text-sm font-semibold">{option.title}</p>
-                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.description}</p>
+                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
                             </button>
                           );
                         })}
@@ -1843,22 +1847,24 @@ export default function ReviewPage() {
                       <p className="text-xs uppercase tracking-[0.18em] text-black/45">Lens looks</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {fitManifest?.lensLookOptions.map((option) => {
-                          const selected = selectedLensLook === option.id;
+                          const selected = selectedCameraPresetIds.includes(option.id as CameraDirectionPresetId);
 
                           return (
                             <button
                               key={option.id}
                               type="button"
-                              onClick={() => setSelectedLensLook(option.id)}
+                              onClick={() => toggleCameraPreset(option.id)}
                               className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
                             >
-                              <div className="h-24 rounded-2xl border border-black/10 p-3" style={{ background: `radial-gradient(circle at center, #f6f0e8 0%, ${option.previewAccent} 100%)` }}>
-                                <div className="flex h-full items-center justify-center rounded-xl border border-white/60 bg-white/20 text-xs font-semibold uppercase tracking-[0.18em]">
+                              <div className="relative h-32 overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
                                   {option.previewLabel}
                                 </div>
                               </div>
                               <p className="mt-3 text-sm font-semibold">{option.title}</p>
-                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.description}</p>
+                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
                             </button>
                           );
                         })}
@@ -1866,6 +1872,54 @@ export default function ReviewPage() {
                     </div>
                   </div>
                 </div>
+
+                <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Direction Summary</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {cameraSelectionSummary.activePresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => toggleCameraPreset(preset.id)}
+                        className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/70 transition hover:border-black/25 hover:text-black"
+                      >
+                        {preset.title} ×
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Primary angle:</span> {cameraSelectionSummary.primaryAngle.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Primary lens:</span> {cameraSelectionSummary.primaryLens.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Active modifiers:</span>{" "}
+                    {cameraSelectionSummary.modifiers.length > 0
+                      ? cameraSelectionSummary.modifiers.map((modifier) => modifier.title).join(" • ")
+                      : "None"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Reframing intensity:</span> {selectedReframeIntensity}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Preserve composition:</span>{" "}
+                    {refinementPreserveFlags.preserve_composition ? "ON" : "OFF"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Coordinated direction:</span> {cameraSelectionSummary.narrative}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-black/60">
+                    Selecting a new primary angle or lens replaces the previous primary automatically. Incompatible combinations are blocked inline.
+                  </p>
+                </div>
+
+                {cameraSelectionFeedback ? (
+                  <div className="mt-4 rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                    <p className="font-semibold">Selection warning</p>
+                    <p className="mt-2">{cameraSelectionFeedback}</p>
+                  </div>
+                ) : null}
 
                 {cameraDirectionWarnings.length > 0 ? (
                   <div className="mt-4 rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
@@ -1878,9 +1932,9 @@ export default function ReviewPage() {
                   </div>
                 ) : null}
 
-                {(selectedCameraAngle !== "keep_original_angle" || selectedLensLook !== "keep_original_lens_feel") ? (
+                {cameraSelectionSummary.hasNonOriginalSelection ? (
                   <p className="mt-4 text-sm leading-6 text-black/65">
-                    A non-original angle or lens is selected. This may become a controlled reinterpretation instead of pure refinement, especially when `allow reframing` or `allow perspective shift` are enabled.
+                    A non-original camera direction is active. This may become a controlled reinterpretation instead of pure refinement, especially when `allow reframing` or `allow perspective shift` are enabled.
                   </p>
                 ) : null}
               </div>
@@ -2018,6 +2072,8 @@ export default function ReviewPage() {
                       <p className="mt-2"><span className="font-semibold">Source:</span> {result.metadata.source_type}</p>
                       <p className="mt-2"><span className="font-semibold">Stack:</span> {stackTitle}</p>
                       <p className="mt-2"><span className="font-semibold">Camera:</span> {result.metadata.camera_angle} • {result.metadata.lens_look} • {result.metadata.reframe_intensity}</p>
+                      <p className="mt-2"><span className="font-semibold">Modifiers:</span> {result.metadata.camera_modifiers.join(" • ") || "None"}</p>
+                      <p className="mt-2"><span className="font-semibold">Direction summary:</span> {result.metadata.camera_direction_narrative}</p>
                       <p className="mt-2"><span className="font-semibold">Custom instruction:</span> {result.metadata.custom_instruction_text || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Output size:</span> {result.metadata.output_size}</p>
                       <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
