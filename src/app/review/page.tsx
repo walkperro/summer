@@ -62,6 +62,8 @@ type PreserveFlags = {
   preserve_outfit: boolean;
   preserve_body_shape: boolean;
   preserve_pose: boolean;
+  allow_reframing: boolean;
+  allow_perspective_shift: boolean;
 };
 
 type RefinementPreset = {
@@ -70,6 +72,35 @@ type RefinementPreset = {
   summary: string;
   recommendedUse: string;
   instructions: string[];
+  orderGuidance: string;
+};
+
+type CameraOption = {
+  id: string;
+  title: string;
+  description: string;
+  previewLabel: string;
+  previewAccent: string;
+};
+
+type RefinementRecipe = {
+  id: string;
+  title: string;
+  stack: string[];
+};
+
+type CameraRecipe = {
+  id: string;
+  title: string;
+  camera_angle: string;
+  lens_look: string;
+  reframe_intensity: "subtle" | "moderate" | "strong";
+};
+
+type StackWarning = {
+  id: string;
+  level: "warning";
+  message: string;
 };
 
 type FitPrompt = {
@@ -99,6 +130,10 @@ type FitManifest = {
   likenessReferences: FitReference[];
   likenessReferenceSource: string;
   refinementPresets: RefinementPreset[];
+  refinementRecipes: RefinementRecipe[];
+  cameraAngleOptions: CameraOption[];
+  lensLookOptions: CameraOption[];
+  cameraRecipes: CameraRecipe[];
   defaultPreserveFlags: PreserveFlags;
   refinementHelp: string[];
   storageConfigured: boolean;
@@ -144,15 +179,21 @@ type RefineResult = {
   metadata: {
     source_image_id: string;
     source_type: "generated" | "enhanced" | "uploaded";
-    refinement_preset: string;
-    custom_instruction: string;
+    refinement_stack: string[];
+    custom_instruction_text: string;
     preserve_flags: PreserveFlags;
     output_size: string;
     created_at: string;
     source_title: string;
     keep_original_aspect_ratio: boolean;
+    camera_angle: string;
+    lens_look: string;
+    reframe_intensity: string;
+    allow_reframing: boolean;
+    allow_perspective_shift: boolean;
     model: string;
   };
+  stackWarnings?: StackWarning[];
   responseText?: string;
   warning?: string;
   decision?: "approve" | "reject";
@@ -201,7 +242,8 @@ export default function ReviewPage() {
 
   const [selectedRefineSourceId, setSelectedRefineSourceId] = useState("");
   const [uploadedRefineSource, setUploadedRefineSource] = useState<RefineSource | null>(null);
-  const [selectedRefinementPreset, setSelectedRefinementPreset] = useState("final_luxury_finish");
+  const [availablePresetToAdd, setAvailablePresetToAdd] = useState("final_luxury_finish");
+  const [selectedRefinementStack, setSelectedRefinementStack] = useState<string[]>(["final_luxury_finish"]);
   const [refinementCustomInstruction, setRefinementCustomInstruction] = useState("");
   const [refinementPreserveFlags, setRefinementPreserveFlags] = useState<PreserveFlags>({
     preserve_face: true,
@@ -210,7 +252,12 @@ export default function ReviewPage() {
     preserve_outfit: true,
     preserve_body_shape: true,
     preserve_pose: true,
+    allow_reframing: false,
+    allow_perspective_shift: false,
   });
+  const [selectedCameraAngle, setSelectedCameraAngle] = useState("keep_original_angle");
+  const [selectedLensLook, setSelectedLensLook] = useState("keep_original_lens_feel");
+  const [selectedReframeIntensity, setSelectedReframeIntensity] = useState<"subtle" | "moderate" | "strong">("subtle");
   const [refineExport4k, setRefineExport4k] = useState(false);
   const [refineKeepOriginalAspectRatio, setRefineKeepOriginalAspectRatio] = useState(true);
   const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
@@ -301,7 +348,95 @@ export default function ReviewPage() {
   }, [fitCampaignResults, fitEnhancementResults, fitManifest, uploadedRefineSource]);
   const selectedRefineSource = refineSourceOptions.find((source) => source.id === selectedRefineSourceId) ?? null;
   const selectedRefinementPresetDefinition =
-    fitManifest?.refinementPresets.find((preset) => preset.id === selectedRefinementPreset) ?? null;
+    fitManifest?.refinementPresets.find((preset) => preset.id === availablePresetToAdd) ?? null;
+  const selectedRefinementStackPresets = useMemo(
+    () =>
+      selectedRefinementStack
+        .map((presetId) => fitManifest?.refinementPresets.find((preset) => preset.id === presetId))
+        .filter((preset): preset is RefinementPreset => Boolean(preset)),
+    [fitManifest, selectedRefinementStack],
+  );
+  const refinementStackWarnings = useMemo(() => {
+    const warnings: StackWarning[] = [];
+    const bwIndex = selectedRefinementStack.indexOf("final_bw_editorial");
+    const upscaleIndex = selectedRefinementStack.indexOf("final_4k_upscale");
+    const removeLogosIndex = selectedRefinementStack.indexOf("final_remove_logos");
+    const softenExpressionIndex = selectedRefinementStack.indexOf("final_soften_expression");
+    const slightSmileIndex = selectedRefinementStack.indexOf("final_add_slight_smile");
+    const customIndex = selectedRefinementStack.indexOf("final_custom_instruction");
+
+    if (softenExpressionIndex !== -1 && slightSmileIndex !== -1) {
+      warnings.push({
+        id: "expression-conflict",
+        level: "warning",
+        message: "`Soften Expression` and `Add Slight Smile` are both in the stack. They can conflict, so verify the final face edit stays subtle and identity-safe.",
+      });
+    }
+
+    if (bwIndex !== -1 && removeLogosIndex !== -1 && bwIndex < removeLogosIndex) {
+      warnings.push({
+        id: "bw-before-logo",
+        level: "warning",
+        message: "`Final B/W Editorial` appears before `Remove Logos`. Logo cleanup usually works better before black-and-white conversion.",
+      });
+    }
+
+    if (upscaleIndex !== -1 && upscaleIndex !== selectedRefinementStack.length - 1) {
+      warnings.push({
+        id: "upscale-not-last",
+        level: "warning",
+        message: "`Final 4K Upscale` is not the last step. It usually works best as the final step in the stack.",
+      });
+    }
+
+    if (customIndex !== -1 && refinementCustomInstruction.trim()) {
+      warnings.push({
+        id: "custom-may-conflict",
+        level: "warning",
+        message: "`Custom Instruction` is in the stack. Review it carefully because it may conflict with neighboring presets.",
+      });
+    }
+
+    return warnings;
+  }, [selectedRefinementStack, refinementCustomInstruction]);
+  const cameraDirectionWarnings = useMemo(() => {
+    const warnings: StackWarning[] = [];
+    const cameraChanged = selectedCameraAngle !== "keep_original_angle" || selectedLensLook !== "keep_original_lens_feel";
+
+    if (cameraChanged && refinementPreserveFlags.preserve_composition && selectedReframeIntensity === "strong") {
+      warnings.push({
+        id: "composition-vs-strong-camera",
+        level: "warning",
+        message: "`preserve composition` is ON while a strong camera shift is selected. Results will likely remain subtle unless you allow reframing.",
+      });
+    }
+
+    if (cameraChanged && !refinementPreserveFlags.allow_reframing) {
+      warnings.push({
+        id: "camera-without-reframing",
+        level: "warning",
+        message: "A new angle or lens is selected, but `allow reframing` is OFF. Camera direction will behave like mild influence only.",
+      });
+    }
+
+    if (cameraChanged && refinementPreserveFlags.allow_reframing) {
+      warnings.push({
+        id: "camera-reinterpretation-note",
+        level: "warning",
+        message: "Camera Direction is acting as a controlled reinterpretation layer, not just cleanup.",
+      });
+    }
+
+    if (selectedLensLook === "fisheye") {
+      warnings.push({
+        id: "fisheye-warning",
+        level: "warning",
+        message: "Experimental effect — best for special editorial use, not standard portraits.",
+      });
+    }
+
+    return warnings;
+  }, [selectedCameraAngle, selectedLensLook, selectedReframeIntensity, refinementPreserveFlags]);
 
   useEffect(() => {
     if (!selectedRefineSourceId && refineSourceOptions[0]) {
@@ -632,9 +767,63 @@ export default function ReviewPage() {
     throw new Error("Selected refine source has no available image data.");
   }
 
+  function addPresetToRefinementStack() {
+    if (!availablePresetToAdd) {
+      return;
+    }
+
+    setSelectedRefinementStack((current) => [...current, availablePresetToAdd]);
+  }
+
+  function removePresetFromStack(index: number) {
+    setSelectedRefinementStack((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function movePresetInStack(index: number, direction: "up" | "down") {
+    setSelectedRefinementStack((current) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+      if (targetIndex < 0 || targetIndex >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(targetIndex, 0, item);
+      return next;
+    });
+  }
+
+  function applyRefinementRecipe(recipeId: string) {
+    const recipe = fitManifest?.refinementRecipes.find((entry) => entry.id === recipeId);
+
+    if (!recipe) {
+      return;
+    }
+
+    setSelectedRefinementStack(recipe.stack);
+  }
+
+  function applyCameraRecipe(recipeId: string) {
+    const recipe = fitManifest?.cameraRecipes.find((entry) => entry.id === recipeId);
+
+    if (!recipe) {
+      return;
+    }
+
+    setSelectedCameraAngle(recipe.camera_angle);
+    setSelectedLensLook(recipe.lens_look);
+    setSelectedReframeIntensity(recipe.reframe_intensity);
+  }
+
   async function runFinalRefinement() {
     if (!selectedRefineSource) {
       setFitRefineState({ loading: false, error: "Select a source image to refine." });
+      return;
+    }
+
+    if (selectedRefinementStack.length === 0) {
+      setFitRefineState({ loading: false, error: "Add at least one refinement preset to the stack." });
       return;
     }
 
@@ -652,11 +841,14 @@ export default function ReviewPage() {
           sourceType: selectedRefineSource.sourceType,
           sourceTitle: selectedRefineSource.title,
           sourceImageDataUrl,
-          refinementPreset: selectedRefinementPreset,
+          refinementStack: selectedRefinementStack,
           customInstruction: refinementCustomInstruction,
           preserveFlags: refinementPreserveFlags,
-          export4k: refineExport4k || selectedRefinementPreset === "final_4k_upscale",
+          export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
           keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
+          cameraAngle: selectedCameraAngle,
+          lensLook: selectedLensLook,
+          reframeIntensity: selectedReframeIntensity,
         }),
       });
 
@@ -685,7 +877,7 @@ export default function ReviewPage() {
       await recordDecision("fit_refine_final", result.asset.pathname, decision, {
         source_image_id: result.metadata.source_image_id,
         source_type: result.metadata.source_type,
-        refinement_preset: result.metadata.refinement_preset,
+        refinement_stack: result.metadata.refinement_stack,
         output_size: result.metadata.output_size,
       });
 
@@ -1393,20 +1585,36 @@ export default function ReviewPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="rounded-3xl border border-black/10 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement preset</p>
-                  <select
-                    value={selectedRefinementPreset}
-                    onChange={(event) => setSelectedRefinementPreset(event.target.value)}
-                    className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
-                  >
-                    {fitManifest?.refinementPresets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="rounded-3xl border border-black/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Add preset</p>
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                    <select
+                      value={availablePresetToAdd}
+                      onChange={(event) => setAvailablePresetToAdd(event.target.value)}
+                      className="w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
+                    >
+                      {fitManifest?.refinementPresets.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={addPresetToRefinementStack}
+                      className="rounded-full bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-black/85"
+                    >
+                      Add preset
+                    </button>
+                  </div>
+                  {selectedRefinementPresetDefinition ? (
+                    <div className="mt-4 rounded-2xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
+                      <p className="font-semibold">{selectedRefinementPresetDefinition.title}</p>
+                      <p className="mt-2">{selectedRefinementPresetDefinition.summary}</p>
+                      <p className="mt-2 text-black/60">Order guidance: {selectedRefinementPresetDefinition.orderGuidance}</p>
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="rounded-3xl border border-black/10 p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Output controls</p>
@@ -1416,26 +1624,271 @@ export default function ReviewPage() {
                       Keep original aspect ratio
                     </label>
                     <label className="flex items-center gap-3">
-                      <input type="checkbox" checked={refineExport4k || selectedRefinementPreset === "final_4k_upscale"} onChange={() => setRefineExport4k((current) => !current)} />
+                      <input type="checkbox" checked={refineExport4k || selectedRefinementStack.includes("final_4k_upscale")} onChange={() => setRefineExport4k((current) => !current)} />
                       Export 4K if selected
                     </label>
                   </div>
                 </div>
               </div>
 
-              {selectedRefinementPresetDefinition ? (
-                <div className="rounded-3xl bg-[#f7f4ef] p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Preset summary</p>
-                  <h3 className="mt-2 text-xl font-semibold">{selectedRefinementPresetDefinition.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-black/75">{selectedRefinementPresetDefinition.summary}</p>
-                  <p className="mt-3 text-sm leading-6 text-black/65">Recommended use: {selectedRefinementPresetDefinition.recommendedUse}</p>
+              <div className="rounded-3xl border border-black/10 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement stack</p>
+                    <p className="mt-2 text-sm leading-6 text-black/60">
+                      Build an ordered stack of refinement presets. Cleanup steps usually go first, detail and finish steps go later, and `Final 4K Upscale` usually goes last.
+                    </p>
+                  </div>
+                  <p className="rounded-full bg-[#f7f4ef] px-3 py-1 text-xs uppercase tracking-[0.2em] text-black/60">
+                    {selectedRefinementStack.length} steps
+                  </p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {fitManifest?.refinementRecipes.map((recipe) => (
+                    <button
+                      key={recipe.id}
+                      type="button"
+                      onClick={() => applyRefinementRecipe(recipe.id)}
+                      className="rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/75 transition hover:border-black/25 hover:text-black"
+                    >
+                      {recipe.title}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {selectedRefinementStackPresets.map((preset, index) => (
+                    <div key={`${preset.id}-${index}`} className="rounded-2xl border border-black/10 bg-[#f7f4ef] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-black/45">Step {index + 1}</p>
+                          <p className="mt-1 text-lg font-semibold text-black">{preset.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-black/70">{preset.summary}</p>
+                          <p className="mt-2 text-xs leading-5 text-black/55">{preset.orderGuidance}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => movePresetInStack(index, "up")}
+                            disabled={index === 0}
+                            className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => movePresetInStack(index, "down")}
+                            disabled={index === selectedRefinementStackPresets.length - 1}
+                            className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Down
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removePresetFromStack(index)}
+                            className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {selectedRefinementStackPresets.length === 0 ? (
+                  <p className="mt-4 text-sm leading-6 text-black/50">No presets in the stack yet. Add one or apply a quick recipe.</p>
+                ) : null}
+              </div>
+
+              {refinementStackWarnings.length > 0 ? (
+                <div className="rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                  <p className="font-semibold">Stack warnings</p>
+                  <ul className="mt-2 space-y-2">
+                    {refinementStackWarnings.map((warning) => (
+                      <li key={warning.id}>- {warning.message}</li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
+
+              <div className="rounded-3xl bg-[#f7f4ef] p-5">
+                <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement Recipe Summary</p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Execution order:</span>{" "}
+                  {selectedRefinementStackPresets.length > 0
+                    ? selectedRefinementStackPresets.map((preset) => preset.title).join(" → ")
+                    : "No stack selected"}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Preserve rules:</span>{" "}
+                  {(Object.keys(refinementPreserveFlags) as Array<keyof PreserveFlags>)
+                    .filter((flag) => refinementPreserveFlags[flag])
+                    .map((flag) => flag.replace(/_/g, " "))
+                    .join(" • ") || "None"}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Camera direction:</span>{" "}
+                  {fitManifest?.cameraAngleOptions.find((option) => option.id === selectedCameraAngle)?.title || selectedCameraAngle}
+                  {" • "}
+                  {fitManifest?.lensLookOptions.find((option) => option.id === selectedLensLook)?.title || selectedLensLook}
+                  {" • "}
+                  {selectedReframeIntensity}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Final output goals:</span> preserve the same exact woman, preserve the existing shot, keep realism high, and finish the image as a premium website-ready editorial asset.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-black/10 p-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Direction</p>
+                  <p className="mt-2 text-sm leading-6 text-black/60">
+                    Optionally reinterpret the angle, framing, and lens feel of the existing image. This is separate from basic cleanup and can act like a controlled camera reframe layer.
+                  </p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {fitManifest?.cameraRecipes.map((recipe) => (
+                    <button
+                      key={recipe.id}
+                      type="button"
+                      onClick={() => applyCameraRecipe(recipe.id)}
+                      className="rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/75 transition hover:border-black/25 hover:text-black"
+                    >
+                      {recipe.title}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <label className="rounded-3xl border border-black/10 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Angle</p>
+                    <select
+                      value={selectedCameraAngle}
+                      onChange={(event) => setSelectedCameraAngle(event.target.value)}
+                      className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
+                    >
+                      {fitManifest?.cameraAngleOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="rounded-3xl border border-black/10 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Lens Look</p>
+                    <select
+                      value={selectedLensLook}
+                      onChange={(event) => setSelectedLensLook(event.target.value)}
+                      className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
+                    >
+                      {fitManifest?.lensLookOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-4 rounded-3xl border border-black/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Reframe Intensity</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {(["subtle", "moderate", "strong"] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setSelectedReframeIntensity(value)}
+                        className={selectedReframeIntensity === value ? "rounded-full bg-black px-4 py-3 text-sm font-medium text-white" : "rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/70"}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Angle / Lens Preview Gallery</p>
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-black/45">Camera angles</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {fitManifest?.cameraAngleOptions.map((option) => {
+                          const selected = selectedCameraAngle === option.id;
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setSelectedCameraAngle(option.id)}
+                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
+                            >
+                              <div className="h-24 rounded-2xl border border-black/10 p-3" style={{ background: `linear-gradient(135deg, ${option.previewAccent}, #f3ede4)` }}>
+                                <div className="flex h-full items-center justify-center rounded-xl border border-white/60 bg-white/20 text-xs font-semibold uppercase tracking-[0.18em]">
+                                  {option.previewLabel}
+                                </div>
+                              </div>
+                              <p className="mt-3 text-sm font-semibold">{option.title}</p>
+                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.description}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-black/45">Lens looks</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {fitManifest?.lensLookOptions.map((option) => {
+                          const selected = selectedLensLook === option.id;
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setSelectedLensLook(option.id)}
+                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
+                            >
+                              <div className="h-24 rounded-2xl border border-black/10 p-3" style={{ background: `radial-gradient(circle at center, #f6f0e8 0%, ${option.previewAccent} 100%)` }}>
+                                <div className="flex h-full items-center justify-center rounded-xl border border-white/60 bg-white/20 text-xs font-semibold uppercase tracking-[0.18em]">
+                                  {option.previewLabel}
+                                </div>
+                              </div>
+                              <p className="mt-3 text-sm font-semibold">{option.title}</p>
+                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.description}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {cameraDirectionWarnings.length > 0 ? (
+                  <div className="mt-4 rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                    <p className="font-semibold">Camera compatibility notes</p>
+                    <ul className="mt-2 space-y-2">
+                      {cameraDirectionWarnings.map((warning) => (
+                        <li key={warning.id}>- {warning.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {(selectedCameraAngle !== "keep_original_angle" || selectedLensLook !== "keep_original_lens_feel") ? (
+                  <p className="mt-4 text-sm leading-6 text-black/65">
+                    A non-original angle or lens is selected. This may become a controlled reinterpretation instead of pure refinement, especially when `allow reframing` or `allow perspective shift` are enabled.
+                  </p>
+                ) : null}
+              </div>
 
               <div className="rounded-3xl border border-black/10 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Preserve Rules</p>
                 <p className="mt-2 text-sm leading-6 text-black/60">
-                  These stay on by default so the refinement behaves like controlled finishing rather than a new generation pass.
+                  These stay on by default so the refinement behaves like controlled finishing rather than a new generation pass. `allow reframing` and `allow perspective shift` control how strongly Camera Direction can reinterpret the image.
                 </p>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {(Object.keys(refinementPreserveFlags) as Array<keyof PreserveFlags>).map((flag) => (
@@ -1481,7 +1934,7 @@ export default function ReviewPage() {
               <button
                 type="button"
                 onClick={runFinalRefinement}
-                disabled={!selectedRefineSource || fitRefineState.loading}
+                disabled={!selectedRefineSource || selectedRefinementStack.length === 0 || fitRefineState.loading}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >
                 {fitRefineState.loading ? "Refining final image…" : "Run final refinement"}
@@ -1498,7 +1951,9 @@ export default function ReviewPage() {
               {fitRefineResults.map((result) => {
                 const afterUrl = result.asset?.url || result.imageDataUrl || "";
                 const source = refineSourceOptions.find((item) => (item.assetPathname || item.id) === result.metadata.source_image_id) || selectedRefineSource;
-                const presetTitle = fitManifest?.refinementPresets.find((preset) => preset.id === result.metadata.refinement_preset)?.title || result.metadata.refinement_preset;
+                const stackTitle = result.metadata.refinement_stack
+                  .map((presetId) => fitManifest?.refinementPresets.find((preset) => preset.id === presetId)?.title || presetId)
+                  .join(" → ");
 
                 return (
                   <article key={`${result.metadata.created_at}-${result.metadata.source_image_id}`} className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm">
@@ -1506,7 +1961,7 @@ export default function ReviewPage() {
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-black/45">Before / after</p>
                         <h3 className="mt-2 text-2xl font-semibold tracking-tight">{result.metadata.source_title}</h3>
-                        <p className="mt-2 text-sm text-black/60">{presetTitle} • {result.metadata.output_size}</p>
+                        <p className="mt-2 text-sm text-black/60">{stackTitle} • {result.metadata.output_size}</p>
                       </div>
                       {result.decision ? (
                         <span className="rounded-full bg-[#f7f4ef] px-3 py-2 text-xs uppercase tracking-[0.2em] text-black/65">{result.decision}</span>
@@ -1561,10 +2016,14 @@ export default function ReviewPage() {
                     <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
                       <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement metadata</p>
                       <p className="mt-2"><span className="font-semibold">Source:</span> {result.metadata.source_type}</p>
-                      <p className="mt-2"><span className="font-semibold">Preset:</span> {presetTitle}</p>
-                      <p className="mt-2"><span className="font-semibold">Custom instruction:</span> {result.metadata.custom_instruction || "None"}</p>
+                      <p className="mt-2"><span className="font-semibold">Stack:</span> {stackTitle}</p>
+                      <p className="mt-2"><span className="font-semibold">Camera:</span> {result.metadata.camera_angle} • {result.metadata.lens_look} • {result.metadata.reframe_intensity}</p>
+                      <p className="mt-2"><span className="font-semibold">Custom instruction:</span> {result.metadata.custom_instruction_text || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Output size:</span> {result.metadata.output_size}</p>
                       <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
+                      {result.stackWarnings && result.stackWarnings.length > 0 ? (
+                        <p className="mt-2"><span className="font-semibold">Warnings:</span> {result.stackWarnings.map((warning) => warning.message).join(" • ")}</p>
+                      ) : null}
                       {result.warning ? <p className="mt-3 text-amber-900">{result.warning}</p> : null}
                       {result.responseText ? <p className="mt-3">{result.responseText}</p> : null}
                     </div>

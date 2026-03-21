@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { isBlobStorageConfigured } from "@/lib/blob-storage";
-import { DEFAULT_PRESERVE_FLAGS, FINAL_REFINEMENT_HELP, FINAL_REFINEMENT_PRESETS } from "@/lib/final-refinement";
+import {
+  CAMERA_ANGLE_OPTIONS,
+  CAMERA_RECIPES,
+  DEFAULT_PRESERVE_FLAGS,
+  FINAL_REFINEMENT_HELP,
+  FINAL_REFINEMENT_PRESETS,
+  FINAL_REFINEMENT_RECIPES,
+  LENS_LOOK_OPTIONS,
+} from "@/lib/final-refinement";
 import { listLikenessReferences } from "@/lib/likeness-references";
 import {
   FIT_ASPECT_RATIOS,
@@ -45,6 +53,10 @@ export async function GET() {
     likenessReferences: likenessReferenceManifest.references,
     likenessReferenceSource: likenessReferenceManifest.source,
     refinementPresets: FINAL_REFINEMENT_PRESETS,
+    refinementRecipes: FINAL_REFINEMENT_RECIPES,
+    cameraAngleOptions: CAMERA_ANGLE_OPTIONS,
+    lensLookOptions: LENS_LOOK_OPTIONS,
+    cameraRecipes: CAMERA_RECIPES,
     defaultPreserveFlags: DEFAULT_PRESERVE_FLAGS,
     refinementHelp: FINAL_REFINEMENT_HELP,
     storageConfigured: isBlobStorageConfigured(),
