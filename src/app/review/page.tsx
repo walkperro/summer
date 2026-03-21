@@ -61,7 +61,8 @@ type FitPrompt = {
   recommended_framing: string;
   export_goal: string;
   prompt: string;
-  recommendedReferenceIds: string[];
+  recommendedFitReferenceIds: string[];
+  recommendedLikenessReferenceIds: string[];
 };
 
 type FitManifest = {
@@ -75,8 +76,10 @@ type FitManifest = {
   aspectRatios: Array<{ id: string; title: string }>;
   outputModes: Array<{ id: string; title: string; instruction: string }>;
   enhancementModes: Array<{ id: string; title: string; instruction: string }>;
-  references: FitReference[];
-  referenceSource: string;
+  fitReferences: FitReference[];
+  fitReferenceSource: string;
+  likenessReferences: FitReference[];
+  likenessReferenceSource: string;
   storageConfigured: boolean;
 };
 
@@ -86,7 +89,9 @@ type FitCampaignResult = {
   outputMode: string;
   asset: FitAsset;
   responseText?: string;
-  references: FitReference[];
+  fit_refs_used: FitReference[];
+  likeness_refs_used: FitReference[];
+  warning?: string | null;
   decision?: "approve" | "reject";
 };
 
@@ -127,7 +132,8 @@ export default function ReviewPage() {
   const [generationState, setGenerationState] = useState<Record<string, GenerationState>>({});
 
   const [selectedFitPromptId, setSelectedFitPromptId] = useState("");
-  const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
+  const [selectedFitReferenceIds, setSelectedFitReferenceIds] = useState<string[]>([]);
+  const [selectedLikenessReferenceIds, setSelectedLikenessReferenceIds] = useState<string[]>([]);
   const [selectedAspectRatio, setSelectedAspectRatio] = useState("16:9");
   const [selectedOutputMode, setSelectedOutputMode] = useState("high_end");
   const [fitGenerateState, setFitGenerateState] = useState<AsyncState>({ loading: false, error: null });
@@ -160,15 +166,21 @@ export default function ReviewPage() {
         setPrompts(promptData.prompts);
         setFitManifest(fitData);
 
-        const availableReferences = fitData.references.filter((reference) => reference.available);
+        const availableFitReferences = fitData.fitReferences.filter((reference) => reference.available);
+        const availableLikenessReferences = fitData.likenessReferences.filter((reference) => reference.available);
         if (fitData.fitCampaignPrompts[0]) {
           setSelectedFitPromptId(fitData.fitCampaignPrompts[0].id);
         }
-        if (availableReferences[0]) {
-          setSelectedEnhancementSourceId(availableReferences[0].id);
+        if (availableFitReferences[0]) {
+          setSelectedEnhancementSourceId(availableFitReferences[0].id);
         }
-        if (availableReferences.length >= 2) {
-          setSelectedReferenceIds(availableReferences.slice(0, Math.min(3, availableReferences.length)).map((reference) => reference.id));
+        if (availableFitReferences.length >= 1) {
+          setSelectedFitReferenceIds(availableFitReferences.slice(0, Math.min(2, availableFitReferences.length)).map((reference) => reference.id));
+        }
+        if (availableLikenessReferences.length >= 1) {
+          setSelectedLikenessReferenceIds(
+            availableLikenessReferences.slice(0, Math.min(2, availableLikenessReferences.length)).map((reference) => reference.id),
+          );
         }
       } catch (error) {
         setLoadError(error instanceof Error ? error.message : "Unknown loading error.");
@@ -185,10 +197,12 @@ export default function ReviewPage() {
     [prompts],
   );
 
-  const fitReferences = useMemo(() => fitManifest?.references ?? [], [fitManifest]);
+  const fitReferences = useMemo(() => fitManifest?.fitReferences ?? [], [fitManifest]);
+  const likenessReferences = useMemo(() => fitManifest?.likenessReferences ?? [], [fitManifest]);
   const selectedFitPrompt = fitManifest?.fitCampaignPrompts.find((prompt) => prompt.id === selectedFitPromptId) ?? null;
   const selectedSourceReference = fitReferences.find((reference) => reference.id === selectedEnhancementSourceId) ?? null;
-  const selectedReferenceCount = selectedReferenceIds.length;
+  const selectedFitReferenceCount = selectedFitReferenceIds.length;
+  const selectedLikenessReferenceCount = selectedLikenessReferenceIds.length;
   const fitWorkflowUnavailable = !fitManifest?.storageConfigured || fitReferences.length === 0;
 
   useEffect(() => {
@@ -196,13 +210,23 @@ export default function ReviewPage() {
       return;
     }
 
-    const availableReferenceIds = new Set(fitReferences.filter((reference) => reference.available).map((reference) => reference.id));
-    const recommended = selectedFitPrompt.recommendedReferenceIds.filter((referenceId) => availableReferenceIds.has(referenceId));
+    const availableFitReferenceIds = new Set(fitReferences.filter((reference) => reference.available).map((reference) => reference.id));
+    const availableLikenessReferenceIds = new Set(
+      likenessReferences.filter((reference) => reference.available).map((reference) => reference.id),
+    );
+    const recommendedFit = selectedFitPrompt.recommendedFitReferenceIds.filter((referenceId) => availableFitReferenceIds.has(referenceId));
+    const recommendedLikeness = selectedFitPrompt.recommendedLikenessReferenceIds.filter((referenceId) =>
+      availableLikenessReferenceIds.has(referenceId),
+    );
 
-    if (recommended.length >= 2) {
-      setSelectedReferenceIds(recommended.slice(0, 4));
+    if (recommendedFit.length >= 1) {
+      setSelectedFitReferenceIds(recommendedFit.slice(0, 3));
     }
-  }, [selectedFitPromptId, selectedFitPrompt, fitReferences]);
+
+    if (recommendedLikeness.length >= 1) {
+      setSelectedLikenessReferenceIds(recommendedLikeness.slice(0, 2));
+    }
+  }, [selectedFitPromptId, selectedFitPrompt, fitReferences, likenessReferences]);
 
   async function generate(promptId: string) {
     setGenerationState((current) => ({
@@ -255,12 +279,26 @@ export default function ReviewPage() {
   }
 
   function toggleFitReference(referenceId: string) {
-    setSelectedReferenceIds((current) => {
+    setSelectedFitReferenceIds((current) => {
       if (current.includes(referenceId)) {
         return current.filter((item) => item !== referenceId);
       }
 
-      if (current.length >= 4) {
+      if (current.length >= 3) {
+        return current;
+      }
+
+      return [...current, referenceId];
+    });
+  }
+
+  function toggleLikenessReference(referenceId: string) {
+    setSelectedLikenessReferenceIds((current) => {
+      if (current.includes(referenceId)) {
+        return current.filter((item) => item !== referenceId);
+      }
+
+      if (current.length >= 2) {
         return current;
       }
 
@@ -281,7 +319,8 @@ export default function ReviewPage() {
         },
         body: JSON.stringify({
           promptId: selectedFitPromptId,
-          referenceIds: selectedReferenceIds,
+          fitReferenceIds: selectedFitReferenceIds,
+          likenessReferenceIds: selectedLikenessReferenceIds,
           aspectRatio: selectedAspectRatio,
           outputMode: selectedOutputMode,
         }),
@@ -363,7 +402,8 @@ export default function ReviewPage() {
         promptId: result.promptId,
         aspectRatio: result.aspectRatio,
         outputMode: result.outputMode,
-        referenceIds: result.references.map((reference) => reference.id),
+        fit_refs_used: result.fit_refs_used.map((reference) => reference.id),
+        likeness_refs_used: result.likeness_refs_used.map((reference) => reference.id),
       });
 
       setFitCampaignResults((current) =>
@@ -423,7 +463,11 @@ export default function ReviewPage() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-black/45">Reference source</p>
-            <p className="mt-2 text-sm leading-6 text-black/70">{fitManifest?.referenceSource || prompts[0]?.reference_root || "Loading…"}</p>
+            <p className="mt-2 text-sm leading-6 text-black/70">
+              {fitManifest
+                ? `fit: ${fitManifest.fitReferenceSource} • likeness: ${fitManifest.likenessReferenceSource}`
+                : prompts[0]?.reference_root || "Loading…"}
+            </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-black/45">Blob storage</p>
@@ -588,7 +632,7 @@ export default function ReviewPage() {
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Workflow A</p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight">Generate Fit Campaign</h2>
                 <p className="mt-3 text-sm leading-7 text-black/65">
-                  Build matched Train With Me campaign-family images using 2 to 4 `summer_fit` references as pose, athletic-intent, and likeness anchors.
+                  Build matched Train With Me campaign-family images by combining fit/action refs for pose and athletic intent with close-up likeness refs for face and identity lock.
                 </p>
               </div>
 
@@ -601,6 +645,12 @@ export default function ReviewPage() {
               {fitReferences.length === 0 ? (
                 <div className="rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
                   No `summer_fit` refs are available right now. Add files under `public/references/summer_fit` or provide `SUMMER_FIT_REFERENCE_MANIFEST_JSON` for a Blob-backed manifest later.
+                </div>
+              ) : null}
+
+              {likenessReferences.length === 0 ? (
+                <div className="rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                  No likeness close-ups are available from the existing likeness reference source, so face lock support is currently unavailable.
                 </div>
               ) : null}
 
@@ -656,23 +706,55 @@ export default function ReviewPage() {
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Selected direction</p>
                   <h3 className="mt-2 text-xl font-semibold">{selectedFitPrompt.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-black/75">{selectedFitPrompt.prompt}</p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-black/45">Selected fit refs</p>
+                      <p className="mt-2 text-sm leading-6 text-black/70">
+                        {selectedFitReferenceIds.length > 0
+                          ? fitReferences
+                              .filter((reference) => selectedFitReferenceIds.includes(reference.id))
+                              .map((reference) => reference.title)
+                              .join(" • ")
+                          : "No fit refs selected yet."}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-black/45">Selected likeness refs</p>
+                      <p className="mt-2 text-sm leading-6 text-black/70">
+                        {selectedLikenessReferenceIds.length > 0
+                          ? likenessReferences
+                              .filter((reference) => selectedLikenessReferenceIds.includes(reference.id))
+                              .map((reference) => reference.title)
+                              .join(" • ")
+                          : "No likeness refs selected. Face accuracy may drift."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-black/10 bg-white/70 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Combined creative summary</p>
+                    <p className="mt-2 text-sm leading-6 text-black/70">
+                      Fit refs define pose blueprint, body mechanics, movement realism, workout intent, and environment inspiration. Likeness refs define exact facial identity and must dominate eye shape, brows, lips, jawline, age consistency, and hairline fidelity. Keep the same exact woman across all outputs and do not let athletic refs overwrite face accuracy.
+                    </p>
+                  </div>
                 </div>
               ) : null}
 
               <div className="rounded-3xl border border-black/10 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">summer_fit references</p>
-                    <p className="mt-2 text-sm leading-6 text-black/60">Select 2 to 4 references to lock the same woman, pose intent, and premium sports campaign family.</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Fit References</p>
+                    <p className="mt-2 text-sm leading-6 text-black/60">
+                      Pulls from `summer_fit`. Use these for pose blueprint, body mechanics, workout intent, movement realism, and environment inspiration. Recommended: 1 to 3.
+                    </p>
                   </div>
                   <p className="rounded-full bg-[#f7f4ef] px-3 py-1 text-xs uppercase tracking-[0.2em] text-black/60">
-                    {selectedReferenceCount}/4 selected
+                    {selectedFitReferenceCount}/3 selected
                   </p>
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {fitReferences.map((reference) => {
-                    const selected = selectedReferenceIds.includes(reference.id);
+                    const selected = selectedFitReferenceIds.includes(reference.id);
 
                     return (
                       <button
@@ -694,12 +776,68 @@ export default function ReviewPage() {
                           <p className={`text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>
                             {reference.tags.length > 0 ? reference.tags.join(" • ") : "General fit anchor"}
                           </p>
+                          {reference.description ? (
+                            <p className={`text-xs leading-5 ${selected ? "text-white/70" : "text-black/50"}`}>{reference.description}</p>
+                          ) : null}
                         </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
+
+              <div className="rounded-3xl border border-black/10 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-black/45">Likeness References</p>
+                    <p className="mt-2 text-sm leading-6 text-black/60">
+                      Pulls from the existing close-up likeness source. Use these for face lock, eye shape and color, brows, lips, jawline, age consistency, and hairline identity. Recommended: 1 to 2.
+                    </p>
+                  </div>
+                  <p className="rounded-full bg-[#f7f4ef] px-3 py-1 text-xs uppercase tracking-[0.2em] text-black/60">
+                    {selectedLikenessReferenceCount}/2 selected
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {likenessReferences.map((reference) => {
+                    const selected = selectedLikenessReferenceIds.includes(reference.id);
+
+                    return (
+                      <button
+                        key={reference.id}
+                        type="button"
+                        onClick={() => toggleLikenessReference(reference.id)}
+                        disabled={!reference.available}
+                        className={`overflow-hidden rounded-[1.5rem] border text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"} ${!reference.available ? "cursor-not-allowed opacity-40" : "hover:border-black/25"}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={reference.previewUrl} alt={reference.title} className="h-44 w-full object-cover" />
+                        <div className="space-y-2 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold">{reference.title}</p>
+                            <span className="rounded-full border border-current/15 px-2 py-1 text-[10px] uppercase tracking-[0.18em]">
+                              {selected ? "Selected" : "Tap to add"}
+                            </span>
+                          </div>
+                          <p className={`text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>
+                            {reference.tags.length > 0 ? reference.tags.join(" • ") : "Likeness anchor"}
+                          </p>
+                          {reference.description ? (
+                            <p className={`text-xs leading-5 ${selected ? "text-white/70" : "text-black/50"}`}>{reference.description}</p>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {selectedLikenessReferenceCount === 0 ? (
+                <div className="rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                  You selected fit refs without likeness refs. Generation can still run, but face accuracy may drift because no dedicated identity-lock closeups are attached.
+                </div>
+              ) : null}
 
               {fitGenerateState.error ? (
                 <div className="rounded-3xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-800">
@@ -710,7 +848,7 @@ export default function ReviewPage() {
               <button
                 type="button"
                 onClick={runFitGeneration}
-                disabled={fitWorkflowUnavailable || selectedReferenceCount < 2 || selectedReferenceCount > 4 || fitGenerateState.loading}
+                disabled={fitWorkflowUnavailable || selectedFitReferenceCount < 1 || selectedFitReferenceCount > 3 || selectedLikenessReferenceCount > 2 || fitGenerateState.loading}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >
                 {fitGenerateState.loading ? "Generating fit campaign…" : "Generate fit campaign image"}
@@ -735,7 +873,7 @@ export default function ReviewPage() {
                         <p className="text-xs uppercase tracking-[0.2em] text-black/45">Saved to Blob</p>
                         <h3 className="mt-2 text-2xl font-semibold tracking-tight">{promptTitle}</h3>
                         <p className="mt-2 text-sm text-black/60">
-                          {result.aspectRatio} • {outputModeTitle} • {result.references.length} refs
+                          {result.aspectRatio} • {outputModeTitle} • {result.fit_refs_used.length} fit refs • {result.likeness_refs_used.length} likeness refs
                         </p>
                       </div>
                       {result.decision ? (
@@ -776,8 +914,10 @@ export default function ReviewPage() {
                     </div>
 
                     <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
-                      <p className="text-xs uppercase tracking-[0.2em] text-black/45">Reference stack</p>
-                      <p className="mt-2">{result.references.map((reference) => reference.title).join(" • ")}</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-black/45">Reference groups used</p>
+                      <p className="mt-2"><span className="font-semibold">Fit:</span> {result.fit_refs_used.map((reference) => reference.title).join(" • ") || "None"}</p>
+                      <p className="mt-2"><span className="font-semibold">Likeness:</span> {result.likeness_refs_used.map((reference) => reference.title).join(" • ") || "None"}</p>
+                      {result.warning ? <p className="mt-3 text-amber-900">{result.warning}</p> : null}
                       {result.responseText ? <p className="mt-3">{result.responseText}</p> : null}
                     </div>
                   </article>

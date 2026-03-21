@@ -1,6 +1,7 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
+import { getLikenessReferencePromptUsage } from "@/lib/likeness-references";
 import { buildGeminiPrompt, getPromptEntry, type PromptPackEntry } from "@/lib/prompt-pack";
 
 type ReferenceImageClient = {
@@ -78,32 +79,30 @@ export const FIT_ENHANCEMENT_MODES: EnhancementMode[] = [
   },
 ];
 
-export const FIT_PROMPT_REFERENCE_RECOMMENDATIONS: Record<string, string[]> = {
-  train_with_me_pushup_intensity: [
-    "fit_pushup_intensity_close",
-    "fit_pushup_intensity_profile",
-    "fit_concrete_seated_editorial",
-  ],
-  train_with_me_concrete_seated: [
-    "fit_concrete_seated_editorial",
-    "fit_pushup_intensity_close",
-    "fit_side_profile_architectural",
-  ],
-  train_with_me_band_squat: [
-    "fit_band_squat_profile",
-    "fit_concrete_seated_editorial",
-    "fit_pushup_intensity_close",
-  ],
-  train_with_me_side_profile_architectural: [
-    "fit_side_profile_architectural",
-    "fit_concrete_seated_editorial",
-    "fit_pushup_intensity_profile",
-  ],
-  train_with_me_stretch_recovery: [
-    "fit_stretch_recovery_standing",
-    "fit_concrete_seated_editorial",
-    "fit_pushup_intensity_profile",
-  ],
+export const FIT_PROMPT_REFERENCE_RECOMMENDATIONS: Record<
+  string,
+  { fitReferenceIds: string[]; likenessReferenceIds: string[] }
+> = {
+  train_with_me_pushup_intensity: {
+    fitReferenceIds: ["fit_pushup_intensity_close", "fit_pushup_intensity_profile"],
+    likenessReferenceIds: ["likeness_black_closeup", "likeness_purple_closeup_1"],
+  },
+  train_with_me_concrete_seated: {
+    fitReferenceIds: ["fit_concrete_seated_editorial", "fit_side_profile_architectural"],
+    likenessReferenceIds: ["likeness_black_closeup", "likeness_peach_closeup_mid_shot"],
+  },
+  train_with_me_band_squat: {
+    fitReferenceIds: ["fit_band_squat_profile", "fit_pushup_intensity_close"],
+    likenessReferenceIds: ["likeness_black_closeup", "likeness_black_top_midshot"],
+  },
+  train_with_me_side_profile_architectural: {
+    fitReferenceIds: ["fit_side_profile_architectural", "fit_concrete_seated_editorial"],
+    likenessReferenceIds: ["likeness_purple_closeup_4", "likeness_black_closeup"],
+  },
+  train_with_me_stretch_recovery: {
+    fitReferenceIds: ["fit_stretch_recovery_standing", "fit_pushup_intensity_profile"],
+    likenessReferenceIds: ["likeness_black_closeup", "likeness_yellow_on_black_midshot"],
+  },
 };
 
 const SUMMER_FIT_REFERENCE_METADATA: Record<
@@ -385,17 +384,32 @@ export function buildFitCampaignPrompt(
   options: {
     aspectRatio: string;
     outputModeId: string;
-    selectedReferences: Array<Pick<SummerFitReference, "id" | "title" | "tags" | "description">>;
+    selectedFitReferences: Array<Pick<SummerFitReference, "id" | "title" | "tags" | "description">>;
+    selectedLikenessReferences: Array<{
+      id: string;
+      title: string;
+      tags: string[];
+      description?: string;
+    }>;
   },
 ) {
   const outputMode = FIT_OUTPUT_MODES.find((mode) => mode.id === options.outputModeId) ?? FIT_OUTPUT_MODES[0];
-  const referenceSummary = options.selectedReferences
+  const fitReferenceSummary = options.selectedFitReferences
     .map((reference) => `${reference.title}${reference.tags.length > 0 ? ` [${reference.tags.join(", ")}]` : ""}`)
     .join("; ");
-  const referenceGuidance = options.selectedReferences
+  const fitReferenceGuidance = options.selectedFitReferences
     .map((reference) => {
       const metadata = SUMMER_FIT_REFERENCE_METADATA[reference.id];
       return metadata ? `- ${reference.title}: ${metadata.promptUsage}` : null;
+    })
+    .filter((entry): entry is string => Boolean(entry));
+  const likenessReferenceSummary = options.selectedLikenessReferences
+    .map((reference) => `${reference.title}${reference.tags.length > 0 ? ` [${reference.tags.join(", ")}]` : ""}`)
+    .join("; ");
+  const likenessReferenceGuidance = options.selectedLikenessReferences
+    .map((reference) => {
+      const usage = getLikenessReferencePromptUsage(reference.id);
+      return usage ? `- ${reference.title}: ${usage}` : null;
     })
     .filter((entry): entry is string => Boolean(entry));
 
@@ -407,13 +421,19 @@ export function buildFitCampaignPrompt(
     `- Output mode: ${outputMode.title}`,
     `- ${outputMode.instruction}`,
     "- Build the image as part of a matched campaign family with the same exact woman across adjacent outputs.",
-    "- Use the provided summer_fit references as pose, athletic-intent, and likeness anchors without copying them mechanically.",
+    "- Attached fit references define pose blueprint, movement realism, body angle, athletic intent, workout posture, and environment inspiration.",
+    "- Attached likeness references define exact facial identity and must dominate face accuracy, eye shape, brows, lips, jawline, age consistency, and hairline fidelity.",
+    "- Preserve the same exact woman from the likeness references.",
+    "- Preserve the workout action, body posture, and athletic intent from the fit references.",
+    "- Do not let athletic fit references overwrite facial identity.",
     "- Prioritize modeling-plus-fitness crossover with premium editorial sports polish.",
     "- Read the court, white-seamless studio, curved concrete, parking-structure, and resort-lawn cues as premium environmental anchors when those references are present.",
     "- Favor low-to-ground pressure, side-profile athletic lines, seated post-session calm, and recovery realism from this actual reference set rather than inventing generic workout poses.",
     "- Keep the result cinematic, realistic, athletic, and luxury-forward rather than posterized or stock-commercial.",
-    `- Selected references: ${referenceSummary}`,
-    ...(referenceGuidance.length > 0 ? ["- Reference-specific guidance:", ...referenceGuidance] : []),
+    `- Fit refs: ${fitReferenceSummary || "none selected"}`,
+    `- Likeness refs: ${likenessReferenceSummary || "none selected"}`,
+    ...(fitReferenceGuidance.length > 0 ? ["- Fit reference guidance:", ...fitReferenceGuidance] : []),
+    ...(likenessReferenceGuidance.length > 0 ? ["- Likeness reference guidance:", ...likenessReferenceGuidance] : []),
   ].join("\n");
 }
 

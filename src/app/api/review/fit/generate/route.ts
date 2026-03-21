@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { uploadBinaryAsset } from "@/lib/blob-storage";
+import { uploadBinaryAsset, uploadJsonAsset } from "@/lib/blob-storage";
 import { generateGeminiImage } from "@/lib/gemini-image";
+import { listLikenessReferences, loadLikenessReferences } from "@/lib/likeness-references";
 import {
   buildFitCampaignPrompt,
   FIT_ASPECT_RATIOS,
@@ -18,9 +19,10 @@ function sanitizeSlug(value: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const { promptId, referenceIds, aspectRatio, outputMode } = (await request.json()) as {
+  const { promptId, fitReferenceIds, likenessReferenceIds, aspectRatio, outputMode } = (await request.json()) as {
     promptId?: string;
-    referenceIds?: string[];
+    fitReferenceIds?: string[];
+    likenessReferenceIds?: string[];
     aspectRatio?: string;
     outputMode?: string;
   };
@@ -29,8 +31,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing promptId." }, { status: 400 });
   }
 
-  if (!referenceIds || referenceIds.length < 2 || referenceIds.length > 4) {
-    return NextResponse.json({ error: "Select between 2 and 4 summer_fit references." }, { status: 400 });
+  if (!fitReferenceIds || fitReferenceIds.length < 1 || fitReferenceIds.length > 3) {
+    return NextResponse.json({ error: "Select between 1 and 3 fit references." }, { status: 400 });
+  }
+
+  if (likenessReferenceIds && likenessReferenceIds.length > 2) {
+    return NextResponse.json({ error: "Select no more than 2 likeness references." }, { status: 400 });
   }
 
   const resolvedAspectRatio = FIT_ASPECT_RATIOS.find((entry) => entry.id === aspectRatio)?.id;
@@ -52,14 +58,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const references = await loadSummerFitReferences(referenceIds);
+    const fitReferences = await loadSummerFitReferences(fitReferenceIds);
+    const likenessReferences = await loadLikenessReferences(likenessReferenceIds || []);
     const promptText = buildFitCampaignPrompt(prompt, {
       aspectRatio: resolvedAspectRatio,
       outputModeId: resolvedOutputMode,
-      selectedReferences: references,
+      selectedFitReferences: fitReferences,
+      selectedLikenessReferences: likenessReferences,
     });
     const result = await generateGeminiImage([
-      ...references.map((reference) => ({
+      ...likenessReferences.map((reference) => ({
+        inlineData: {
+          mimeType: reference.mimeType,
+          data: reference.dataBase64,
+        },
+      })),
+      ...fitReferences.map((reference) => ({
         inlineData: {
           mimeType: reference.mimeType,
           data: reference.dataBase64,
@@ -74,7 +88,25 @@ export async function POST(request: NextRequest) {
       Buffer.from(result.image.data, "base64"),
       result.image.mimeType,
     );
-    const referenceManifest = await listSummerFitReferences();
+    const [fitReferenceManifest, likenessReferenceManifest] = await Promise.all([
+      listSummerFitReferences(),
+      listLikenessReferences(),
+    ]);
+    const fitRefsUsed = fitReferenceManifest.references.filter((reference) => fitReferenceIds.includes(reference.id));
+    const likenessRefsUsed = likenessReferenceManifest.references.filter((reference) => (likenessReferenceIds || []).includes(reference.id));
+    const metadataRecord = await uploadJsonAsset(
+      `review/fit-campaign/${sanitizeSlug(promptId)}-${Date.now()}-metadata.json`,
+      {
+        promptId,
+        aspectRatio: resolvedAspectRatio,
+        outputMode: resolvedOutputMode,
+        fit_refs_used: fitRefsUsed.map((reference) => ({ id: reference.id, title: reference.title })),
+        likeness_refs_used: likenessRefsUsed.map((reference) => ({ id: reference.id, title: reference.title })),
+        model: result.model,
+        assetPathname: uploaded.pathname,
+        createdAt: new Date().toISOString(),
+      },
+    );
 
     return NextResponse.json({
       promptId,
@@ -82,10 +114,16 @@ export async function POST(request: NextRequest) {
       prompt: promptText,
       aspectRatio: resolvedAspectRatio,
       outputMode: resolvedOutputMode,
-      referenceCount: references.length,
-      references: referenceManifest.references.filter((reference) => referenceIds.includes(reference.id)),
+      referenceCount: fitReferences.length + likenessReferences.length,
+      fit_refs_used: fitRefsUsed,
+      likeness_refs_used: likenessRefsUsed,
       asset: uploaded,
+      metadataRecord,
       responseText: result.text,
+      warning:
+        likenessRefsUsed.length === 0
+          ? "No likeness refs were selected. Face accuracy may drift because only fit/action refs were provided."
+          : null,
     });
   } catch (error) {
     return NextResponse.json(

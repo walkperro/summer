@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isBlobStorageConfigured } from "@/lib/blob-storage";
+import { listLikenessReferences } from "@/lib/likeness-references";
 import {
   FIT_ASPECT_RATIOS,
   FIT_ENHANCEMENT_MODES,
@@ -14,7 +15,8 @@ import {
 export const runtime = "nodejs";
 
 export async function GET() {
-  const referenceManifest = await listSummerFitReferences();
+  const fitReferenceManifest = await listSummerFitReferences();
+  const likenessReferenceManifest = await listLikenessReferences();
   const enhancementPrompt = getFitEnhancementPromptEntry();
 
   return NextResponse.json({
@@ -25,7 +27,8 @@ export async function GET() {
       recommended_framing: prompt.recommended_framing,
       export_goal: prompt.export_goal,
       prompt: prompt.prompt,
-      recommendedReferenceIds: FIT_PROMPT_REFERENCE_RECOMMENDATIONS[prompt.id] || [],
+      recommendedFitReferenceIds: FIT_PROMPT_REFERENCE_RECOMMENDATIONS[prompt.id]?.fitReferenceIds || [],
+      recommendedLikenessReferenceIds: FIT_PROMPT_REFERENCE_RECOMMENDATIONS[prompt.id]?.likenessReferenceIds || [],
     })),
     fitEnhancementPrompt: {
       id: enhancementPrompt.id,
@@ -36,8 +39,10 @@ export async function GET() {
     aspectRatios: FIT_ASPECT_RATIOS,
     outputModes: FIT_OUTPUT_MODES,
     enhancementModes: FIT_ENHANCEMENT_MODES,
-    references: referenceManifest.references,
-    referenceSource: referenceManifest.source,
+    fitReferences: fitReferenceManifest.references,
+    fitReferenceSource: fitReferenceManifest.source,
+    likenessReferences: likenessReferenceManifest.references,
+    likenessReferenceSource: likenessReferenceManifest.source,
     storageConfigured: isBlobStorageConfigured(),
   });
 }
