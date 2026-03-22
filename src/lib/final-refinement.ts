@@ -56,7 +56,7 @@ type StackWarning = {
   message: string;
 };
 
-type RenderAspectRatio = "source_auto" | "1:1" | "3:4" | "4:5" | "9:16" | "16:9" | "21:9";
+type RenderAspectRatio = "source_auto" | "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "9:16" | "16:9" | "21:9";
 
 type FinalRenderControls = {
   aspectRatio: RenderAspectRatio;
@@ -113,7 +113,10 @@ type FinalImageExecutionPlan = {
 export const FINAL_RENDER_ASPECT_RATIOS: Array<{ id: RenderAspectRatio; title: string; help: string }> = [
   { id: "source_auto", title: "Source / Auto", help: "Best default when you want the result to stay closest to the original framing." },
   { id: "1:1", title: "1:1", help: "Square crop for product or profile-style delivery." },
+  { id: "2:3", title: "2:3", help: "Classic portrait ratio for taller editorial crops." },
+  { id: "3:2", title: "3:2", help: "Balanced landscape ratio for wider section imagery." },
   { id: "3:4", title: "3:4", help: "Slightly taller portrait crop." },
+  { id: "4:3", title: "4:3", help: "Traditional landscape composition for flexible website layouts." },
   { id: "4:5", title: "4:5", help: "Editorial portrait default for premium feed crops." },
   { id: "9:16", title: "9:16", help: "Vertical stories and reels framing." },
   { id: "16:9", title: "16:9", help: "Wide campaign and hero layout." },
@@ -413,6 +416,13 @@ function getAspectRatioPromptLines(renderControls: FinalRenderControls) {
     return [
       "Aspect ratio direction: stay closest to the source framing and preserve the natural source canvas behavior.",
       "Model support note: Source / Auto is treated as the most composition-faithful option for this execution path.",
+    ];
+  }
+
+  if (renderControls.aspectRatio === "4:5") {
+    return [
+      "Aspect ratio direction: target a 4:5 website portrait crop. This path uses prompt-guided framing for 4:5 rather than a native Gemini aspect-ratio lock.",
+      "Model support note: 4:5 is treated as a website crop target for composition guidance and may still need downstream crop discipline if the model drifts.",
     ];
   }
 

@@ -35,24 +35,29 @@ const LOCAL_REFERENCE_ROOT = path.join(process.cwd(), "public", "references", "s
 const MANIFEST_REFERENCE_JSON = process.env.SUMMER_FIT_REFERENCE_MANIFEST_JSON;
 
 export const FIT_ASPECT_RATIOS = [
-  { id: "16:9", title: "16:9 Campaign Wide" },
-  { id: "4:5", title: "4:5 Editorial Portrait" },
-  { id: "3:4", title: "3:4 Story Portrait" },
-  { id: "1:1", title: "1:1 Social Crop" },
-];
+  { id: "1:1", title: "1:1 Square", quickPickLabel: "Square", treatment: "prompt_guided" },
+  { id: "2:3", title: "2:3 Portrait", quickPickLabel: null, treatment: "prompt_guided" },
+  { id: "3:2", title: "3:2 Landscape", quickPickLabel: null, treatment: "prompt_guided" },
+  { id: "3:4", title: "3:4 Portrait", quickPickLabel: null, treatment: "prompt_guided" },
+  { id: "4:3", title: "4:3 Landscape", quickPickLabel: null, treatment: "prompt_guided" },
+  { id: "4:5", title: "4:5 Editorial Portrait", quickPickLabel: "Hero Mobile / Portrait Section", treatment: "website_crop_target" },
+  { id: "9:16", title: "9:16 Story / Vertical", quickPickLabel: "Story / Vertical", treatment: "prompt_guided" },
+  { id: "16:9", title: "16:9 Hero / Wide Section", quickPickLabel: "Hero Desktop / Wide Section", treatment: "prompt_guided" },
+  { id: "21:9", title: "21:9 Cinematic Wide", quickPickLabel: null, treatment: "prompt_guided" },
+] as const;
 
 export const FIT_OUTPUT_MODES = [
   {
     id: "high_end",
-    title: "High-End Native",
+    title: "2K Iteration",
     instruction:
-      "Generate at the provider's highest native quality with premium detail, campaign polish, and clean sharpening discipline.",
+      "Generate at a reliable 2K-class iteration target with premium detail, campaign polish, and clean sharpening discipline. Use this for normal iteration and approvals.",
   },
   {
     id: "campaign_4k",
-    title: "4K Campaign Finish",
+    title: "4K Campaign Finish — Final export only",
     instruction:
-      "Compose for a final 4K campaign finish. Prioritize detail that will hold at 3840x2160 or equivalent 4K delivery without fake oversharpening.",
+      "Compose for a final 4K campaign finish. Prioritize detail that will hold at 3840x2160 or equivalent 4K delivery without fake oversharpening. 4K may be slower and may temporarily fail under high demand, so use it for final approved images only.",
   },
 ];
 
@@ -394,6 +399,7 @@ export function buildFitCampaignPrompt(
   },
 ) {
   const outputMode = FIT_OUTPUT_MODES.find((mode) => mode.id === options.outputModeId) ?? FIT_OUTPUT_MODES[0];
+  const aspectRatioEntry = FIT_ASPECT_RATIOS.find((entry) => entry.id === options.aspectRatio);
   const fitReferenceSummary = options.selectedFitReferences
     .map((reference) => `${reference.title}${reference.tags.length > 0 ? ` [${reference.tags.join(", ")}]` : ""}`)
     .join("; ");
@@ -418,6 +424,7 @@ export function buildFitCampaignPrompt(
     "",
     "Train With Me campaign directives:",
     `- Aspect ratio: ${options.aspectRatio}`,
+    `- Aspect ratio handling: ${aspectRatioEntry?.treatment === "website_crop_target" ? "website crop target with prompt-guided framing, not a native Gemini ratio lock" : "prompt-guided composition target"}`,
     `- Output mode: ${outputMode.title}`,
     `- ${outputMode.instruction}`,
     "- Build the image as part of a matched campaign family with the same exact woman across adjacent outputs.",

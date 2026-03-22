@@ -145,7 +145,7 @@ type FitManifest = {
     use_case: string;
     prompt: string;
   };
-  aspectRatios: Array<{ id: string; title: string }>;
+  aspectRatios: Array<{ id: string; title: string; quickPickLabel?: string | null; treatment?: string }>;
   outputModes: Array<{ id: string; title: string; instruction: string }>;
   enhancementModes: Array<{ id: string; title: string; instruction: string }>;
   fitReferences: FitReference[];
@@ -274,6 +274,11 @@ type RefineResult = {
 type AsyncState = {
   loading: boolean;
   error: string | null;
+};
+
+type OverloadFallbackState = {
+  available: boolean;
+  message: string | null;
 };
 
 type JobProgressStageId = "preparing" | "building" | "sending" | "waiting" | "receiving" | "rendering" | "saving" | "done" | "error";
@@ -462,6 +467,10 @@ function mapJobFailureMessage(kind: JobProgressKind, message: string) {
     return "Try simplifying the stack or disabling strong reframing.";
   }
 
+  if (normalized.includes("overloaded") || normalized.includes("503") || normalized.includes("unavailable")) {
+    return "Gemini is temporarily overloaded. Retries were exhausted. Try rerunning at 2K for a more reliable pass.";
+  }
+
   return kind === "refine" ? "Generation failed before output was returned." : "Generation failed before output was returned.";
 }
 
@@ -486,6 +495,15 @@ function renderJobProgress(progress: JobProgressState | null) {
     </div>
   );
 }
+
+const WEBSITE_ASPECT_RATIO_QUICK_PICKS: Array<{ label: string; ratio: string }> = [
+  { label: "Hero Desktop", ratio: "16:9" },
+  { label: "Hero Mobile", ratio: "4:5" },
+  { label: "Portrait Section", ratio: "4:5" },
+  { label: "Wide Section", ratio: "16:9" },
+  { label: "Story / Vertical", ratio: "9:16" },
+  { label: "Square", ratio: "1:1" },
+];
 
 function HelpBubble({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: ReactNode }) {
   return (
@@ -524,6 +542,7 @@ export default function ReviewPage() {
   const [selectedAspectRatio, setSelectedAspectRatio] = useState("16:9");
   const [selectedOutputMode, setSelectedOutputMode] = useState("high_end");
   const [fitGenerateState, setFitGenerateState] = useState<AsyncState>({ loading: false, error: null });
+  const [fitGenerateFallbackState, setFitGenerateFallbackState] = useState<OverloadFallbackState>({ available: false, message: null });
   const [fitGenerateProgress, setFitGenerateProgress] = useState<JobProgressState | null>(null);
   const fitGenerateProgressController = useRef<ProgressController | null>(null);
   const [fitCampaignResults, setFitCampaignResults] = useState<FitCampaignResult[]>([]);
@@ -562,6 +581,7 @@ export default function ReviewPage() {
   const [refineTemperature, setRefineTemperature] = useState(DEFAULT_RENDER_CONTROLS.temperature);
   const [refineTopP, setRefineTopP] = useState(DEFAULT_RENDER_CONTROLS.topP);
   const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
+  const [fitRefineFallbackState, setFitRefineFallbackState] = useState<OverloadFallbackState>({ available: false, message: null });
   const [fitRefineProgress, setFitRefineProgress] = useState<JobProgressState | null>(null);
   const fitRefineProgressController = useRef<ProgressController | null>(null);
   const [fitRefineResults, setFitRefineResults] = useState<RefineResult[]>([]);
@@ -888,12 +908,25 @@ export default function ReviewPage() {
     });
   }
 
-  async function runFitGeneration() {
+  function rerunFitGenerationAt2k() {
+    setSelectedOutputMode("high_end");
+    setFitGenerateFallbackState({ available: false, message: null });
+    void runFitGeneration("high_end");
+  }
+
+  function rerunRefinementAt2k() {
+    setRefineExport4k(false);
+    setFitRefineFallbackState({ available: false, message: null });
+    void runFinalRefinement({ export4kOverride: false });
+  }
+
+  async function runFitGeneration(outputModeOverride?: string) {
     if (!selectedFitPromptId) return;
 
     fitGenerateProgressController.current?.stop();
     fitGenerateProgressController.current = createProgressController("generate", setFitGenerateProgress);
     setFitGenerateState({ loading: true, error: null });
+    setFitGenerateFallbackState({ available: false, message: null });
 
     try {
       fitGenerateProgressController.current.advance("building", { helperText: "Preparing prompt, references, and output settings." });
@@ -902,7 +935,7 @@ export default function ReviewPage() {
         fitReferenceIds: selectedFitReferenceIds,
         likenessReferenceIds: selectedLikenessReferenceIds,
         aspectRatio: selectedAspectRatio,
-        outputMode: selectedOutputMode,
+        outputMode: outputModeOverride ?? selectedOutputMode,
       };
       fitGenerateProgressController.current.advance("sending");
       const responsePromise = fetch("/api/review/fit/generate", {
@@ -916,9 +949,19 @@ export default function ReviewPage() {
       const response = await responsePromise;
 
       fitGenerateProgressController.current.advance("receiving");
-      const data = (await response.json()) as FitCampaignResult & { error?: string };
+      const data = (await response.json()) as FitCampaignResult & {
+        error?: string;
+        temporaryOverload?: boolean;
+        fallbackAction?: string;
+      };
 
       if (!response.ok || !data.asset) {
+        if (data.temporaryOverload && data.fallbackAction === "rerun_at_2k") {
+          setFitGenerateFallbackState({
+            available: true,
+            message: "Gemini is temporarily overloaded for 4K. You can rerun this exact request at 2K without losing your selected settings.",
+          });
+        }
         throw new Error(data.error || "Fit campaign generation failed.");
       }
 
@@ -928,6 +971,7 @@ export default function ReviewPage() {
         fitGenerateProgressController.current.advance("saving", { helperText: "Final asset is being finalized for download." });
       }
       fitGenerateProgressController.current.complete();
+      setFitGenerateFallbackState({ available: false, message: null });
       setFitGenerateState({ loading: false, error: null });
     } catch (error) {
       fitGenerateProgressController.current?.fail(
@@ -1248,7 +1292,7 @@ export default function ReviewPage() {
     setCameraSelectionFeedback(result.warning?.message || null);
   }
 
-  async function runFinalRefinement() {
+  async function runFinalRefinement(options?: { export4kOverride?: boolean }) {
     if (!selectedRefineSource) {
       setFitRefineState({ loading: false, error: "Select a source image to refine." });
       return;
@@ -1264,9 +1308,12 @@ export default function ReviewPage() {
       return;
     }
 
+    const effectiveExport4k = options?.export4kOverride ?? (refineExport4k || selectedRefinementStack.includes("final_4k_upscale"));
+
     fitRefineProgressController.current?.stop();
     fitRefineProgressController.current = createProgressController("refine", setFitRefineProgress);
     setFitRefineState({ loading: true, error: null });
+    setFitRefineFallbackState({ available: false, message: null });
 
     try {
       fitRefineProgressController.current.advance("building", { helperText: "Resolving source image and building the final instruction stack." });
@@ -1279,7 +1326,7 @@ export default function ReviewPage() {
         refinementStack: selectedRefinementStack,
         customInstruction: refinementCustomInstruction,
         preserveFlags: refinementPreserveFlags,
-        export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
+        export4k: effectiveExport4k,
         keepOriginalAspectRatio: refineAspectRatio === "source_auto",
         cameraPresetIds: selectedCameraPresetIds,
         reframeIntensity: selectedReframeIntensity,
@@ -1301,9 +1348,19 @@ export default function ReviewPage() {
       const response = await responsePromise;
 
       fitRefineProgressController.current.advance("receiving");
-      const data = (await response.json()) as RefineResult & { error?: string };
+      const data = (await response.json()) as RefineResult & {
+        error?: string;
+        temporaryOverload?: boolean;
+        fallbackAction?: string;
+      };
 
       if (!response.ok) {
+        if (data.temporaryOverload && data.fallbackAction === "rerun_at_2k") {
+          setFitRefineFallbackState({
+            available: true,
+            message: "Gemini is temporarily overloaded for 4K. You can rerun this exact refinement at 2K without losing your stack or camera settings.",
+          });
+        }
         throw new Error(data.error || "Final refinement failed.");
       }
 
@@ -1321,6 +1378,7 @@ export default function ReviewPage() {
       fitRefineProgressController.current.complete(
         data.metadata.execution_mode === "reframe" ? "Your reframed image is ready." : "Your refined image is ready.",
       );
+      setFitRefineFallbackState({ available: false, message: null });
       setFitRefineState({ loading: false, error: null });
     } catch (error) {
       fitRefineProgressController.current?.fail(
@@ -1601,8 +1659,23 @@ export default function ReviewPage() {
                       <option key={aspectRatio.id} value={aspectRatio.id}>
                         {aspectRatio.title}
                       </option>
-                    ))}
+                      ))}
                   </select>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {WEBSITE_ASPECT_RATIO_QUICK_PICKS.map((preset) => (
+                      <button
+                        key={`${preset.label}-${preset.ratio}`}
+                        type="button"
+                        onClick={() => setSelectedAspectRatio(preset.ratio)}
+                        className={`rounded-full px-3 py-2 text-xs font-medium transition ${selectedAspectRatio === preset.ratio ? "bg-black text-white" : "border border-black/10 bg-[#f7f4ef] text-black/70 hover:border-black/25 hover:text-black"}`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-black/55">
+                    4:5 is currently treated as a website crop target with prompt-guided framing, not a native Gemini aspect-ratio lock.
+                  </p>
                 </label>
               </div>
 
@@ -1617,8 +1690,14 @@ export default function ReviewPage() {
                     <option key={outputMode.id} value={outputMode.id}>
                       {outputMode.title}
                     </option>
-                  ))}
+                    ))}
                 </select>
+                <p className="mt-3 text-sm leading-6 text-black/60">2K is best for iteration. 4K is best for final exports only.</p>
+                {selectedOutputMode === "campaign_4k" ? (
+                  <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
+                    4K may be slower and may temporarily fail under high demand. Use for final approved images.
+                  </div>
+                ) : null}
               </label>
 
               {selectedFitPrompt ? (
@@ -1762,12 +1841,24 @@ export default function ReviewPage() {
               {fitGenerateState.error ? (
                 <div className="rounded-3xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-800">
                   {fitGenerateState.error}
+                  {fitGenerateFallbackState.available ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-red-800/90">{fitGenerateFallbackState.message}</p>
+                      <button
+                        type="button"
+                        onClick={rerunFitGenerationAt2k}
+                        className="rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+                      >
+                        Rerun at 2K
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               <button
                 type="button"
-                onClick={runFitGeneration}
+                onClick={() => void runFitGeneration()}
                 disabled={fitWorkflowUnavailable || selectedFitReferenceCount < 1 || selectedFitReferenceCount > 3 || selectedLikenessReferenceCount > 2 || fitGenerateState.loading}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >
@@ -2106,6 +2197,18 @@ export default function ReviewPage() {
                           </option>
                         ))}
                       </select>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {WEBSITE_ASPECT_RATIO_QUICK_PICKS.map((preset) => (
+                          <button
+                            key={`refine-${preset.label}-${preset.ratio}`}
+                            type="button"
+                            onClick={() => setRefineAspectRatio(preset.ratio as RenderAspectRatio)}
+                            className={`rounded-full px-3 py-2 text-xs font-medium transition ${refineAspectRatio === preset.ratio ? "bg-black text-white" : "border border-black/10 bg-white text-black/70 hover:border-black/25 hover:text-black"}`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
                       <p className="mt-2 text-xs leading-5 text-black/55">Best default: Source / Auto. In this execution path, aspect ratio is applied as composition guidance and may be limited by preserve rules.</p>
                     </div>
 
@@ -2161,8 +2264,14 @@ export default function ReviewPage() {
 
                     <label className="flex items-center gap-3">
                       <input type="checkbox" checked={refineExport4k || selectedRefinementStack.includes("final_4k_upscale")} onChange={() => setRefineExport4k((current) => !current)} />
-                      Export 4K if selected
+                      Export 4K — Final export only
                     </label>
+                    <p className="text-xs leading-5 text-black/55">2K is best for iteration. 4K is best for final exports only.</p>
+                    {refineExport4k || selectedRefinementStack.includes("final_4k_upscale") ? (
+                      <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
+                        4K may be slower and may temporarily fail under high demand. Use for final approved images.
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2628,12 +2737,24 @@ export default function ReviewPage() {
               {fitRefineState.error ? (
                 <div className="rounded-3xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-800">
                   {fitRefineState.error}
+                  {fitRefineFallbackState.available ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-red-800/90">{fitRefineFallbackState.message}</p>
+                      <button
+                        type="button"
+                        onClick={rerunRefinementAt2k}
+                        className="rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+                      >
+                        Rerun at 2K
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               <button
                 type="button"
-                onClick={runFinalRefinement}
+                onClick={() => void runFinalRefinement()}
                 disabled={!selectedRefineSource || selectedRefinementStack.length === 0 || fitRefineState.loading || currentValidation.isBlocked}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >

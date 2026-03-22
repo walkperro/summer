@@ -13,7 +13,7 @@ import {
   type RefinementPresetId,
   type ReframeIntensity,
 } from "@/lib/final-refinement";
-import { generateGeminiImage } from "@/lib/gemini-image";
+import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
 
 export const runtime = "nodejs";
 
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       topP: executionPlan.renderControls.topP,
     });
 
-    const outputSize = export4k || refinementStack.includes("final_4k_upscale") ? "4k" : "source_preserved";
+    const outputSize = export4k || refinementStack.includes("final_4k_upscale") ? "4k_final_export" : "2k_iteration";
     const stackWarnings = executionPlan.stackWarnings;
     const cameraWarnings = executionPlan.cameraWarnings;
     const metadata = {
@@ -208,6 +208,19 @@ export async function POST(request: NextRequest) {
       warning: "Blob is not configured, so this refined result is temporary and available only in the current session.",
     });
   } catch (error) {
+    if (error instanceof GeminiImageError && error.temporaryOverload) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          temporaryOverload: true,
+          retriesAttempted: error.retriesAttempted,
+          fallbackAction: "rerun_at_2k",
+          suggestedExport4k: false,
+        },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unknown final refinement error.",

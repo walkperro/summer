@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { uploadBinaryAsset, uploadJsonAsset } from "@/lib/blob-storage";
-import { generateGeminiImage } from "@/lib/gemini-image";
+import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
 import { listLikenessReferences, loadLikenessReferences } from "@/lib/likeness-references";
 import {
   buildFitCampaignPrompt,
@@ -126,6 +126,19 @@ export async function POST(request: NextRequest) {
           : null,
     });
   } catch (error) {
+    if (error instanceof GeminiImageError && error.temporaryOverload) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          temporaryOverload: true,
+          retriesAttempted: error.retriesAttempted,
+          fallbackAction: "rerun_at_2k",
+          suggestedOutputMode: "high_end",
+        },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unknown fit campaign generation error.",
