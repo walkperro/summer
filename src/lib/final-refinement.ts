@@ -60,7 +60,7 @@ type RenderAspectRatio = "source_auto" | "1:1" | "2:3" | "3:2" | "3:4" | "4:3" |
 
 type CropPosition = "smart_auto" | "center" | "top" | "bottom" | "left" | "right";
 
-type AspectRatioMode = "exact_crop" | "recompose";
+type AspectRatioMode = "exact_crop" | "recompose" | "guided_reframe";
 
 type RecomposeFramingPreference =
   | "keep_original_center_balance"
@@ -453,7 +453,9 @@ function normalizeRenderControls(renderControls?: Partial<FinalRenderControls>):
   const cropPosition = ["smart_auto", "center", "top", "bottom", "left", "right"].includes(String(renderControls?.cropPosition))
     ? (renderControls?.cropPosition as CropPosition)
     : DEFAULT_RENDER_CONTROLS.cropPosition;
-  const aspectRatioMode = renderControls?.aspectRatioMode === "exact_crop" ? "exact_crop" : DEFAULT_RENDER_CONTROLS.aspectRatioMode;
+  const aspectRatioMode = ["exact_crop", "recompose", "guided_reframe"].includes(String(renderControls?.aspectRatioMode))
+    ? (renderControls?.aspectRatioMode as AspectRatioMode)
+    : DEFAULT_RENDER_CONTROLS.aspectRatioMode;
   const framingPreference = [
     "keep_original_center_balance",
     "add_space_left_right_evenly",
@@ -650,14 +652,26 @@ export function validateFinalImageRequest(options: {
   const aiRequest = hasAiRefinementRequest({ ...options, renderControls });
   const wantsStrongReframe = options.reframeIntensity === "strong" || options.preserveFlags.allow_perspective_shift || customInstructionIntents.includes("dramatic_reframe");
 
+  if (renderControls.aspectRatioMode === "exact_crop") {
+    if (aiRequest.hasAnyAiRequest) {
+      pushValidationIssue(blockingIssues, {
+        id: "exact-crop-vs-ai-transformations",
+        level: "blocking",
+        message: "Exact Crop can still use your selected aspect ratio, but it cannot apply AI transformations.",
+        reason: "Exact Crop is deterministic crop/export only, so camera changes, cleanup instructions, expression edits, presets, and other AI reinterpretation requests do not run in this mode.",
+        fix: "Keep Exact Crop for crop-only output, or switch to Full Guided Reframe if you want transformations in the same aspect ratio.",
+      });
+    }
+  }
+
   if (renderControls.aspectRatioMode === "recompose") {
     if (hasVisibleCameraDirection || wantsStrongReframe) {
       pushValidationIssue(blockingIssues, {
         id: "recompose-vs-camera-reinterpretation",
         level: "blocking",
-        message: "This request conflicts with keeping the same exact image.",
-        reason: "Aspect Ratio Recompose Mode preserves the same photograph, but your camera/lens selections ask for a stronger reinterpretation.",
-        fix: "Remove camera/lens reinterpretation or switch to Full Reframe Mode.",
+        message: "This request can still use your selected aspect ratio, but it requires Full Guided Reframe.",
+        reason: "Aspect Ratio Recompose preserves the same photograph geometry and original lens feel, but your camera/lens selections ask for a stronger reinterpretation.",
+        fix: "Switch to Full Guided Reframe, or remove the camera/lens reinterpretation request.",
       });
     }
 
@@ -665,9 +679,9 @@ export function validateFinalImageRequest(options: {
       pushValidationIssue(blockingIssues, {
         id: "recompose-vs-style-preset",
         level: "blocking",
-        message: "Style-changing presets conflict with Aspect Ratio Recompose Mode.",
-        reason: "This mode is meant to preserve the same exact photo feel, not restyle the image.",
-        fix: "Remove style-changing presets, or switch to Refine/Full Reframe Mode if you want an AI restyle.",
+        message: "This request can still use your selected aspect ratio, but it requires Full Guided Reframe.",
+        reason: "Aspect Ratio Recompose is meant to preserve the same exact photo feel, not restyle the image.",
+        fix: "Switch to Full Guided Reframe, or remove the style-changing presets.",
       });
     }
 
@@ -675,9 +689,9 @@ export function validateFinalImageRequest(options: {
       pushValidationIssue(blockingIssues, {
         id: "recompose-vs-custom-camera-instruction",
         level: "blocking",
-        message: "Custom instruction conflicts with keeping the same exact image.",
-        reason: "Aspect Ratio Recompose Mode allows controlled frame expansion, not a new camera language or strong visual reinterpretation.",
-        fix: "Remove the camera/lens-style custom instruction or switch to Full Reframe Mode.",
+        message: "This request can still use your selected aspect ratio, but it requires Full Guided Reframe.",
+        reason: "Aspect Ratio Recompose allows controlled frame expansion, not a new camera language or strong visual reinterpretation.",
+        fix: "Switch to Full Guided Reframe, or remove the camera/lens-style custom instruction.",
       });
     }
 
@@ -685,9 +699,9 @@ export function validateFinalImageRequest(options: {
       pushValidationIssue(blockingIssues, {
         id: "recompose-vs-style-or-pose-instruction",
         level: "blocking",
-        message: "This request conflicts with keeping the same exact image.",
-        reason: "Aspect Ratio Recompose Mode is for preserving the same photograph feel, not changing pose, styling, or warmth.",
-        fix: "Remove the pose/style instruction or switch to Full Reframe Mode.",
+        message: "This request can still use your selected aspect ratio, but it requires Full Guided Reframe.",
+        reason: "Aspect Ratio Recompose is for preserving the same photograph feel, not changing pose, styling, or warmth.",
+        fix: "Switch to Full Guided Reframe, or remove the pose/style instruction.",
       });
     }
   }
@@ -1195,13 +1209,41 @@ export function getFinalImageExecutionMode(options: {
     triggerReasons.push("aspect ratio recomposition is selected");
   }
 
-  if (renderControls.aspectRatio !== "source_auto" && renderControls.aspectRatioMode === "recompose" && !aiRequest.hasCameraDirection && !aiRequest.hasAiPresets && !aiRequest.hasCustomInstruction && !aiRequest.hasReframeBehavior) {
+  if (renderControls.aspectRatioMode === "exact_crop") {
+    return {
+      executionMode: "exact_crop" as const,
+      reframeTriggered: false,
+      triggerReasons: ["Exact Crop render mode is selected"],
+      normalizedCameraPresetIds,
+    };
+  }
+
+  if (renderControls.aspectRatioMode === "recompose") {
     return {
       executionMode: "aspect_ratio_recompose" as const,
       reframeTriggered: false,
-      triggerReasons: ["aspect ratio changed and preserve-same-image recomposition is selected"],
+      triggerReasons: [
+        renderControls.aspectRatio !== "source_auto"
+          ? "Aspect Ratio Recompose render mode is selected with a target aspect ratio"
+          : "Aspect Ratio Recompose render mode is selected",
+      ],
       normalizedCameraPresetIds,
     };
+  }
+
+  if (renderControls.aspectRatioMode === "guided_reframe") {
+    if (renderControls.aspectRatio !== "source_auto") {
+      triggerReasons.push("target aspect ratio will be fulfilled inside Full Guided Reframe");
+    }
+
+    if (renderControls.aspectRatio !== "source_auto" || aiRequest.hasReframeBehavior) {
+      return {
+        executionMode: "reframe" as const,
+        reframeTriggered: true,
+        triggerReasons: triggerReasons.length > 0 ? triggerReasons : ["Full Guided Reframe render mode is selected"],
+        normalizedCameraPresetIds,
+      };
+    }
   }
 
   if (!aiRequest.hasAnyAiRequest) {
@@ -1278,7 +1320,7 @@ export function buildFinalImageExecutionPlan(options: {
     `Modifiers: ${cameraSummary.modifiers.length > 0 ? cameraSummary.modifiers.map((modifier) => modifier.title).join(" • ") : "none"}`,
     `Reframe intensity: ${options.reframeIntensity}`,
     `Crop position: ${getCropPositionLabel(renderControls.cropPosition)}`,
-    `Aspect handling: ${renderControls.aspectRatioMode === "recompose" ? "Aspect Ratio Recompose" : "Exact Crop"}`,
+    `Aspect handling: ${renderControls.aspectRatioMode === "recompose" ? "Aspect Ratio Recompose" : renderControls.aspectRatioMode === "guided_reframe" ? "Full Guided Reframe" : "Exact Crop"}`,
     `Framing preference: ${getFramingPreferenceLabel(renderControls.framingPreference)}`,
     `Tone/style lock: ${renderControls.toneStyleLock}`,
   ];
