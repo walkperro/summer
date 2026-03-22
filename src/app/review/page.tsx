@@ -321,6 +321,17 @@ type OverloadFallbackState = {
   message: string | null;
 };
 
+type PreviewDebugInfo = {
+  viewportMode: "mobile" | "desktop";
+  selectedAspectRatio: string;
+  containerWidth: number;
+  containerHeight: number;
+  intrinsicWidth: number;
+  intrinsicHeight: number;
+  objectFitMode: "contain";
+  previewComponent: "responsive-result-preview";
+};
+
 const EXACT_CROP_POSITIONS: Array<{ id: CropPosition; title: string }> = [
   { id: "smart_auto", title: "Smart / Auto" },
   { id: "center", title: "Center" },
@@ -597,6 +608,20 @@ function getCropPositionLabel(cropPosition: CropPosition) {
   return EXACT_CROP_POSITIONS.find((entry) => entry.id === cropPosition)?.title || cropPosition;
 }
 
+function getAspectRatioCssValue(aspectRatio: RenderAspectRatio) {
+  if (aspectRatio === "source_auto") {
+    return null;
+  }
+
+  const [width, height] = aspectRatio.split(":").map(Number);
+
+  if (!width || !height) {
+    return null;
+  }
+
+  return `${width} / ${height}`;
+}
+
 async function loadImageElement(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -604,6 +629,107 @@ async function loadImageElement(src: string) {
     image.onerror = () => reject(new Error("Failed to load image for exact crop."));
     image.src = src;
   });
+}
+
+function ResultPreviewFrame({
+  src,
+  alt,
+  label,
+  aspectRatio,
+  showDebug = false,
+}: {
+  src: string;
+  alt: string;
+  label: string;
+  aspectRatio: RenderAspectRatio;
+  showDebug?: boolean;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [debugInfo, setDebugInfo] = useState<PreviewDebugInfo | null>(null);
+
+  useEffect(() => {
+    const updateDebugInfo = () => {
+      const containerWidth = wrapperRef.current?.clientWidth || 0;
+      const containerHeight = wrapperRef.current?.clientHeight || 0;
+      const intrinsicWidth = imageRef.current?.naturalWidth || 0;
+      const intrinsicHeight = imageRef.current?.naturalHeight || 0;
+
+      setDebugInfo({
+        viewportMode: typeof window !== "undefined" && window.innerWidth < 768 ? "mobile" : "desktop",
+        selectedAspectRatio: aspectRatio === "source_auto" ? "Source / Auto" : aspectRatio,
+        containerWidth,
+        containerHeight,
+        intrinsicWidth,
+        intrinsicHeight,
+        objectFitMode: "contain",
+        previewComponent: "responsive-result-preview",
+      });
+    };
+
+    updateDebugInfo();
+    window.addEventListener("resize", updateDebugInfo);
+    const resizeObserver = typeof ResizeObserver !== "undefined" && wrapperRef.current
+      ? new ResizeObserver(() => updateDebugInfo())
+      : null;
+
+    if (resizeObserver && wrapperRef.current) {
+      resizeObserver.observe(wrapperRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateDebugInfo);
+      resizeObserver?.disconnect();
+    };
+  }, [aspectRatio, src]);
+
+  const fallbackAspectRatio =
+    debugInfo && debugInfo.intrinsicWidth > 0 && debugInfo.intrinsicHeight > 0
+      ? `${debugInfo.intrinsicWidth} / ${debugInfo.intrinsicHeight}`
+      : "4 / 5";
+  const frameAspectRatio = getAspectRatioCssValue(aspectRatio) || fallbackAspectRatio;
+
+  return (
+    <div className="overflow-hidden rounded-[1.5rem] border border-black/10 bg-[#ebe5dc]">
+      <div ref={wrapperRef} className="relative w-full overflow-hidden bg-[#ebe5dc]" style={{ aspectRatio: frameAspectRatio }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          ref={imageRef}
+          src={src}
+          alt={alt}
+          onLoad={() => {
+            const containerWidth = wrapperRef.current?.clientWidth || 0;
+            const containerHeight = wrapperRef.current?.clientHeight || 0;
+            const intrinsicWidth = imageRef.current?.naturalWidth || 0;
+            const intrinsicHeight = imageRef.current?.naturalHeight || 0;
+
+            setDebugInfo({
+              viewportMode: typeof window !== "undefined" && window.innerWidth < 768 ? "mobile" : "desktop",
+              selectedAspectRatio: aspectRatio === "source_auto" ? "Source / Auto" : aspectRatio,
+              containerWidth,
+              containerHeight,
+              intrinsicWidth,
+              intrinsicHeight,
+              objectFitMode: "contain",
+              previewComponent: "responsive-result-preview",
+            });
+          }}
+          className="h-full w-full object-contain"
+        />
+      </div>
+      <div className="border-t border-black/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-black/45">{label}</div>
+      {showDebug && debugInfo ? (
+        <div className="border-t border-black/10 bg-white px-4 py-3 text-[11px] leading-5 text-black/55">
+          <p><span className="font-semibold text-black/70">Viewport:</span> {debugInfo.viewportMode}</p>
+          <p><span className="font-semibold text-black/70">Aspect:</span> {debugInfo.selectedAspectRatio}</p>
+          <p><span className="font-semibold text-black/70">Container:</span> {debugInfo.containerWidth}×{debugInfo.containerHeight}</p>
+          <p><span className="font-semibold text-black/70">Intrinsic:</span> {debugInfo.intrinsicWidth}×{debugInfo.intrinsicHeight}</p>
+          <p><span className="font-semibold text-black/70">Object fit:</span> {debugInfo.objectFitMode}</p>
+          <p><span className="font-semibold text-black/70">Preview component:</span> {debugInfo.previewComponent}</p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 async function createExactCropResult(options: {
@@ -3417,16 +3543,20 @@ export default function ReviewPage() {
                     </div>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      <div className="overflow-hidden rounded-[1.5rem] border border-black/10 bg-[#ebe5dc]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={source?.previewUrl || ""} alt={`${result.metadata.source_title} before`} className="h-full w-full object-cover" />
-                        <div className="border-t border-black/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-black/45">Before</div>
-                      </div>
-                      <div className="overflow-hidden rounded-[1.5rem] border border-black/10 bg-[#ebe5dc]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={afterUrl} alt={`${result.metadata.source_title} after`} className="h-full w-full object-cover" />
-                        <div className="border-t border-black/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-black/45">After</div>
-                      </div>
+                      <ResultPreviewFrame
+                        src={source?.previewUrl || ""}
+                        alt={`${result.metadata.source_title} before`}
+                        label="Before"
+                        aspectRatio={result.metadata.aspect_ratio}
+                        showDebug
+                      />
+                      <ResultPreviewFrame
+                        src={afterUrl}
+                        alt={`${result.metadata.source_title} after`}
+                        label="After"
+                        aspectRatio={result.metadata.aspect_ratio}
+                        showDebug
+                      />
                     </div>
 
                     <div className="mt-5 flex flex-wrap gap-3">
