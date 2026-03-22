@@ -435,24 +435,73 @@ function hasPair(ids: CameraDirectionPresetId[], left: CameraDirectionPresetId, 
 
 function getCrossConflict(candidateId: CameraDirectionPresetId, currentIds: CameraDirectionPresetId[]) {
   const nextIds = [...currentIds, candidateId];
+  const candidate = getPreset(candidateId);
 
   if (hasPair(nextIds, "macro_close_detail", "wide_environmental")) {
-    return "`Macro Close Detail` conflicts with `Wide Environmental`. Macro wants intimate detail while Wide Environmental wants broader spatial context.";
+    return candidateId === "macro_close_detail"
+      ? "`Macro Close Detail` conflicts with `Wide Environmental`. Macro wants intimate detail while `Wide Environmental` wants broader spatial context."
+      : "`Wide Environmental` conflicts with `Macro Close Detail`. Wide environmental framing needs broader spatial context, while macro wants intimate detail.";
   }
 
   if (hasPair(nextIds, "fisheye", "macro_close_detail")) {
-    return "`Fisheye` conflicts with `Macro Close Detail`. One is strongly distorted and the other is precision close-detail.";
+    return candidateId === "fisheye"
+      ? "`Fisheye` conflicts with `Macro Close Detail`. Fisheye distortion fights the precision close-detail behavior that macro needs."
+      : "`Macro Close Detail` conflicts with `Fisheye`. Macro needs precision close-detail control, but fisheye introduces strong distortion.";
   }
 
   if (hasPair(nextIds, "fisheye", "close_crop_beauty")) {
-    return "`Fisheye` conflicts with `Close Crop Beauty`. Beauty crops need flattering restraint, while fisheye pushes distortion.";
+    return candidateId === "fisheye"
+      ? "`Fisheye` conflicts with `Close Crop Beauty`. Beauty crops need flattering restraint, while fisheye pushes distortion."
+      : "`Close Crop Beauty` conflicts with `Fisheye`. This modifier wants flattering restraint, but fisheye adds intentional distortion.";
   }
 
   if (hasPair(nextIds, "fisheye", "dutch_tilt")) {
-    return "`Fisheye` plus `Dutch Tilt` is too destabilizing for this workflow. Keep one experimental modifier at a time.";
+    return candidate.kind === "lens"
+      ? "`Fisheye` conflicts with `Dutch Tilt`. This lens conflicts with your selected preset modifier and becomes too destabilizing in the same shot."
+      : "`Dutch Tilt` conflicts with `Fisheye`. This modifier conflicts with your selected lens and becomes too destabilizing in the same shot.";
   }
 
   return null;
+}
+
+function getNormalizedSelectionPreview(currentPresetIds: CameraDirectionPresetId[], candidateId: CameraDirectionPresetId) {
+  const current = normalizeCameraPresetIds(currentPresetIds);
+
+  if (current.includes(candidateId)) {
+    return current;
+  }
+
+  let next = [...current];
+  const candidate = getPreset(candidateId);
+
+  if (candidate.kind === "angle" && candidate.category === "angle_core") {
+    next = next.filter((id) => !isAngleCore(id));
+  }
+
+  if (candidate.kind === "lens") {
+    next = next.filter((id) => !isLensPrimary(id));
+  }
+
+  if (candidate.category === "framing_modifier") {
+    next = next.filter((id) => !isFramingModifier(id));
+  }
+
+  if (candidate.kind === "angle" && candidate.category === "experimental_modifier") {
+    next = next.filter((id) => !isAngleExperimentalModifier(id));
+  }
+
+  return next;
+}
+
+export function getCameraOptionConflictReason(currentPresetIds: CameraDirectionPresetId[], candidateId: CameraDirectionPresetId) {
+  const current = normalizeCameraPresetIds(currentPresetIds);
+
+  if (current.includes(candidateId)) {
+    return null;
+  }
+
+  const next = getNormalizedSelectionPreview(current, candidateId);
+  return getCrossConflict(candidateId, next);
 }
 
 export function normalizeCameraPresetIds(presetIds: CameraDirectionPresetId[]) {
@@ -482,25 +531,7 @@ export function applyCameraPresetToggle(currentPresetIds: CameraDirectionPresetI
     };
   }
 
-  let next = [...current];
-  const candidate = getPreset(candidateId);
-
-  if (candidate.kind === "angle" && candidate.category === "angle_core") {
-    next = next.filter((id) => !isAngleCore(id));
-  }
-
-  if (candidate.kind === "lens") {
-    next = next.filter((id) => !isLensPrimary(id));
-  }
-
-  if (candidate.category === "framing_modifier") {
-    next = next.filter((id) => !isFramingModifier(id));
-  }
-
-  if (candidate.kind === "angle" && candidate.category === "experimental_modifier") {
-    next = next.filter((id) => !isAngleExperimentalModifier(id));
-  }
-
+  const next = getNormalizedSelectionPreview(current, candidateId);
   const conflict = getCrossConflict(candidateId, next);
 
   if (conflict) {

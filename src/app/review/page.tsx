@@ -4,11 +4,14 @@ import type { ChangeEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  applyCameraPresetToggle,
+  getCameraDirectionPreset,
+  getCameraOptionConflictReason,
   getCameraDirectionWarnings as getSharedCameraDirectionWarnings,
   getCameraSelectionSummary,
   normalizeCameraPresetIds,
+  type CameraAngleId,
   type CameraDirectionPresetId,
+  type LensLookId,
 } from "@/lib/camera-direction";
 import {
   buildFinalImageExecutionPlan,
@@ -321,6 +324,21 @@ type OverloadFallbackState = {
   message: string | null;
 };
 
+type CameraDirectionRenderMode = "exact_shot_recompose" | "guided_reframe";
+type CameraDirectionSelectionMode = "preset" | "custom";
+
+type CameraDirectionUiState = {
+  renderMode: CameraDirectionRenderMode;
+  activePreset: string | null;
+  selectionMode: CameraDirectionSelectionMode;
+  primaryAngle: CameraAngleId | null;
+  primaryLens: LensLookId | null;
+  modifiers: CameraDirectionPresetId[];
+  fallbackAngle: "original";
+  fallbackLens: "original";
+  lastPreset: string | null;
+};
+
 type PreviewDebugInfo = {
   viewportMode: "mobile" | "desktop";
   selectedAspectRatio: string;
@@ -353,6 +371,102 @@ const RECOMPOSE_FRAMING_PREFERENCES: Array<{ id: RecomposeFramingPreference; tit
   { id: "favor_top_preservation", title: "Favor top preservation" },
   { id: "favor_bottom_preservation", title: "Favor bottom preservation" },
 ];
+
+const ORIGINAL_ANGLE_ID: CameraAngleId = "keep_original_angle";
+const ORIGINAL_LENS_ID: LensLookId = "keep_original_lens_feel";
+const PRIMARY_ANGLE_IDS: CameraAngleId[] = [
+  "keep_original_angle",
+  "eye_level",
+  "low_angle_heroic",
+  "high_angle",
+  "three_quarter_portrait",
+  "side_profile",
+  "floor_level",
+  "overhead",
+];
+const PRIMARY_LENS_IDS: LensLookId[] = [
+  "keep_original_lens_feel",
+  "24mm_wide_editorial",
+  "35mm_cinematic",
+  "50mm_natural",
+  "85mm_portrait",
+  "135mm_compressed_portrait",
+  "macro_close_detail",
+  "fisheye",
+];
+const FRAMING_MODIFIER_IDS: CameraDirectionPresetId[] = ["close_crop_beauty", "wide_environmental"];
+const EXPERIMENTAL_ANGLE_MODIFIER_IDS: CameraDirectionPresetId[] = ["dutch_tilt"];
+const CAMERA_RENDER_MODE_OPTIONS: Array<{ id: CameraDirectionRenderMode; title: string; summary: string }> = [
+  {
+    id: "exact_shot_recompose",
+    title: "Exact Shot Recompose",
+    summary: "Preserve the original shot geometry and lens feel while only recomposing the frame to fit.",
+  },
+  {
+    id: "guided_reframe",
+    title: "Guided Reframe",
+    summary: "Use angle, lens, and modifier guidance to intentionally reinterpret the shot while staying controlled.",
+  },
+];
+
+function createDefaultCameraDirectionState(): CameraDirectionUiState {
+  return {
+    renderMode: "exact_shot_recompose",
+    activePreset: null,
+    selectionMode: "custom",
+    primaryAngle: null,
+    primaryLens: null,
+    modifiers: [],
+    fallbackAngle: "original",
+    fallbackLens: "original",
+    lastPreset: null,
+  };
+}
+
+function buildGuidedCameraPresetIds(state: Pick<CameraDirectionUiState, "primaryAngle" | "primaryLens" | "modifiers">) {
+  return normalizeCameraPresetIds([
+    state.primaryAngle || ORIGINAL_ANGLE_ID,
+    state.primaryLens || ORIGINAL_LENS_ID,
+    ...state.modifiers,
+  ]);
+}
+
+function buildCameraPresetIdsFromState(state: CameraDirectionUiState) {
+  if (state.renderMode === "exact_shot_recompose") {
+    return normalizeCameraPresetIds([ORIGINAL_ANGLE_ID, ORIGINAL_LENS_ID]);
+  }
+
+  return buildGuidedCameraPresetIds(state);
+}
+
+function createCameraStateFromPresetIds(presetIds: CameraDirectionPresetId[], recipeId?: string | null): CameraDirectionUiState {
+  const normalized = normalizeCameraPresetIds(presetIds);
+  const summary = getCameraSelectionSummary(normalized);
+
+  return {
+    renderMode: "guided_reframe",
+    activePreset: recipeId || null,
+    selectionMode: recipeId ? "preset" : "custom",
+    primaryAngle: summary.primaryAngle.id === ORIGINAL_ANGLE_ID ? null : (summary.primaryAngle.id as CameraAngleId),
+    primaryLens: summary.primaryLens.id === ORIGINAL_LENS_ID ? null : (summary.primaryLens.id as LensLookId),
+    modifiers: summary.modifiers.map((modifier) => modifier.id),
+    fallbackAngle: "original",
+    fallbackLens: "original",
+    lastPreset: recipeId || null,
+  };
+}
+
+function isCameraOptionSelected(state: CameraDirectionUiState, presetId: CameraDirectionPresetId) {
+  if (PRIMARY_ANGLE_IDS.includes(presetId as CameraAngleId)) {
+    return state.primaryAngle ? state.primaryAngle === presetId : presetId === ORIGINAL_ANGLE_ID;
+  }
+
+  if (PRIMARY_LENS_IDS.includes(presetId as LensLookId)) {
+    return state.primaryLens ? state.primaryLens === presetId : presetId === ORIGINAL_LENS_ID;
+  }
+
+  return state.modifiers.includes(presetId);
+}
 
 type JobProgressStageId = "preparing" | "building" | "sending" | "waiting" | "receiving" | "rendering" | "saving" | "done" | "error";
 
@@ -1005,6 +1119,7 @@ export default function ReviewPage() {
   const [selectedRefineSourceId, setSelectedRefineSourceId] = useState("");
   const [uploadedRefineSource, setUploadedRefineSource] = useState<RefineSource | null>(null);
   const [availablePresetToAdd, setAvailablePresetToAdd] = useState("final_luxury_finish");
+  const [presetAddFeedback, setPresetAddFeedback] = useState<string | null>(null);
   const [selectedRefinementStack, setSelectedRefinementStack] = useState<string[]>([]);
   const [refinementCustomInstruction, setRefinementCustomInstruction] = useState("");
   const [refinementPreserveFlags, setRefinementPreserveFlags] = useState<PreserveFlags>({
@@ -1017,9 +1132,7 @@ export default function ReviewPage() {
     allow_reframing: false,
     allow_perspective_shift: false,
   });
-  const [selectedCameraPresetIds, setSelectedCameraPresetIds] = useState<CameraDirectionPresetId[]>(() =>
-    normalizeCameraPresetIds(["keep_original_angle", "keep_original_lens_feel"]),
-  );
+  const [cameraDirectionState, setCameraDirectionState] = useState<CameraDirectionUiState>(() => createDefaultCameraDirectionState());
   const [cameraSelectionFeedback, setCameraSelectionFeedback] = useState<string | null>(null);
   const [showReframingHelp, setShowReframingHelp] = useState(false);
   const [showAspectRatioHelp, setShowAspectRatioHelp] = useState(false);
@@ -1169,21 +1282,63 @@ export default function ReviewPage() {
         .filter((preset): preset is RefinementPreset => Boolean(preset)),
     [fitManifest, selectedRefinementStack],
   );
+  const effectiveRefinementPreserveFlags = useMemo(
+    () =>
+      cameraDirectionState.renderMode === "exact_shot_recompose"
+        ? {
+            ...refinementPreserveFlags,
+            allow_reframing: false,
+            allow_perspective_shift: false,
+          }
+        : refinementPreserveFlags,
+    [cameraDirectionState.renderMode, refinementPreserveFlags],
+  );
+  const effectiveReframeIntensity = cameraDirectionState.renderMode === "exact_shot_recompose" ? "subtle" : selectedReframeIntensity;
+  const selectedCameraPresetIds = useMemo(
+    () =>
+      buildGuidedCameraPresetIds({
+        primaryAngle: cameraDirectionState.primaryAngle,
+        primaryLens: cameraDirectionState.primaryLens,
+        modifiers: cameraDirectionState.modifiers,
+      }),
+    [cameraDirectionState.primaryAngle, cameraDirectionState.primaryLens, cameraDirectionState.modifiers],
+  );
+  const effectiveCameraPresetIds = useMemo(
+    () => buildCameraPresetIdsFromState(cameraDirectionState),
+    [cameraDirectionState],
+  );
+  const activeCameraRecipe = useMemo(
+    () => fitManifest?.cameraRecipes.find((recipe) => recipe.id === cameraDirectionState.activePreset) ?? null,
+    [cameraDirectionState.activePreset, fitManifest],
+  );
+  const primaryCameraAngleOptions = useMemo(
+    () => fitManifest?.cameraAngleOptions.filter((option) => option.category === "angle_core") ?? [],
+    [fitManifest],
+  );
+  const cameraModifierOptions = useMemo(
+    () => fitManifest?.cameraAngleOptions.filter((option) => option.category !== "angle_core") ?? [],
+    [fitManifest],
+  );
+  const hasCameraCustomOverride =
+    cameraDirectionState.renderMode === "guided_reframe" &&
+    cameraDirectionState.selectionMode === "custom" &&
+    cameraDirectionState.lastPreset !== null &&
+    cameraDirectionState.activePreset === null;
   const cameraSelectionSummary = useMemo(
-    () => getCameraSelectionSummary(selectedCameraPresetIds as CameraDirectionPresetId[]),
-    [selectedCameraPresetIds],
+    () => getCameraSelectionSummary(effectiveCameraPresetIds as CameraDirectionPresetId[]),
+    [effectiveCameraPresetIds],
   );
   const currentExecutionPlan = useMemo(() => {
     return buildFinalImageExecutionPlan({
       stack: selectedRefinementStack as RefinementPresetId[],
       customInstruction: refinementCustomInstruction,
-      preserveFlags: refinementPreserveFlags,
+      preserveFlags: effectiveRefinementPreserveFlags,
       sourceTitle: selectedRefineSource?.title || "Selected source image",
       sourceType: selectedRefineSource?.sourceType || "uploaded",
       export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
       keepOriginalAspectRatio: refineAspectRatio === "source_auto",
-      cameraPresetIds: selectedCameraPresetIds,
-      reframeIntensity: selectedReframeIntensity,
+      cameraPresetIds: effectiveCameraPresetIds,
+      reframeIntensity: effectiveReframeIntensity,
       renderControls: {
         aspectRatio: refineAspectRatio,
         cropPosition: refineCropPosition,
@@ -1196,7 +1351,7 @@ export default function ReviewPage() {
   }, [
     selectedRefinementStack,
     refinementCustomInstruction,
-    refinementPreserveFlags,
+    effectiveRefinementPreserveFlags,
     selectedRefineSource,
     refineExport4k,
     refineAspectRatio,
@@ -1204,8 +1359,8 @@ export default function ReviewPage() {
     refineAspectRatioMode,
     refineFramingPreference,
     refineSubjectProtection,
-    selectedCameraPresetIds,
-    selectedReframeIntensity,
+    effectiveCameraPresetIds,
+    effectiveReframeIntensity,
     refineSourceAnalysis,
   ]);
   const currentValidation = useMemo(
@@ -1213,9 +1368,9 @@ export default function ReviewPage() {
       validateFinalImageRequest({
         stack: selectedRefinementStack as RefinementPresetId[],
         customInstruction: refinementCustomInstruction,
-        preserveFlags: refinementPreserveFlags,
-        cameraPresetIds: selectedCameraPresetIds,
-        reframeIntensity: selectedReframeIntensity,
+        preserveFlags: effectiveRefinementPreserveFlags,
+        cameraPresetIds: effectiveCameraPresetIds,
+        reframeIntensity: effectiveReframeIntensity,
         renderControls: {
           aspectRatio: refineAspectRatio,
           cropPosition: refineCropPosition,
@@ -1228,9 +1383,9 @@ export default function ReviewPage() {
     [
       selectedRefinementStack,
       refinementCustomInstruction,
-      refinementPreserveFlags,
-      selectedCameraPresetIds,
-      selectedReframeIntensity,
+      effectiveRefinementPreserveFlags,
+      effectiveCameraPresetIds,
+      effectiveReframeIntensity,
       refineAspectRatio,
       refineCropPosition,
       refineAspectRatioMode,
@@ -1285,11 +1440,11 @@ export default function ReviewPage() {
   const cameraDirectionWarnings = useMemo(
     () =>
       getSharedCameraDirectionWarnings({
-        presetIds: selectedCameraPresetIds as CameraDirectionPresetId[],
-        reframeIntensity: selectedReframeIntensity,
-        preserveFlags: refinementPreserveFlags,
+        presetIds: effectiveCameraPresetIds as CameraDirectionPresetId[],
+        reframeIntensity: effectiveReframeIntensity,
+        preserveFlags: effectiveRefinementPreserveFlags,
       }),
-    [selectedCameraPresetIds, selectedReframeIntensity, refinementPreserveFlags],
+    [effectiveCameraPresetIds, effectiveReframeIntensity, effectiveRefinementPreserveFlags],
   );
 
   useEffect(() => {
@@ -1304,6 +1459,18 @@ export default function ReviewPage() {
       setSelectedRefineSourceId(refineSourceOptions[0].id);
     }
   }, [selectedRefineSourceId, refineSourceOptions]);
+
+  useEffect(() => {
+    if (!presetAddFeedback) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPresetAddFeedback(null);
+    }, 2200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [presetAddFeedback]);
 
   useEffect(() => {
     if (!selectedFitPrompt || fitReferences.length === 0) {
@@ -1674,6 +1841,7 @@ export default function ReviewPage() {
     }
 
     setSelectedRefinementStack((current) => [...current, availablePresetToAdd]);
+    setPresetAddFeedback(`Added ${selectedRefinementPresetDefinition?.title || "preset"} to the refinement stack.`);
   }
 
   function removePresetFromStack(index: number) {
@@ -1712,67 +1880,94 @@ export default function ReviewPage() {
       return;
     }
 
-    setSelectedCameraPresetIds(normalizeCameraPresetIds(recipe.preset_ids));
+    setCameraDirectionState(createCameraStateFromPresetIds(recipe.preset_ids, recipe.id));
     setCameraSelectionFeedback(null);
     setSelectedReframeIntensity(recipe.reframe_intensity);
   }
 
-  function getCameraOptionBlockReason(presetId: CameraDirectionPresetId) {
-    const summary = getCameraSelectionSummary(selectedCameraPresetIds as CameraDirectionPresetId[]);
+  function setCameraRenderMode(renderMode: CameraDirectionRenderMode) {
+    if (renderMode === "exact_shot_recompose") {
+      setCameraDirectionState((current) => ({
+        ...current,
+        renderMode,
+        activePreset: null,
+        selectionMode: "custom",
+        primaryAngle: null,
+        primaryLens: null,
+        modifiers: [],
+      }));
+      setCameraSelectionFeedback("Camera direction is unavailable in Exact Shot Recompose because this mode preserves the original shot geometry.");
+      return;
+    }
 
-    if (selectedCameraPresetIds.includes(presetId)) {
+    setCameraDirectionState((current) => ({
+      ...current,
+      renderMode,
+    }));
+    setCameraSelectionFeedback(null);
+  }
+
+  function getNextCameraDirectionStateForToggle(presetId: CameraDirectionPresetId) {
+    if (cameraDirectionState.renderMode === "exact_shot_recompose") {
       return null;
     }
 
-    if (
-      presetId !== "keep_original_angle" &&
-      [
-        "eye_level",
-        "low_angle_heroic",
-        "high_angle",
-        "three_quarter_portrait",
-        "side_profile",
-        "floor_level",
-        "overhead",
-      ].includes(presetId) &&
-      summary.primaryAngle.id !== "keep_original_angle"
-    ) {
-      return `${getCameraSelectionSummary([summary.primaryAngle.id, "keep_original_lens_feel"]).primaryAngle.title} is already your primary angle. Remove it first, then choose a new primary angle.`;
+    const preset = getCameraDirectionPreset(presetId);
+
+    if (!preset) {
+      return null;
     }
 
-    if (
-      presetId !== "keep_original_lens_feel" &&
-      [
-        "24mm_wide_editorial",
-        "35mm_cinematic",
-        "50mm_natural",
-        "85mm_portrait",
-        "135mm_compressed_portrait",
-        "macro_close_detail",
-        "fisheye",
-      ].includes(presetId) &&
-      summary.primaryLens.id !== "keep_original_lens_feel"
-    ) {
-      return `${summary.primaryLens.title} is already your primary lens. Remove it first, then choose a new primary lens.`;
+    const nextState: CameraDirectionUiState = {
+      ...cameraDirectionState,
+      activePreset: null,
+      selectionMode: "custom",
+    };
+
+    if (preset.kind === "angle" && PRIMARY_ANGLE_IDS.includes(presetId as CameraAngleId)) {
+      nextState.primaryAngle =
+        presetId === ORIGINAL_ANGLE_ID || cameraDirectionState.primaryAngle === presetId
+          ? null
+          : (presetId as CameraAngleId);
+      return nextState;
     }
 
-    const previewSelection = [...selectedCameraPresetIds, presetId] as CameraDirectionPresetId[];
-    const previewValidation = validateFinalImageRequest({
-      stack: selectedRefinementStack as RefinementPresetId[],
-      customInstruction: refinementCustomInstruction,
-      preserveFlags: refinementPreserveFlags,
-      cameraPresetIds: previewSelection,
-      reframeIntensity: selectedReframeIntensity,
-      renderControls: {
-        aspectRatio: refineAspectRatio,
-        cropPosition: refineCropPosition,
-        aspectRatioMode: refineAspectRatioMode,
-        framingPreference: refineFramingPreference,
-        subjectProtection: refineSubjectProtection,
-      },
-    });
+    if (preset.kind === "lens" && PRIMARY_LENS_IDS.includes(presetId as LensLookId)) {
+      nextState.primaryLens =
+        presetId === ORIGINAL_LENS_ID || cameraDirectionState.primaryLens === presetId
+          ? null
+          : (presetId as LensLookId);
+      return nextState;
+    }
 
-    return previewValidation.blockingIssues[0]?.message || null;
+    if (cameraDirectionState.modifiers.includes(presetId)) {
+      nextState.modifiers = cameraDirectionState.modifiers.filter((modifierId) => modifierId !== presetId);
+      return nextState;
+    }
+
+    if (FRAMING_MODIFIER_IDS.includes(presetId)) {
+      nextState.modifiers = [...cameraDirectionState.modifiers.filter((modifierId) => !FRAMING_MODIFIER_IDS.includes(modifierId)), presetId];
+      return nextState;
+    }
+
+    if (EXPERIMENTAL_ANGLE_MODIFIER_IDS.includes(presetId)) {
+      nextState.modifiers = [
+        ...cameraDirectionState.modifiers.filter((modifierId) => !EXPERIMENTAL_ANGLE_MODIFIER_IDS.includes(modifierId)),
+        presetId,
+      ];
+      return nextState;
+    }
+
+    return nextState;
+  }
+
+  function getCameraOptionBlockReason(presetId: CameraDirectionPresetId) {
+    if (cameraDirectionState.renderMode === "exact_shot_recompose") {
+      const preset = getCameraDirectionPreset(presetId);
+      return `${preset?.title || "This option"} conflicts with Exact Shot Recompose because this mode preserves original lens behavior and shot geometry.`;
+    }
+
+    return getCameraOptionConflictReason(selectedCameraPresetIds as CameraDirectionPresetId[], presetId);
   }
 
   function toggleCameraPreset(presetId: string) {
@@ -1783,13 +1978,14 @@ export default function ReviewPage() {
       return;
     }
 
-    const result = applyCameraPresetToggle(
-      selectedCameraPresetIds as CameraDirectionPresetId[],
-      presetId as CameraDirectionPresetId,
-    );
+    const nextState = getNextCameraDirectionStateForToggle(presetId as CameraDirectionPresetId);
 
-    setSelectedCameraPresetIds(result.selection);
-    setCameraSelectionFeedback(result.warning?.message || null);
+    if (!nextState) {
+      return;
+    }
+
+    setCameraDirectionState(nextState);
+    setCameraSelectionFeedback(null);
   }
 
   async function runFinalRefinement(options?: { export4kOverride?: boolean; diagnosticToneDrift?: boolean }) {
@@ -1835,7 +2031,7 @@ export default function ReviewPage() {
             source_type: selectedRefineSource.sourceType,
             refinement_stack: selectedRefinementStack,
             custom_instruction_text: refinementCustomInstruction,
-            preserve_flags: refinementPreserveFlags,
+            preserve_flags: effectiveRefinementPreserveFlags,
             output_size: effectiveExport4k ? "4k_exact_export" : refineAspectRatio === "source_auto" ? "source_exact_export" : "exact_crop_export",
             created_at: new Date().toISOString(),
             source_title: selectedRefineSource.title,
@@ -1851,7 +2047,7 @@ export default function ReviewPage() {
             ai_refinement_used: false,
             model_render_used: false,
             validation_status: currentValidation.isBlocked ? "blocked" : "ready",
-            camera_preset_ids: selectedCameraPresetIds,
+            camera_preset_ids: effectiveCameraPresetIds,
             camera_angle: cameraSelectionSummary.primaryAngle.id,
             lens_look: cameraSelectionSummary.primaryLens.id,
             camera_modifiers: cameraSelectionSummary.modifiers.map((modifier) => modifier.id),
@@ -1864,7 +2060,7 @@ export default function ReviewPage() {
             custom_instruction_warnings: [],
             debug_prompt_text: "No AI prompt used. Exact Crop Mode applied a deterministic crop/export pipeline.",
             reframe_mode_triggered: false,
-            reframe_intensity: selectedReframeIntensity,
+            reframe_intensity: effectiveReframeIntensity,
             allow_reframing: false,
             allow_perspective_shift: false,
             model: "none",
@@ -1909,11 +2105,11 @@ export default function ReviewPage() {
         sourceImageDataUrl,
         refinementStack: selectedRefinementStack,
         customInstruction: refinementCustomInstruction,
-        preserveFlags: refinementPreserveFlags,
+        preserveFlags: effectiveRefinementPreserveFlags,
         export4k: effectiveExport4k,
         keepOriginalAspectRatio: refineAspectRatio === "source_auto",
-        cameraPresetIds: selectedCameraPresetIds,
-        reframeIntensity: selectedReframeIntensity,
+        cameraPresetIds: effectiveCameraPresetIds,
+        reframeIntensity: effectiveReframeIntensity,
         renderControls: {
           aspectRatio: refineAspectRatio,
           cropPosition: refineCropPosition,
@@ -2830,6 +3026,11 @@ export default function ReviewPage() {
                       Add preset
                     </button>
                   </div>
+                  {presetAddFeedback ? (
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
+                      {presetAddFeedback}
+                    </div>
+                  ) : null}
                   {selectedRefinementPresetDefinition ? (
                     <div className="mt-4 rounded-2xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
                       <p className="font-semibold">{selectedRefinementPresetDefinition.title}</p>
@@ -3080,8 +3281,8 @@ export default function ReviewPage() {
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Preserve rules:</span>{" "}
-                  {(Object.keys(refinementPreserveFlags) as Array<keyof PreserveFlags>)
-                    .filter((flag) => refinementPreserveFlags[flag])
+                  {(Object.keys(effectiveRefinementPreserveFlags) as Array<keyof PreserveFlags>)
+                    .filter((flag) => effectiveRefinementPreserveFlags[flag])
                     .map((flag) => flag.replace(/_/g, " "))
                     .join(" • ") || "None"}
                 </p>
@@ -3094,7 +3295,7 @@ export default function ReviewPage() {
                     ? ` • ${cameraSelectionSummary.modifiers.map((modifier) => modifier.title).join(" • ")}`
                     : ""}
                   {" • "}
-                  {selectedReframeIntensity}
+                  {cameraDirectionState.renderMode === "exact_shot_recompose" ? "same-shot lock" : effectiveReframeIntensity}
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Render controls:</span>{" "}
@@ -3123,21 +3324,61 @@ export default function ReviewPage() {
                     Build one coordinated camera-language direction instead of one-off effects. Combine one main angle and one main lens for best results, then layer compatible modifiers when they add clarity.
                   </p>
                   <p className="mt-3 text-sm leading-6 text-black/60">
-                    Camera Direction requires Full Reframe Mode for strong visible changes. Aspect Ratio Recompose is for preserving the same image while fitting a new frame, not for creating a new camera interpretation.
+                    Exact Shot Recompose preserves the original shot geometry. Guided Reframe opens manual camera direction while keeping conflicts visible and recoverable.
                   </p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {fitManifest?.cameraRecipes.map((recipe) => (
-                    <button
-                      key={recipe.id}
-                      type="button"
-                      onClick={() => applyCameraRecipe(recipe.id)}
-                      className="rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/75 transition hover:border-black/25 hover:text-black"
-                    >
-                      {recipe.title}
-                    </button>
-                  ))}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {CAMERA_RENDER_MODE_OPTIONS.map((mode) => {
+                    const selected = cameraDirectionState.renderMode === mode.id;
+
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => setCameraRenderMode(mode.id)}
+                        className={`rounded-[1.25rem] border p-4 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black hover:border-black/25"}`}
+                      >
+                        <p className="text-sm font-semibold">{mode.title}</p>
+                        <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/60"}`}>{mode.summary}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className={`mt-4 rounded-3xl border p-4 text-sm leading-6 ${cameraDirectionState.renderMode === "exact_shot_recompose" ? "border-black/10 bg-[#f7f4ef] text-black/70" : "border-emerald-200 bg-emerald-50 text-emerald-950"}`}>
+                  {cameraDirectionState.renderMode === "exact_shot_recompose" ? (
+                    <p>Camera direction is unavailable in Exact Shot Recompose because this mode preserves the original shot geometry.</p>
+                  ) : (
+                    <p>Guided Reframe lets you pick one primary angle, one primary lens, and compatible modifiers. If you leave angle or lens unselected, Summer falls back to the original shot.</p>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Quick Preset Shortcuts</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {fitManifest?.cameraRecipes.map((recipe) => {
+                      const selected = cameraDirectionState.activePreset === recipe.id;
+                      const disabled = cameraDirectionState.renderMode === "exact_shot_recompose";
+
+                      return (
+                        <button
+                          key={recipe.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => applyCameraRecipe(recipe.id)}
+                          className={`rounded-full border px-4 py-3 text-sm font-medium transition ${selected ? "border-black bg-black text-white" : disabled ? "cursor-not-allowed border-black/10 bg-[#f1ede6] text-black/35" : "border-black/10 bg-[#f7f4ef] text-black/75 hover:border-black/25 hover:text-black"}`}
+                        >
+                          {recipe.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-black/60">
+                    {cameraDirectionState.renderMode === "exact_shot_recompose"
+                      ? "Quick presets are unavailable here because Exact Shot Recompose keeps the original angle and lens behavior locked."
+                      : "Quick presets act like shortcuts only. They fill angle, lens, and modifiers, and any manual change immediately switches the selection into custom override without locking the cards."}
+                  </p>
                 </div>
 
                 <div className="mt-4 rounded-3xl border border-black/10 p-4">
@@ -3173,36 +3414,52 @@ export default function ReviewPage() {
                       <button
                         key={value}
                         type="button"
+                        disabled={cameraDirectionState.renderMode === "exact_shot_recompose"}
                         onClick={() => setSelectedReframeIntensity(value)}
-                        className={selectedReframeIntensity === value ? "rounded-full bg-black px-4 py-3 text-sm font-medium text-white" : "rounded-full border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm font-medium text-black/70"}
+                        className={selectedReframeIntensity === value
+                          ? `rounded-full px-4 py-3 text-sm font-medium ${cameraDirectionState.renderMode === "exact_shot_recompose" ? "cursor-not-allowed border border-black/10 bg-[#f1ede6] text-black/40" : "bg-black text-white"}`
+                          : `rounded-full border border-black/10 px-4 py-3 text-sm font-medium ${cameraDirectionState.renderMode === "exact_shot_recompose" ? "cursor-not-allowed bg-[#f1ede6] text-black/35" : "bg-[#f7f4ef] text-black/70"}`}
                       >
                         {value}
                       </button>
                     ))}
                   </div>
+                  {cameraDirectionState.renderMode === "exact_shot_recompose" ? (
+                    <p className="mt-3 text-sm leading-6 text-black/55">Reframe intensity is ignored in Exact Shot Recompose so the render stays locked to same-shot behavior.</p>
+                  ) : null}
                 </div>
 
                 <div className="mt-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Angle / Lens Preview Gallery</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Angle / Lens / Modifier Gallery</p>
                   <p className="mt-2 text-sm leading-6 text-black/60">
-                    Select one primary angle and one primary lens. Modifiers like `Close Crop Beauty` and `Dutch Tilt` can be layered when compatible. `Fisheye` is experimental and best used sparingly.
+                    {cameraDirectionState.renderMode === "exact_shot_recompose"
+                      ? "Manual angle and lens selection are disabled here so the original shot geometry stays locked."
+                      : "Select one primary angle and one primary lens. Compatible modifiers can be layered, and tapping a selected non-default card again removes it so the original shot becomes the fallback."}
                   </p>
-                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div className="mt-4 grid gap-4 xl:grid-cols-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-black/45">Camera angles</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {fitManifest?.cameraAngleOptions.map((option) => {
-                          const selected = selectedCameraPresetIds.includes(option.id as CameraDirectionPresetId);
+                        {primaryCameraAngleOptions.map((option) => {
+                          const selected = isCameraOptionSelected(cameraDirectionState, option.id as CameraDirectionPresetId);
                           const blockReason = getCameraOptionBlockReason(option.id as CameraDirectionPresetId);
-                          const blocked = !selected && Boolean(blockReason);
+                          const blocked = cameraDirectionState.renderMode !== "exact_shot_recompose" && !selected && Boolean(blockReason);
+                          const disabled = cameraDirectionState.renderMode === "exact_shot_recompose" || blocked;
+                          const isOriginalFallback = option.id === ORIGINAL_ANGLE_ID && cameraDirectionState.primaryAngle === null;
 
                           return (
                             <button
                               key={option.id}
                               type="button"
+                              disabled={disabled}
                               onClick={() => toggleCameraPreset(option.id)}
-                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900 opacity-80" : "border-black/10 bg-[#f7f4ef] text-black"}`}
+                              className={`relative rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900" : disabled ? "cursor-not-allowed border-black/10 bg-[#f1ede6] text-black/35" : "border-black/10 bg-[#f7f4ef] text-black hover:border-black/20"}`}
                             >
+                              {selected ? (
+                                <span className={`absolute right-3 top-3 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${disabled ? "bg-black/5 text-black/35" : "bg-white/15 text-white"}`}>
+                                  {isOriginalFallback ? "Default" : "× Deselect"}
+                                </span>
+                              ) : null}
                               <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
@@ -3212,7 +3469,7 @@ export default function ReviewPage() {
                               </div>
                               <p className="mt-3 text-sm font-semibold">{option.title}</p>
                               <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
-                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">This conflicts with your current camera direction. {blockReason}</p> : null}
+                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">{blockReason}</p> : null}
                             </button>
                           );
                         })}
@@ -3223,17 +3480,25 @@ export default function ReviewPage() {
                       <p className="text-xs uppercase tracking-[0.18em] text-black/45">Lens looks</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {fitManifest?.lensLookOptions.map((option) => {
-                          const selected = selectedCameraPresetIds.includes(option.id as CameraDirectionPresetId);
+                          const selected = isCameraOptionSelected(cameraDirectionState, option.id as CameraDirectionPresetId);
                           const blockReason = getCameraOptionBlockReason(option.id as CameraDirectionPresetId);
-                          const blocked = !selected && Boolean(blockReason);
+                          const blocked = cameraDirectionState.renderMode !== "exact_shot_recompose" && !selected && Boolean(blockReason);
+                          const disabled = cameraDirectionState.renderMode === "exact_shot_recompose" || blocked;
+                          const isOriginalFallback = option.id === ORIGINAL_LENS_ID && cameraDirectionState.primaryLens === null;
 
                           return (
                             <button
                               key={option.id}
                               type="button"
+                              disabled={disabled}
                               onClick={() => toggleCameraPreset(option.id)}
-                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900 opacity-80" : "border-black/10 bg-[#f7f4ef] text-black"}`}
+                              className={`relative rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900" : disabled ? "cursor-not-allowed border-black/10 bg-[#f1ede6] text-black/35" : "border-black/10 bg-[#f7f4ef] text-black hover:border-black/20"}`}
                             >
+                              {selected ? (
+                                <span className={`absolute right-3 top-3 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${disabled ? "bg-black/5 text-black/35" : "bg-white/15 text-white"}`}>
+                                  {isOriginalFallback ? "Default" : "× Deselect"}
+                                </span>
+                              ) : null}
                               <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
@@ -3243,7 +3508,45 @@ export default function ReviewPage() {
                               </div>
                               <p className="mt-3 text-sm font-semibold">{option.title}</p>
                               <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
-                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">This conflicts with your current camera direction. {blockReason}</p> : null}
+                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">{blockReason}</p> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-black/45">Modifiers</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                        {cameraModifierOptions.map((option) => {
+                          const selected = isCameraOptionSelected(cameraDirectionState, option.id as CameraDirectionPresetId);
+                          const blockReason = getCameraOptionBlockReason(option.id as CameraDirectionPresetId);
+                          const blocked = cameraDirectionState.renderMode !== "exact_shot_recompose" && !selected && Boolean(blockReason);
+                          const disabled = cameraDirectionState.renderMode === "exact_shot_recompose" || blocked;
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => toggleCameraPreset(option.id)}
+                              className={`relative rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900" : disabled ? "cursor-not-allowed border-black/10 bg-[#f1ede6] text-black/35" : "border-black/10 bg-[#f7f4ef] text-black hover:border-black/20"}`}
+                            >
+                              {selected ? (
+                                <span className={`absolute right-3 top-3 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${disabled ? "bg-black/5 text-black/35" : "bg-white/15 text-white"}`}>
+                                  × Deselect
+                                </span>
+                              ) : null}
+                              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
+                                  {option.previewLabel}
+                                </div>
+                              </div>
+                              <p className="mt-3 text-sm font-semibold">{option.title}</p>
+                              <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
+                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">{blockReason}</p> : null}
                             </button>
                           );
                         })}
@@ -3254,23 +3557,24 @@ export default function ReviewPage() {
 
                 <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Direction Summary</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {cameraSelectionSummary.activePresets.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => toggleCameraPreset(preset.id)}
-                        className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/70 transition hover:border-black/25 hover:text-black"
-                      >
-                        {preset.title} ×
-                      </button>
-                    ))}
-                  </div>
                   <p className="mt-4 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Mode:</span>{" "}
+                    {cameraDirectionState.renderMode === "exact_shot_recompose" ? "Exact Shot Recompose" : "Guided Reframe"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Preset:</span> {activeCameraRecipe?.title || "Custom"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Selection mode:</span>{" "}
+                    {hasCameraCustomOverride ? "Custom override" : cameraDirectionState.selectionMode === "preset" ? "Preset shortcut" : "Custom"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
                     <span className="font-semibold">Primary angle:</span> {cameraSelectionSummary.primaryAngle.title}
+                    {cameraDirectionState.primaryAngle === null ? " (fallback to original)" : ""}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-black/70">
                     <span className="font-semibold">Primary lens:</span> {cameraSelectionSummary.primaryLens.title}
+                    {cameraDirectionState.primaryLens === null ? " (fallback to original)" : ""}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-black/70">
                     <span className="font-semibold">Active modifiers:</span>{" "}
@@ -3279,17 +3583,36 @@ export default function ReviewPage() {
                       : "None"}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-black/70">
-                    <span className="font-semibold">Reframing intensity:</span> {selectedReframeIntensity}
+                    <span className="font-semibold">Preserve composition:</span>{" "}
+                    {effectiveRefinementPreserveFlags.preserve_composition ? "ON" : "OFF"}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-black/70">
-                    <span className="font-semibold">Preserve composition:</span>{" "}
-                    {refinementPreserveFlags.preserve_composition ? "ON" : "OFF"}
+                    <span className="font-semibold">Reframing intensity:</span>{" "}
+                    {cameraDirectionState.renderMode === "exact_shot_recompose" ? "Locked to same-shot preservation" : effectiveReframeIntensity}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-black/70">
                     <span className="font-semibold">Coordinated direction:</span> {cameraSelectionSummary.narrative}
                   </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {cameraSelectionSummary.modifiers.map((modifier) =>
+                      cameraDirectionState.renderMode === "guided_reframe" ? (
+                        <button
+                          key={modifier.id}
+                          type="button"
+                          onClick={() => toggleCameraPreset(modifier.id)}
+                          className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/70 transition hover:border-black/25 hover:text-black"
+                        >
+                          {modifier.title} ×
+                        </button>
+                      ) : (
+                        <span key={modifier.id} className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/55">
+                          {modifier.title}
+                        </span>
+                      ),
+                    )}
+                  </div>
                   <p className="mt-3 text-sm leading-6 text-black/60">
-                    Selecting a new primary angle or lens replaces the previous primary automatically. Incompatible combinations are blocked inline.
+                    Selecting a new primary angle or lens replaces the previous primary automatically. Quick presets never lock the manual cards, and only the actually conflicting option is blocked inline.
                   </p>
                 </div>
 
@@ -3313,7 +3636,7 @@ export default function ReviewPage() {
 
                 {cameraSelectionSummary.hasNonOriginalSelection ? (
                   <p className="mt-4 text-sm leading-6 text-black/65">
-                    A non-original camera direction is active. This may become a controlled reinterpretation instead of pure refinement, especially when `allow reframing` or `allow perspective shift` are enabled.
+                    A non-original camera direction is active. This may become a controlled reinterpretation instead of pure refinement, especially when Guided Reframe is active and `allow reframing` or `allow perspective shift` are enabled.
                   </p>
                 ) : null}
               </div>
@@ -3384,15 +3707,29 @@ export default function ReviewPage() {
               <div className="rounded-3xl border border-black/10 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Preserve Rules</p>
                 <p className="mt-2 text-sm leading-6 text-black/60">
-                  These stay on by default so the refinement behaves like controlled finishing rather than a new generation pass. `allow reframing` and `allow perspective shift` control how strongly Camera Direction can reinterpret the image.
+                  These stay on by default so the refinement behaves like controlled finishing rather than a new generation pass. `allow reframing` and `allow perspective shift` only affect Guided Reframe.
                 </p>
+                {cameraDirectionState.renderMode === "exact_shot_recompose" ? (
+                  <div className="mt-3 rounded-2xl border border-black/10 bg-[#f7f4ef] p-4 text-sm leading-6 text-black/65">
+                    Exact Shot Recompose keeps the original tone, color, lighting, angle, and lens behavior locked. `allow reframing` and `allow perspective shift` are shown for reference here, but they do not apply until you switch back to Guided Reframe.
+                  </div>
+                ) : null}
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {(Object.keys(refinementPreserveFlags) as Array<keyof PreserveFlags>).map((flag) => (
-                    <label key={flag} className="flex items-center justify-between rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black/70">
+                  {(Object.keys(refinementPreserveFlags) as Array<keyof PreserveFlags>).map((flag) => {
+                    const disabled =
+                      cameraDirectionState.renderMode === "exact_shot_recompose" &&
+                      (flag === "allow_reframing" || flag === "allow_perspective_shift");
+
+                    return (
+                    <label
+                      key={flag}
+                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-sm ${disabled ? "border-black/10 bg-[#f1ede6] text-black/40" : "border-black/10 bg-[#f7f4ef] text-black/70"}`}
+                    >
                       <span>{flag.replace(/_/g, " ")}</span>
-                      <input type="checkbox" checked={refinementPreserveFlags[flag]} onChange={() => togglePreserveFlag(flag)} />
+                      <input type="checkbox" checked={refinementPreserveFlags[flag]} disabled={disabled} onChange={() => togglePreserveFlag(flag)} />
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
