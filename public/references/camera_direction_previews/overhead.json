@@ -1,0 +1,25 @@
+{
+  "preset_id": "overhead",
+  "preset_type": "angle",
+  "title": "Overhead",
+  "description": "Top-down graphic camera angle with clear overhead read.",
+  "preview_image_url": "/references/camera_direction_previews/overhead.jpg",
+  "preview_generation_notes": "Create a top-down shot of Summer that unmistakably reads as overhead and still fits the 4:5 card intentionally.",
+  "prompt_focus": "top-down overhead perspective",
+  "safe_margin_guidance": "Center the body elegantly and avoid cropping key facial structure in the top-down frame.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:02:11.702Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

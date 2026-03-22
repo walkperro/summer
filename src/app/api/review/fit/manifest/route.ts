@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isBlobStorageConfigured } from "@/lib/blob-storage";
+import { getApprovedCameraPreviewRegistry } from "@/lib/camera-preview-registry";
 import {
   CAMERA_ANGLE_OPTIONS,
   CAMERA_RECIPES,
@@ -57,6 +58,14 @@ export async function GET() {
     cameraAngleOptions: CAMERA_ANGLE_OPTIONS,
     lensLookOptions: LENS_LOOK_OPTIONS,
     cameraRecipes: CAMERA_RECIPES,
+    cameraPreviewRegistry: getApprovedCameraPreviewRegistry().map((entry) => ({
+      preset_id: entry.preset_id,
+      preset_type: entry.preset_type,
+      title: entry.title,
+      description: entry.description,
+      preview_image_url: entry.preview_image_url,
+      preview_generation_notes: entry.preview_generation_notes,
+    })),
     defaultPreserveFlags: DEFAULT_PRESERVE_FLAGS,
     refinementHelp: FINAL_REFINEMENT_HELP,
     storageConfigured: isBlobStorageConfigured(),

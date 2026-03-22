@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:camera-previews": "set -a && [ -f .env.local ] && . ./.env.local ; set +a ; node scripts/generate-camera-preview-assets.mjs"
   },
   "dependencies": {
     "next": "16.2.0",

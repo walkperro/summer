@@ -1,0 +1,25 @@
+{
+  "preset_id": "135mm_compressed_portrait",
+  "preset_type": "lens",
+  "title": "135mm Compressed Portrait",
+  "description": "Tighter elegant compression with flatter perspective and refined separation.",
+  "preview_image_url": "/references/camera_direction_previews/135mm_compressed_portrait.jpg",
+  "preview_generation_notes": "Make the compression clearly tighter and more flattened than the 85mm preview while staying premium and graceful.",
+  "prompt_focus": "135mm elegant compressed portrait",
+  "safe_margin_guidance": "Compose tightly but intentionally with no awkward chin or crown clipping.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:21:08.604Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

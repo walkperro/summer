@@ -1,0 +1,25 @@
+{
+  "preset_id": "high_angle",
+  "preset_type": "angle",
+  "title": "High Angle",
+  "description": "Camera looking down for a softer top-led perspective.",
+  "preview_image_url": "/references/camera_direction_previews/high_angle.jpg",
+  "preview_generation_notes": "Show a noticeable but tasteful downward angle with Summer still centered and elegant inside the card.",
+  "prompt_focus": "soft high-angle perspective",
+  "safe_margin_guidance": "Keep the face fully visible and avoid pushing Summer too low in the frame.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T01:30:29.626Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

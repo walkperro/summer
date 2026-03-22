@@ -1,0 +1,25 @@
+{
+  "preset_id": "side_profile",
+  "preset_type": "angle",
+  "title": "Side Profile",
+  "description": "Clear profile view with sculptural silhouette and facial edge.",
+  "preview_image_url": "/references/camera_direction_previews/side_profile.jpg",
+  "preview_generation_notes": "Compose a true readable side profile of Summer, not a partial turn, with clean silhouette separation.",
+  "prompt_focus": "clear side-profile view",
+  "safe_margin_guidance": "Leave breathing room in front of the face direction and avoid clipping the nose or back of head.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T01:54:08.086Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

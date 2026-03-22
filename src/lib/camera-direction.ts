@@ -1,3 +1,5 @@
+import { getCameraPreviewRegistryEntry } from "@/lib/camera-preview-registry";
+
 export type PreserveFlags = {
   preserve_face: boolean;
   preserve_composition: boolean;
@@ -46,6 +48,7 @@ export type CameraOption = {
   previewAccent: string;
   previewImageUrl: string;
   previewAlt: string;
+  previewGenerationNotes: string;
   kind: CameraDirectionKind;
   category: CameraDirectionCategory;
   promptPhrase: string;
@@ -107,8 +110,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "neutral baseline, closest to the source framing",
     previewLabel: "Original",
     previewAccent: "#c9b18a",
-    previewImageUrl: "/references/summer_final_likeness/yellow_on_black_midshot.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("keep_original_angle")?.preview_image_url || "",
     previewAlt: "Summer neutral baseline camera-angle preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("keep_original_angle")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "the original camera angle with restrained reframing",
@@ -120,8 +124,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "balanced viewpoint, clean and natural editorial read",
     previewLabel: "Eye Level",
     previewAccent: "#b7c4d6",
-    previewImageUrl: "/references/summer_final_likeness/black_top_midshot.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("eye_level")?.preview_image_url || "",
     previewAlt: "Summer eye-level editorial preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("eye_level")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "an eye-level editorial perspective",
@@ -133,8 +138,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "powerful upward perspective with campaign energy",
     previewLabel: "Low Hero",
     previewAccent: "#9aa7c9",
-    previewImageUrl: "/references/summer_fit/fit_pushup_intensity_close.jpg",
+    previewImageUrl: getCameraPreviewRegistryEntry("low_angle_heroic")?.preview_image_url || "",
     previewAlt: "Summer low-angle heroic preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("low_angle_heroic")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "a low-angle heroic perspective",
@@ -146,8 +152,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "slightly elevated viewpoint with softer hierarchy",
     previewLabel: "High Angle",
     previewAccent: "#c7c2de",
-    previewImageUrl: "/references/summer_final_style/peach_on_yellow.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("high_angle")?.preview_image_url || "",
     previewAlt: "Summer high-angle preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("high_angle")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "a high-angle editorial perspective",
@@ -159,8 +166,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "classic three-quarter portrait with elegant face geometry",
     previewLabel: "3/4",
     previewAccent: "#d6b5b2",
-    previewImageUrl: "/references/summer_final_style/black_cutout_top.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("three_quarter_portrait")?.preview_image_url || "",
     previewAlt: "Summer three-quarter portrait preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("three_quarter_portrait")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "a three-quarter portrait perspective",
@@ -172,8 +180,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "clean profile perspective with sculptural lines",
     previewLabel: "Profile",
     previewAccent: "#cbb996",
-    previewImageUrl: "/references/summer_fit/fit_side_profile_architectural.jpg",
+    previewImageUrl: getCameraPreviewRegistryEntry("side_profile")?.preview_image_url || "",
     previewAlt: "Summer side-profile preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("side_profile")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "a side-profile perspective",
@@ -185,8 +194,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "grounded floor-level perspective with athletic drama",
     previewLabel: "Floor",
     previewAccent: "#9fb7aa",
-    previewImageUrl: "/references/summer_fit/fit_pushup_intensity_profile.jpg",
+    previewImageUrl: getCameraPreviewRegistryEntry("floor_level")?.preview_image_url || "",
     previewAlt: "Summer floor-level preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("floor_level")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "a floor-level campaign perspective",
@@ -198,8 +208,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "top-down graphic composition with strong shape control",
     previewLabel: "Overhead",
     previewAccent: "#aebfc9",
-    previewImageUrl: "/references/summer_final_body/grass_stretch_standing.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("overhead")?.preview_image_url || "",
     previewAlt: "Summer overhead-style preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("overhead")?.preview_generation_notes || "",
     kind: "angle",
     category: "angle_core",
     promptPhrase: "an overhead editorial perspective",
@@ -211,8 +222,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "kinetic tilt modifier with controlled editorial tension",
     previewLabel: "Tilt",
     previewAccent: "#d8b48f",
-    previewImageUrl: "/references/summer_final_style/black_and_white_pose.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("dutch_tilt")?.preview_image_url || "",
     previewAlt: "Summer dutch-tilt preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("dutch_tilt")?.preview_generation_notes || "",
     kind: "angle",
     category: "experimental_modifier",
     promptPhrase: "a restrained dutch-tilt modifier",
@@ -224,8 +236,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "closer beauty crop with face-led intimacy",
     previewLabel: "Close",
     previewAccent: "#d5a8a8",
-    previewImageUrl: "/references/summer_final_likeness/black_closeup.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("close_crop_beauty")?.preview_image_url || "",
     previewAlt: "Summer close-crop beauty preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("close_crop_beauty")?.preview_generation_notes || "",
     kind: "angle",
     category: "framing_modifier",
     promptPhrase: "a close beauty crop",
@@ -237,8 +250,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "wider crop with more environment and spatial drama",
     previewLabel: "Wide",
     previewAccent: "#a6c6cf",
-    previewImageUrl: "/references/summer_fit/fit_stretch_recovery_standing.jpg",
+    previewImageUrl: getCameraPreviewRegistryEntry("wide_environmental")?.preview_image_url || "",
     previewAlt: "Summer wide-environmental preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("wide_environmental")?.preview_generation_notes || "",
     kind: "angle",
     category: "framing_modifier",
     promptPhrase: "a wide environmental framing modifier",
@@ -250,8 +264,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "neutral baseline, closest to the source optics",
     previewLabel: "Original Lens",
     previewAccent: "#c9b18a",
-    previewImageUrl: "/references/summer_final_likeness/peach_mid_shot_2.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("keep_original_lens_feel")?.preview_image_url || "",
     previewAlt: "Summer neutral baseline lens preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("keep_original_lens_feel")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "the original lens behavior",
@@ -263,8 +278,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "more environment, more spatial drama",
     previewLabel: "24mm",
     previewAccent: "#9ebfd2",
-    previewImageUrl: "/references/summer_fit/fit_stretch_recovery_standing.jpg",
+    previewImageUrl: getCameraPreviewRegistryEntry("24mm_wide_editorial")?.preview_image_url || "",
     previewAlt: "Summer 24mm wide editorial preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("24mm_wide_editorial")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "a 24mm wide editorial lens feel",
@@ -276,8 +292,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "cinematic balance between subject and environment",
     previewLabel: "35mm",
     previewAccent: "#b5badc",
-    previewImageUrl: "/references/summer_final_style/peach_rooftop.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("35mm_cinematic")?.preview_image_url || "",
     previewAlt: "Summer 35mm cinematic preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("35mm_cinematic")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "a 35mm cinematic lens feel",
@@ -289,8 +306,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "natural perspective with restrained editorial polish",
     previewLabel: "50mm",
     previewAccent: "#bfc4b1",
-    previewImageUrl: "/references/summer_final_style/jeans_sitting.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("50mm_natural")?.preview_image_url || "",
     previewAlt: "Summer 50mm natural preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("50mm_natural")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "a 50mm natural lens feel",
@@ -302,8 +320,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "flattering compression, premium face-led portrait",
     previewLabel: "85mm",
     previewAccent: "#d1b2c4",
-    previewImageUrl: "/references/summer_final_likeness/purple_closeup_1.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("85mm_portrait")?.preview_image_url || "",
     previewAlt: "Summer 85mm portrait preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("85mm_portrait")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "an 85mm portrait lens feel",
@@ -315,8 +334,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "tighter portrait compression with elegant flattening",
     previewLabel: "135mm",
     previewAccent: "#cab2d8",
-    previewImageUrl: "/references/summer_final_likeness/purple_closeup_3.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("135mm_compressed_portrait")?.preview_image_url || "",
     previewAlt: "Summer 135mm compressed portrait preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("135mm_compressed_portrait")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "a 135mm compressed portrait lens feel",
@@ -328,8 +348,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "macro detail emphasis for skin and material texture",
     previewLabel: "Macro",
     previewAccent: "#d3c39f",
-    previewImageUrl: "/references/summer_final_likeness/peach_closeup_mid_shot.png",
+    previewImageUrl: getCameraPreviewRegistryEntry("macro_close_detail")?.preview_image_url || "",
     previewAlt: "Summer macro close-detail preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("macro_close_detail")?.preview_generation_notes || "",
     kind: "lens",
     category: "lens_core",
     promptPhrase: "a macro close-detail lens feel",
@@ -341,8 +362,9 @@ const CAMERA_DIRECTION_PRESETS: CameraOption[] = [
     shortDescription: "experimental distortion, dramatic and intentionally stylized",
     previewLabel: "Fisheye",
     previewAccent: "#e2a57b",
-    previewImageUrl: "/references/summer_fit/fit_pushup_intensity_close.jpg",
+    previewImageUrl: getCameraPreviewRegistryEntry("fisheye")?.preview_image_url || "",
     previewAlt: "Summer fisheye-style preview",
+    previewGenerationNotes: getCameraPreviewRegistryEntry("fisheye")?.preview_generation_notes || "",
     kind: "lens",
     category: "experimental_modifier",
     promptPhrase: "a controlled fisheye lens treatment",
@@ -628,6 +650,12 @@ export function buildCameraDirectionPromptLines(options: {
 
 export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId): CameraPreviewGenerationPlan {
   const preset = getPreset(presetId);
+  const previewRegistryEntry = getCameraPreviewRegistryEntry(presetId);
+
+  if (!previewRegistryEntry) {
+    throw new Error(`Missing camera preview registry entry for ${presetId}.`);
+  }
+
   const jsonPlan = {
     task: "generate_with_references",
     verb: "Create",
@@ -645,7 +673,7 @@ export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId
       body_truths: ["athletic feminine proportions", "believable anatomy", "premium but realistic skin texture"],
       anti_drift: ["do not generate a different woman", "do not age her up", "do not plasticize skin", "do not invent fake text or graphics"],
     },
-    action: "Hold a calm editorial pose designed to clearly demonstrate the selected camera language.",
+    action: "Hold a calm editorial pose designed to clearly demonstrate the selected camera language without reading like a random crop.",
     scene: {
       location: "minimal premium editorial studio",
       environment: "consistent neutral architectural backdrop with clean tonal variation and no visible branding",
@@ -653,15 +681,15 @@ export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId
     },
     composition: {
       shot_type: "editorial portrait study",
-      framing: preset.title,
+      framing: `${preset.title} composed specifically for a 4:5 preview-card frame`,
       angle: preset.title,
-      depth: "controlled shallow-to-medium depth depending on the selected lens behavior",
+      depth: "controlled shallow-to-medium depth depending on the selected lens behavior, with safe margins for the card frame",
     },
     composition_language: {
       visual_hierarchy: "Summer remains dominant and centered within a clean premium image architecture.",
       text_safe_guidance: "Keep the frame free of fake text, fake logos, or graphic clutter.",
       mobile_crop_safety_guidance: "Keep Summer readable and recognizable in a tighter mobile crop.",
-      subject_placement: "Keep Summer clearly readable with enough surrounding space to understand the camera-language shift.",
+      subject_placement: previewRegistryEntry.safe_margin_guidance,
       eye_line: "Keep eye-line calm and editorial.",
     },
     style: {
@@ -675,9 +703,9 @@ export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId
       rendering: "photorealistic premium internal camera-language library preview",
     },
     camera_language: {
-      capture_feel: `Demonstrate ${preset.title} clearly while keeping the same exact woman and a premium internal-library feel.`,
-      lens_behavior: preset.shortDescription,
-      focus_strategy: "Keep facial identity sharp and clear while the framing and optical behavior communicate the preset.",
+      capture_feel: `Demonstrate ${preset.title} clearly while keeping the same exact woman and a premium internal-library feel. ${previewRegistryEntry.preview_generation_notes}`,
+      lens_behavior: previewRegistryEntry.prompt_focus,
+      focus_strategy: "Keep facial identity sharp and clear while the framing and optical behavior communicate the preset, with no accidental crop feeling.",
       motion_treatment: "still portrait precision",
     },
     lighting_language: {
@@ -694,7 +722,7 @@ export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId
     },
     environment_language: {
       spatial_mood: "quiet premium studio calm",
-      background_strategy: "keep the same neutral background family across previews so the camera differences read clearly",
+      background_strategy: "keep the same neutral background family across previews so the camera differences read clearly, while each preview remains a unique dedicated composition",
       surface_materials: "soft concrete, plaster, and premium neutral surfaces",
       color_world: "warm neutrals, soft blacks, muted stone, and editorial skin tones",
     },
@@ -719,7 +747,7 @@ export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId
       keep_clean: true,
     },
     edit: {
-      change: [`Show ${preset.title} clearly through composition, crop, or lens behavior.`],
+      change: [`Show ${preset.title} clearly through composition, perspective, or lens behavior without relying on accidental cropping.`],
       preserve: ["same exact woman", "same age", "same premium realism", "same neutral background family"],
     },
     constraints: {
@@ -728,22 +756,34 @@ export function getCameraPreviewGenerationPlan(presetId: CameraDirectionPresetId
         "same exact woman across every preview",
         "clear visual demonstration of the selected preset",
         "premium internal camera-language library look",
+        "fully composed for the preview card with safe margins",
       ],
-      avoid: ["fake text", "fake logos", "stock-photo energy", "overdone tattoos", "plastic skin"],
+      avoid: [
+        "fake text",
+        "fake logos",
+        "stock-photo energy",
+        "overdone tattoos",
+        "plastic skin",
+        "random crop feeling",
+        "awkward clipping of face, head, chin, or eyes",
+      ],
     },
   };
 
   const finalPrompt = [
     "Create a premium internal camera-language preview image using the attached Summer likeness references.",
-    `Demonstrate ${preset.title} with ${preset.shortDescription}.`,
+    `Demonstrate ${preset.title} with ${previewRegistryEntry.prompt_focus}.`,
     "Keep the same exact woman from the likeness references with strong face preservation, the same age, realistic pores, and believable anatomy.",
+    "Compose the image specifically for a 4:5 preview-card thumbnail from the start, with safe margins and no accidental crop feeling.",
+    `Generation note: ${previewRegistryEntry.preview_generation_notes}`,
+    `Safe-margin rule: ${previewRegistryEntry.safe_margin_guidance}`,
     "Use simple clean premium editorial styling, a consistent neutral architectural background family, and soft daylight so the camera-language difference reads clearly.",
-    "Do not add fake text, fake logos, heavy tattoos, or generic AI gloss.",
+    "Do not add fake text, fake logos, heavy tattoos, generic AI gloss, bad facial clipping, or random reused-crop energy.",
   ].join(" ");
 
   return {
     presetId,
-    fallbackPreviewUrl: preset.previewImageUrl,
+    fallbackPreviewUrl: previewRegistryEntry.preview_image_url,
     outputPathname: `review/camera-previews/${presetId}`,
     likenessReferenceIds: CAMERA_PREVIEW_LIKENESS_REFERENCE_IDS,
     jsonPlan,

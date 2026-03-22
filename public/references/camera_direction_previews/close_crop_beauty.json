@@ -1,0 +1,25 @@
+{
+  "preset_id": "close_crop_beauty",
+  "preset_type": "angle",
+  "title": "Close Crop Beauty",
+  "description": "Intentional beauty framing with tight face-led composition.",
+  "preview_image_url": "/references/camera_direction_previews/close_crop_beauty.jpg",
+  "preview_generation_notes": "Compose a deliberate close beauty crop of Summer with premium face detail and safe facial margins.",
+  "prompt_focus": "intentional close beauty crop",
+  "safe_margin_guidance": "Tight is okay, but do not cut off mouth, eyes, chin, or crown awkwardly.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:06:29.486Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

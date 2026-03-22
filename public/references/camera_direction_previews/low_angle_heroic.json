@@ -1,0 +1,25 @@
+{
+  "preset_id": "low_angle_heroic",
+  "preset_type": "angle",
+  "title": "Low Angle Heroic",
+  "description": "Lower camera position that makes Summer feel stronger and taller.",
+  "preview_image_url": "/references/camera_direction_previews/low_angle_heroic.jpg",
+  "preview_generation_notes": "Use a low camera position and deliberate upward read while still keeping Summer fully composed in frame.",
+  "prompt_focus": "low-angle heroic campaign perspective",
+  "safe_margin_guidance": "Leave space around the head and shoulders so the heroic effect does not create awkward cutoff.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T01:25:59.529Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

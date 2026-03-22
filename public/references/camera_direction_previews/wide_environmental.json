@@ -1,0 +1,25 @@
+{
+  "preset_id": "wide_environmental",
+  "preset_type": "angle",
+  "title": "Wide Environmental",
+  "description": "Summer smaller in frame so the environment matters more.",
+  "preview_image_url": "/references/camera_direction_previews/wide_environmental.jpg",
+  "preview_generation_notes": "Compose Summer smaller in a premium neutral environment so the wider environmental read is immediately clear.",
+  "prompt_focus": "wide environmental framing with Summer smaller in frame",
+  "safe_margin_guidance": "Keep the full body or most of the body comfortably inside frame with visible environment context.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:08:13.416Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

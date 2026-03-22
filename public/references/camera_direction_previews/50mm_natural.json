@@ -1,0 +1,25 @@
+{
+  "preset_id": "50mm_natural",
+  "preset_type": "lens",
+  "title": "50mm Natural",
+  "description": "Balanced natural look with restrained premium realism.",
+  "preview_image_url": "/references/camera_direction_previews/50mm_natural.jpg",
+  "preview_generation_notes": "Use a natural balanced portrait that clearly feels less wide than 35mm and less compressed than 85mm.",
+  "prompt_focus": "balanced 50mm natural lens feel",
+  "safe_margin_guidance": "Keep Summer centered and elegantly framed with comfortable headroom and shoulder space.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:19:28.312Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

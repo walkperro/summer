@@ -1,0 +1,25 @@
+{
+  "preset_id": "85mm_portrait",
+  "preset_type": "lens",
+  "title": "85mm Portrait",
+  "description": "Flattering portrait compression with premium face-led hierarchy.",
+  "preview_image_url": "/references/camera_direction_previews/85mm_portrait.jpg",
+  "preview_generation_notes": "Create an elegant portrait with flattering compression and clear face priority, distinct from 50mm and 135mm.",
+  "prompt_focus": "85mm flattering portrait compression",
+  "safe_margin_guidance": "Keep head and shoulders comfortably inside frame with a luxurious portrait read.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:20:31.326Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

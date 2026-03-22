@@ -5,6 +5,7 @@ const GEMINI_MODEL = (
   "gemini-3.1-flash-image-preview"
 )
   .trim()
+  .replace(/\\n/g, "")
   .replace(/^models\//, "");
 const GEMINI_API_BASE = process.env.GEMINI_API_BASE || "https://generativelanguage.googleapis.com/v1beta";
 

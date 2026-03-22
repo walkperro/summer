@@ -1,0 +1,25 @@
+{
+  "preset_id": "keep_original_lens_feel",
+  "preset_type": "lens",
+  "title": "Keep Original Lens Feel",
+  "description": "Neutral lens baseline with balanced editorial rendering.",
+  "preview_image_url": "/references/camera_direction_previews/keep_original_lens_feel.jpg",
+  "preview_generation_notes": "Create a clean neutral lens baseline with no strong optical exaggeration and intentional 4:5 composition.",
+  "prompt_focus": "neutral lens baseline",
+  "safe_margin_guidance": "Keep Summer comfortably framed with no edge stress or awkward optical exaggeration.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:12:13.291Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

@@ -92,6 +92,7 @@ type CameraOption = {
   previewAccent: string;
   previewImageUrl: string;
   previewAlt: string;
+  previewGenerationNotes: string;
   kind: "angle" | "lens";
   category: "angle_core" | "framing_modifier" | "lens_core" | "experimental_modifier";
 };
@@ -146,6 +147,14 @@ type FitManifest = {
   cameraAngleOptions: CameraOption[];
   lensLookOptions: CameraOption[];
   cameraRecipes: CameraRecipe[];
+  cameraPreviewRegistry?: Array<{
+    preset_id: string;
+    preset_type: "angle" | "lens";
+    title: string;
+    description: string;
+    preview_image_url: string;
+    preview_generation_notes: string;
+  }>;
   defaultPreserveFlags: PreserveFlags;
   refinementHelp: string[];
   storageConfigured: boolean;
@@ -1828,7 +1837,7 @@ export default function ReviewPage() {
                               onClick={() => toggleCameraPreset(option.id)}
                               className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
                             >
-                              <div className="relative h-32 overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
+                              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
                                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
@@ -1856,7 +1865,7 @@ export default function ReviewPage() {
                               onClick={() => toggleCameraPreset(option.id)}
                               className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
                             >
-                              <div className="relative h-32 overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
+                              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={option.previewImageUrl} alt={option.previewAlt} className="h-full w-full object-cover" />
                                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">

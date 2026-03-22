@@ -1,0 +1,25 @@
+{
+  "preset_id": "35mm_cinematic",
+  "preset_type": "lens",
+  "title": "35mm Cinematic",
+  "description": "Cinematic environmental portrait with subject and scene in balance.",
+  "preview_image_url": "/references/camera_direction_previews/35mm_cinematic.jpg",
+  "preview_generation_notes": "Compose a cinematic environmental portrait with balanced scene context and graceful depth.",
+  "prompt_focus": "35mm cinematic environmental portrait",
+  "safe_margin_guidance": "Protect the full head and keep the frame feeling designed rather than cropped from a larger scene.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T02:17:53.695Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}

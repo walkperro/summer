@@ -1,0 +1,25 @@
+{
+  "preset_id": "three_quarter_portrait",
+  "preset_type": "angle",
+  "title": "Three-Quarter Portrait",
+  "description": "Elegant face/body turn that clearly reads as a three-quarter portrait.",
+  "preview_image_url": "/references/camera_direction_previews/three_quarter_portrait.jpg",
+  "preview_generation_notes": "Turn Summer into a graceful three-quarter pose with clear cheekbone, shoulder, and torso geometry.",
+  "prompt_focus": "elegant three-quarter portrait turn",
+  "safe_margin_guidance": "Keep the top of head, jawline, and shoulder line fully readable.",
+  "generation_model": "gemini-3.1-flash-image-preview",
+  "generated_at": "2026-03-22T01:51:45.063Z",
+  "likeness_reference_ids": [
+    "likeness_black_closeup",
+    "likeness_black_top_midshot",
+    "likeness_peach_mid_shot_2"
+  ],
+  "approval_checklist": {
+    "face_framing_safe": true,
+    "preset_effect_clear": true,
+    "distinct_from_other_previews": true,
+    "intentionally_composed": true
+  },
+  "gallery_approved": true,
+  "response_text": ""
+}
