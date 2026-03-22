@@ -23,6 +23,7 @@ import {
   type RecomposeSubjectProtection,
   type RefinementPresetId,
   type RenderAspectRatio,
+  type SourceImageAnalysis,
 } from "@/lib/final-refinement";
 
 type PromptManifest = {
@@ -254,11 +255,31 @@ type RefineResult = {
     allow_reframing: boolean;
     allow_perspective_shift: boolean;
     model: string;
+    monochrome_lock_enabled?: boolean;
+    hidden_style_fragments_appended?: string[];
+    source_format?: string;
+    source_color_space?: string;
+    source_icc_info?: string;
+    output_format?: string;
+    output_color_space?: string;
+    output_icc_handling?: string;
+    post_processing_steps?: string[];
+    preview_asset_url?: string;
+    download_asset_url?: string;
+    source_artifact_url?: string;
+    raw_gemini_output_url?: string;
+    final_output_url?: string;
+    diagnostic_requested?: boolean;
   };
   stackWarnings?: StackWarning[];
   responseText?: string;
   warning?: string;
   decision?: "approve" | "reject";
+  debugArtifacts?: {
+    source: { label: string; url: string };
+    rawGeminiOutput: { label: string; url: string };
+    finalOutput: { label: string; url: string };
+  };
   debug?: {
     executionMode: FinalImageExecutionMode;
     reframeTriggered: boolean;
@@ -282,6 +303,11 @@ type RefineResult = {
       warningIssues: FinalImageValidationIssue[];
       isBlocked: boolean;
     };
+    monochromeLockEnabled?: boolean;
+    appendedStyleFragments?: string[];
+    postProcessingSteps?: string[];
+    sourceAnalysis?: SourceImageAnalysis;
+    diagnosticRequested?: boolean;
   };
 };
 
@@ -665,6 +691,161 @@ async function createExactCropResult(options: {
   };
 }
 
+async function analyzeSourceImage(sourceImageDataUrl: string): Promise<SourceImageAnalysis> {
+  const image = await loadImageElement(sourceImageDataUrl);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+
+  if (!width || !height) {
+    throw new Error("Failed to read source dimensions for image analysis.");
+  }
+
+  const sampleMaxEdge = 256;
+  const scale = Math.min(1, sampleMaxEdge / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  if (!context) {
+    throw new Error("Image analysis canvas could not be created.");
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+  let totalSaturation = 0;
+  let totalChannelDelta = 0;
+  let sampleCount = 0;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const red = data[index] / 255;
+    const green = data[index + 1] / 255;
+    const blue = data[index + 2] / 255;
+    const alpha = data[index + 3] / 255;
+
+    if (alpha < 0.01) {
+      continue;
+    }
+
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    totalSaturation += saturation;
+    totalChannelDelta += Math.abs(red - green) + Math.abs(green - blue) + Math.abs(red - blue);
+    sampleCount += 1;
+  }
+
+  const averageSaturation = sampleCount > 0 ? totalSaturation / sampleCount : 0;
+  const averageChannelDelta = sampleCount > 0 ? totalChannelDelta / sampleCount : 0;
+  const monochromeConfidence = Math.max(0, Math.min(1, 1 - Math.max(averageSaturation * 1.5, averageChannelDelta * 0.9)));
+  const isMonochrome = monochromeConfidence >= 0.82 || averageSaturation <= 0.06;
+
+  return {
+    isMonochrome,
+    monochromeConfidence,
+    averageSaturation,
+    estimatedToneFamily: isMonochrome ? "monochrome" : "color",
+    width,
+    height,
+  };
+}
+
+function getLuminanceStats(data: Uint8ClampedArray) {
+  let total = 0;
+  let count = 0;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const alpha = data[index + 3];
+
+    if (alpha === 0) {
+      continue;
+    }
+
+    const luminance = 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+    total += luminance;
+    count += 1;
+  }
+
+  const mean = count > 0 ? total / count : 0;
+  let variance = 0;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const alpha = data[index + 3];
+
+    if (alpha === 0) {
+      continue;
+    }
+
+    const luminance = 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+    variance += (luminance - mean) ** 2;
+  }
+
+  return {
+    mean,
+    standardDeviation: count > 0 ? Math.sqrt(variance / count) : 1,
+  };
+}
+
+async function applyStrictMonochromeLock(options: {
+  sourceImageDataUrl: string;
+  rawGeminiOutputDataUrl: string;
+}) {
+  const [sourceImage, rawOutputImage] = await Promise.all([
+    loadImageElement(options.sourceImageDataUrl),
+    loadImageElement(options.rawGeminiOutputDataUrl),
+  ]);
+  const sampleCanvas = document.createElement("canvas");
+  sampleCanvas.width = Math.max(1, Math.round((sourceImage.naturalWidth || sourceImage.width) * Math.min(1, 256 / Math.max(sourceImage.naturalWidth || sourceImage.width, sourceImage.naturalHeight || sourceImage.height))));
+  sampleCanvas.height = Math.max(1, Math.round((sourceImage.naturalHeight || sourceImage.height) * Math.min(1, 256 / Math.max(sourceImage.naturalWidth || sourceImage.width, sourceImage.naturalHeight || sourceImage.height))));
+  const sampleContext = sampleCanvas.getContext("2d", { willReadFrequently: true });
+
+  if (!sampleContext) {
+    throw new Error("Monochrome lock sample canvas could not be created.");
+  }
+
+  sampleContext.drawImage(sourceImage, 0, 0, sampleCanvas.width, sampleCanvas.height);
+  const sourceStats = getLuminanceStats(sampleContext.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height).data);
+
+  const outputCanvas = document.createElement("canvas");
+  outputCanvas.width = rawOutputImage.naturalWidth || rawOutputImage.width;
+  outputCanvas.height = rawOutputImage.naturalHeight || rawOutputImage.height;
+  const outputContext = outputCanvas.getContext("2d", { willReadFrequently: true });
+
+  if (!outputContext) {
+    throw new Error("Monochrome lock output canvas could not be created.");
+  }
+
+  outputContext.drawImage(rawOutputImage, 0, 0, outputCanvas.width, outputCanvas.height);
+  const outputImageData = outputContext.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
+  const outputStats = getLuminanceStats(outputImageData.data);
+  const ratio = sourceStats.standardDeviation / Math.max(outputStats.standardDeviation, 1);
+
+  for (let index = 0; index < outputImageData.data.length; index += 4) {
+    const alpha = outputImageData.data[index + 3];
+
+    if (alpha === 0) {
+      continue;
+    }
+
+    const luminance = 0.2126 * outputImageData.data[index] + 0.7152 * outputImageData.data[index + 1] + 0.0722 * outputImageData.data[index + 2];
+    const adjustedLuminance = Math.max(0, Math.min(255, sourceStats.mean + (luminance - outputStats.mean) * ratio));
+    outputImageData.data[index] = adjustedLuminance;
+    outputImageData.data[index + 1] = adjustedLuminance;
+    outputImageData.data[index + 2] = adjustedLuminance;
+  }
+
+  outputContext.putImageData(outputImageData, 0, 0);
+
+  return {
+    imageDataUrl: outputCanvas.toDataURL("image/png"),
+    postProcessingSteps: [
+      "client-side strict monochrome neutralization",
+      "removed chroma from Gemini output to prevent warmth/sepia drift",
+      "matched output luminance mean and contrast spread to the source image",
+    ],
+  };
+}
+
 function buttonClass(isActive: boolean) {
   return isActive
     ? "rounded-full bg-black px-4 py-2 text-sm font-medium text-white"
@@ -728,6 +909,7 @@ export default function ReviewPage() {
   const [fitRefineProgress, setFitRefineProgress] = useState<JobProgressState | null>(null);
   const fitRefineProgressController = useRef<ProgressController | null>(null);
   const [fitRefineResults, setFitRefineResults] = useState<RefineResult[]>([]);
+  const [refineSourceAnalysis, setRefineSourceAnalysis] = useState<SourceImageAnalysis | null>(null);
 
   useEffect(() => {
     async function loadImageLab() {
@@ -813,6 +995,45 @@ export default function ReviewPage() {
     return [...generatedSources, ...enhancedSources, ...(uploadedRefineSource ? [uploadedRefineSource] : [])];
   }, [fitCampaignResults, fitEnhancementResults, fitManifest, uploadedRefineSource]);
   const selectedRefineSource = refineSourceOptions.find((source) => source.id === selectedRefineSourceId) ?? null;
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadRefineSourceAnalysis() {
+      if (!selectedRefineSource) {
+        setRefineSourceAnalysis(null);
+        return;
+      }
+
+      try {
+        const sourceImageDataUrl = selectedRefineSource.imageDataUrl
+          ? selectedRefineSource.imageDataUrl
+          : selectedRefineSource.imageUrl
+            ? await fetchImageUrlAsDataUrl(selectedRefineSource.imageUrl)
+            : null;
+
+        if (!sourceImageDataUrl) {
+          setRefineSourceAnalysis(null);
+          return;
+        }
+
+        const analysis = await analyzeSourceImage(sourceImageDataUrl);
+
+        if (!isCancelled) {
+          setRefineSourceAnalysis(analysis);
+        }
+      } catch {
+        if (!isCancelled) {
+          setRefineSourceAnalysis(null);
+        }
+      }
+    }
+
+    void loadRefineSourceAnalysis();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedRefineSource]);
   const selectedRefinementPresetDefinition =
     fitManifest?.refinementPresets.find((preset) => preset.id === availablePresetToAdd) ?? null;
   const selectedRefinementStackPresets = useMemo(
@@ -844,6 +1065,7 @@ export default function ReviewPage() {
         framingPreference: refineFramingPreference,
         subjectProtection: refineSubjectProtection,
       },
+      sourceAnalysis: refineSourceAnalysis || undefined,
     });
   }, [
     selectedRefinementStack,
@@ -858,6 +1080,7 @@ export default function ReviewPage() {
     refineSubjectProtection,
     selectedCameraPresetIds,
     selectedReframeIntensity,
+    refineSourceAnalysis,
   ]);
   const currentValidation = useMemo(
     () =>
@@ -874,6 +1097,7 @@ export default function ReviewPage() {
           framingPreference: refineFramingPreference,
           subjectProtection: refineSubjectProtection,
         },
+        sourceAnalysis: refineSourceAnalysis || undefined,
       }),
     [
       selectedRefinementStack,
@@ -886,6 +1110,7 @@ export default function ReviewPage() {
       refineAspectRatioMode,
       refineFramingPreference,
       refineSubjectProtection,
+      refineSourceAnalysis,
     ],
   );
   const refinementStackWarnings = useMemo(() => {
@@ -1441,7 +1666,7 @@ export default function ReviewPage() {
     setCameraSelectionFeedback(result.warning?.message || null);
   }
 
-  async function runFinalRefinement(options?: { export4kOverride?: boolean }) {
+  async function runFinalRefinement(options?: { export4kOverride?: boolean; diagnosticToneDrift?: boolean }) {
     if (!selectedRefineSource) {
       setFitRefineState({ loading: false, error: "Select a source image to refine." });
       return;
@@ -1463,6 +1688,7 @@ export default function ReviewPage() {
     try {
       fitRefineProgressController.current.advance("building", { helperText: "Resolving source image and building the final instruction stack." });
       const sourceImageDataUrl = await resolveRefineSourceDataUrl(selectedRefineSource);
+      const sourceAnalysis = refineSourceAnalysis || (await analyzeSourceImage(sourceImageDataUrl));
 
       if (executionMode === "exact_crop") {
         fitRefineProgressController.current.advance("sending", { helperText: "Preparing an exact crop/export without AI reinterpretation." });
@@ -1525,8 +1751,23 @@ export default function ReviewPage() {
             ? {
                 ...currentExecutionPlan,
                 executionMode: "exact_crop",
+                sourceAnalysis,
               }
             : undefined,
+          debugArtifacts: {
+            source: {
+              label: "Source image",
+              url: sourceImageDataUrl,
+            },
+            rawGeminiOutput: {
+              label: "Raw Gemini output before post-processing",
+              url: sourceImageDataUrl,
+            },
+            finalOutput: {
+              label: "Final output after all processing",
+              url: exactCrop.imageDataUrl,
+            },
+          },
         };
 
         setFitRefineResults((current) => [exactResult, ...current]);
@@ -1554,6 +1795,8 @@ export default function ReviewPage() {
           framingPreference: refineFramingPreference,
           subjectProtection: refineSubjectProtection,
         },
+        sourceAnalysis,
+        debugToneDriftDiagnostic: Boolean(options?.diagnosticToneDrift),
       };
       fitRefineProgressController.current.advance("sending");
       const responsePromise = fetch("/api/review/fit/refine", {
@@ -1567,7 +1810,7 @@ export default function ReviewPage() {
       const response = await responsePromise;
 
       fitRefineProgressController.current.advance("receiving");
-      const data = (await response.json()) as RefineResult & {
+      let data = (await response.json()) as RefineResult & {
         error?: string;
         temporaryOverload?: boolean;
         fallbackAction?: string;
@@ -1585,6 +1828,70 @@ export default function ReviewPage() {
 
       if (!data.asset && !data.imageDataUrl) {
         throw new Error("No image data received.");
+      }
+
+      if (
+        data.metadata.execution_mode === "aspect_ratio_recompose" &&
+        sourceAnalysis.isMonochrome &&
+        data.debug?.monochromeLockEnabled
+      ) {
+        fitRefineProgressController.current.advance("rendering", {
+          helperText: "Applying strict monochrome lock to neutralize tone drift.",
+          percentage: 88,
+        });
+        const rawGeminiOutputDataUrl = data.debugArtifacts?.rawGeminiOutput.url || data.imageDataUrl || data.asset?.url;
+
+        if (rawGeminiOutputDataUrl) {
+          const monochromeCorrection = await applyStrictMonochromeLock({
+            sourceImageDataUrl,
+            rawGeminiOutputDataUrl,
+          });
+
+          data = {
+            ...data,
+            savedToBlob: false,
+            temporary: true,
+            asset: undefined,
+            imageDataUrl: monochromeCorrection.imageDataUrl,
+            metadata: {
+              ...data.metadata,
+              output_format: "image/png",
+              output_color_space: "neutral grayscale via browser canvas monochrome lock",
+              output_icc_handling: "strict monochrome neutralization applied in browser canvas; no warm tint preserved",
+              post_processing_steps: [
+                ...(data.metadata.post_processing_steps || []),
+                ...monochromeCorrection.postProcessingSteps,
+              ],
+              preview_asset_url: monochromeCorrection.imageDataUrl,
+              download_asset_url: monochromeCorrection.imageDataUrl,
+              final_output_url: monochromeCorrection.imageDataUrl,
+            },
+            debug: {
+              ...data.debug,
+              postProcessingSteps: [
+                ...(data.debug?.postProcessingSteps || []),
+                ...monochromeCorrection.postProcessingSteps,
+              ],
+              sourceAnalysis,
+            },
+            debugArtifacts: {
+              source: data.debugArtifacts?.source || {
+                label: "Source image",
+                url: sourceImageDataUrl,
+              },
+              rawGeminiOutput: data.debugArtifacts?.rawGeminiOutput || {
+                label: "Raw Gemini output before post-processing",
+                url: rawGeminiOutputDataUrl,
+              },
+              finalOutput: {
+                label: "Final output after monochrome lock",
+                url: monochromeCorrection.imageDataUrl,
+              },
+            },
+            warning:
+              "Strict monochrome lock was applied to neutralize Gemini warmth drift and preserve the source black-and-white tonality.",
+          };
+        }
       }
 
       fitRefineProgressController.current.advance("rendering", {
@@ -3068,6 +3375,17 @@ export default function ReviewPage() {
                     : "Run final refinement"}
               </button>
 
+              {currentExecutionPlan?.executionMode === "aspect_ratio_recompose" ? (
+                <button
+                  type="button"
+                  onClick={() => void runFinalRefinement({ diagnosticToneDrift: true })}
+                  disabled={!selectedRefineSource || fitRefineState.loading || currentValidation.isBlocked}
+                  className="rounded-full border border-black/10 bg-white px-5 py-4 text-sm font-medium text-black/75 transition hover:border-black/25 hover:text-black disabled:cursor-not-allowed disabled:border-black/10 disabled:text-black/30"
+                >
+                  Run tone drift diagnostic
+                </button>
+              ) : null}
+
               {renderJobProgress(fitRefineProgress)}
             </div>
 
@@ -3079,7 +3397,7 @@ export default function ReviewPage() {
               ) : null}
 
               {fitRefineResults.map((result) => {
-                const afterUrl = result.asset?.url || result.imageDataUrl || "";
+                const afterUrl = result.imageDataUrl || result.asset?.url || "";
                 const source = refineSourceOptions.find((item) => (item.assetPathname || item.id) === result.metadata.source_image_id) || selectedRefineSource;
                 const stackTitle = result.metadata.refinement_stack
                   .map((presetId) => fitManifest?.refinementPresets.find((preset) => preset.id === presetId)?.title || presetId)
@@ -3114,7 +3432,7 @@ export default function ReviewPage() {
                     <div className="mt-5 flex flex-wrap gap-3">
                       {afterUrl ? (
                         <a
-                          href={result.asset?.downloadUrl || result.asset?.url || afterUrl}
+                          href={result.metadata.download_asset_url || result.imageDataUrl || result.asset?.downloadUrl || result.asset?.url || afterUrl}
                           download
                           target={result.asset ? "_blank" : undefined}
                           rel={result.asset ? "noreferrer" : undefined}
@@ -3181,6 +3499,38 @@ export default function ReviewPage() {
                       <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
                       <p className="mt-3 font-semibold">Final merged instruction</p>
                       <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-2xl bg-white p-4 text-xs leading-5 text-black/75">{result.metadata.debug_prompt_text}</pre>
+                      {result.metadata.execution_mode === "aspect_ratio_recompose" && result.debugArtifacts ? (
+                        <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-black/45">Tone Drift Debug</p>
+                          <div className="mt-4 grid gap-4 md:grid-cols-3">
+                            {[
+                              result.debugArtifacts.source,
+                              result.debugArtifacts.rawGeminiOutput,
+                              result.debugArtifacts.finalOutput,
+                            ].map((artifact) => (
+                              <div key={artifact.label} className="overflow-hidden rounded-2xl border border-black/10 bg-[#f7f4ef]">
+                                <div className="aspect-[4/5] bg-black/5">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={artifact.url} alt={artifact.label} className="h-full w-full object-cover" />
+                                </div>
+                                <p className="px-3 py-3 text-xs font-medium text-black/70">{artifact.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 space-y-2 text-xs leading-5 text-black/65">
+                            <p><span className="font-semibold text-black">Monochrome lock:</span> {result.metadata.monochrome_lock_enabled ? "enabled" : "disabled"}</p>
+                            <p><span className="font-semibold text-black">Hidden/default style fragments:</span> {result.metadata.hidden_style_fragments_appended?.join(" • ") || "none appended"}</p>
+                            <p><span className="font-semibold text-black">Source format:</span> {result.metadata.source_format || "unknown"}</p>
+                            <p><span className="font-semibold text-black">Source color space / ICC:</span> {result.metadata.source_color_space || "unknown"} • {result.metadata.source_icc_info || "unknown"}</p>
+                            <p><span className="font-semibold text-black">Output format:</span> {result.metadata.output_format || "unknown"}</p>
+                            <p><span className="font-semibold text-black">Output color space / ICC:</span> {result.metadata.output_color_space || "unknown"} • {result.metadata.output_icc_handling || "unknown"}</p>
+                            <p><span className="font-semibold text-black">Post-processing steps:</span> {result.metadata.post_processing_steps?.join(" • ") || "none"}</p>
+                            <p><span className="font-semibold text-black">Preview asset URL:</span> {result.metadata.preview_asset_url || "n/a"}</p>
+                            <p><span className="font-semibold text-black">Download asset URL:</span> {result.metadata.download_asset_url || "n/a"}</p>
+                            <p><span className="font-semibold text-black">Preview rendering audit:</span> plain image rendering with no CSS filters, overlays, blend modes, or canvas preview tinting in the result card path.</p>
+                          </div>
+                        </div>
+                      ) : null}
                       {result.stackWarnings && result.stackWarnings.length > 0 ? (
                         <p className="mt-2"><span className="font-semibold">Warnings:</span> {result.stackWarnings.map((warning) => warning.message).join(" • ")}</p>
                       ) : null}

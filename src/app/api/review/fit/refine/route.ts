@@ -12,6 +12,7 @@ import {
   type PreserveFlags,
   type RefinementPresetId,
   type ReframeIntensity,
+  type SourceImageAnalysis,
 } from "@/lib/final-refinement";
 import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
 
@@ -30,6 +31,8 @@ type RefineRequest = {
   cameraPresetIds?: CameraDirectionPresetId[];
   reframeIntensity?: ReframeIntensity;
   renderControls?: Partial<FinalRenderControls>;
+  sourceAnalysis?: SourceImageAnalysis;
+  debugToneDriftDiagnostic?: boolean;
 };
 
 function sanitizeSlug(value: string) {
@@ -63,6 +66,8 @@ export async function POST(request: NextRequest) {
     cameraPresetIds,
     reframeIntensity,
     renderControls,
+    sourceAnalysis,
+    debugToneDriftDiagnostic,
   } = (await request.json()) as RefineRequest;
 
   if (
@@ -93,6 +98,7 @@ export async function POST(request: NextRequest) {
       cameraPresetIds: normalizedCameraPresetIds,
       reframeIntensity,
       renderControls: resolvedRenderControls,
+      sourceAnalysis,
     });
 
     if (validation.isBlocked) {
@@ -117,6 +123,7 @@ export async function POST(request: NextRequest) {
       cameraPresetIds: normalizedCameraPresetIds,
       reframeIntensity,
       renderControls: resolvedRenderControls,
+      sourceAnalysis,
     });
 
     if (executionPlan.executionMode === "exact_crop") {
@@ -153,6 +160,8 @@ export async function POST(request: NextRequest) {
           : "2k_iteration";
     const stackWarnings = executionPlan.stackWarnings;
     const cameraWarnings = executionPlan.cameraWarnings;
+    const sourceDataUrl = `data:${sourceImage.mimeType};base64,${sourceImage.dataBase64}`;
+    const rawGeminiOutputDataUrl = `data:${result.image.mimeType};base64,${result.image.data}`;
     const metadata = {
       source_image_id: sourceImageId,
       source_type: sourceType,
@@ -197,31 +206,105 @@ export async function POST(request: NextRequest) {
       allow_reframing: preserveFlags.allow_reframing,
       allow_perspective_shift: preserveFlags.allow_perspective_shift,
       model: result.model,
+      monochrome_lock_enabled: executionPlan.monochromeLockEnabled,
+      hidden_style_fragments_appended: executionPlan.appendedStyleFragments,
+      source_format: sourceImage.mimeType,
+      source_color_space: sourceAnalysis ? "browser-estimated-on-client" : "unavailable",
+      source_icc_info: "unavailable",
+      output_format: result.image.mimeType,
+      output_color_space: executionPlan.monochromeLockEnabled
+        ? "provider-returned-unknown; neutral grayscale lock may be applied in client finalization"
+        : "provider-returned-unknown",
+      output_icc_handling: executionPlan.monochromeLockEnabled
+        ? "no explicit ICC conversion on server; client may apply strict monochrome neutralization for final preview/download"
+        : "no explicit ICC conversion applied",
+      post_processing_steps: executionPlan.postProcessingSteps,
+      diagnostic_requested: Boolean(debugToneDriftDiagnostic),
+    };
+
+    const debugArtifacts = {
+      source: {
+        label: "Source image",
+        url: sourceDataUrl,
+      },
+      rawGeminiOutput: {
+        label: "Raw Gemini output before post-processing",
+        url: rawGeminiOutputDataUrl,
+      },
+      finalOutput: {
+        label: executionPlan.monochromeLockEnabled
+          ? "Final output after monochrome lock"
+          : "Final output after all processing",
+        url: rawGeminiOutputDataUrl,
+      },
     };
 
     if (isBlobStorageConfigured()) {
+      const timestamp = Date.now();
+      const sourceExtension = sourceImage.mimeType === "image/jpeg" ? "jpg" : sourceImage.mimeType.split("/")[1] || "png";
       const extension = result.image.mimeType === "image/jpeg" ? "jpg" : result.image.mimeType.split("/")[1] || "png";
+      const basePath = `review/final-${executionPlan.executionMode}/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-") || "no-stack")}-${timestamp}`;
+      const sourceArtifact =
+        executionPlan.executionMode === "aspect_ratio_recompose"
+          ? await uploadBinaryAsset(`${basePath}-source.${sourceExtension}`, Buffer.from(sourceImage.dataBase64, "base64"), sourceImage.mimeType)
+          : null;
+      const rawGeminiArtifact =
+        executionPlan.executionMode === "aspect_ratio_recompose"
+          ? await uploadBinaryAsset(`${basePath}-raw.${extension}`, Buffer.from(result.image.data, "base64"), result.image.mimeType)
+          : null;
       const uploaded = await uploadBinaryAsset(
-        `review/final-${executionPlan.executionMode}/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-"))}-${Date.now()}.${extension}`,
+        `${basePath}.${extension}`,
         Buffer.from(result.image.data, "base64"),
         result.image.mimeType,
       );
       const metadataRecord = await uploadJsonAsset(
-        `review/final-${executionPlan.executionMode}/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-"))}-${Date.now()}-metadata.json`,
+        `${basePath}-metadata.json`,
         {
           ...metadata,
           asset_pathname: uploaded.pathname,
+          source_artifact_url: sourceArtifact?.url || sourceDataUrl,
+          raw_gemini_output_url: rawGeminiArtifact?.url || rawGeminiOutputDataUrl,
+          final_output_url: uploaded.url,
+          preview_asset_url: uploaded.url,
+          download_asset_url: uploaded.downloadUrl || uploaded.url,
         },
       );
 
       return NextResponse.json({
         savedToBlob: true,
         asset: uploaded,
-        metadata,
+        metadata: {
+          ...metadata,
+          source_artifact_url: sourceArtifact?.url || sourceDataUrl,
+          raw_gemini_output_url: rawGeminiArtifact?.url || rawGeminiOutputDataUrl,
+          final_output_url: uploaded.url,
+          preview_asset_url: uploaded.url,
+          download_asset_url: uploaded.downloadUrl || uploaded.url,
+        },
         metadataRecord,
         stackWarnings: [...stackWarnings, ...cameraWarnings, ...executionPlan.customInstructionWarnings],
         responseText: result.text,
-        debug: executionPlan,
+        debug: {
+          ...executionPlan,
+          sourceAnalysis,
+          diagnosticRequested: Boolean(debugToneDriftDiagnostic),
+        },
+        debugArtifacts: {
+          source: {
+            label: "Source image",
+            url: sourceDataUrl,
+          },
+          rawGeminiOutput: {
+            label: "Raw Gemini output before post-processing",
+            url: rawGeminiOutputDataUrl,
+          },
+          finalOutput: {
+            label: executionPlan.monochromeLockEnabled
+              ? "Server final before monochrome lock correction"
+              : "Final output after all processing",
+            url: rawGeminiOutputDataUrl,
+          },
+        },
       });
     }
 
@@ -229,10 +312,22 @@ export async function POST(request: NextRequest) {
       savedToBlob: false,
       temporary: true,
       imageDataUrl: `data:${result.image.mimeType};base64,${result.image.data}`,
-      metadata,
+      metadata: {
+        ...metadata,
+        source_artifact_url: sourceDataUrl,
+        raw_gemini_output_url: rawGeminiOutputDataUrl,
+        final_output_url: rawGeminiOutputDataUrl,
+        preview_asset_url: rawGeminiOutputDataUrl,
+        download_asset_url: rawGeminiOutputDataUrl,
+      },
       stackWarnings: [...stackWarnings, ...cameraWarnings, ...executionPlan.customInstructionWarnings],
       responseText: result.text,
-      debug: executionPlan,
+      debug: {
+        ...executionPlan,
+        sourceAnalysis,
+        diagnosticRequested: Boolean(debugToneDriftDiagnostic),
+      },
+      debugArtifacts,
       warning: "Blob is not configured, so this refined result is temporary and available only in the current session.",
     });
   } catch (error) {

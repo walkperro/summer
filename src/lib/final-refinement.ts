@@ -77,6 +77,15 @@ type RecomposeSubjectProtection = {
   protectHairSilhouette: boolean;
 };
 
+type SourceImageAnalysis = {
+  isMonochrome: boolean;
+  monochromeConfidence: number;
+  averageSaturation: number;
+  estimatedToneFamily: "monochrome" | "color";
+  width: number;
+  height: number;
+};
+
 type FinalRenderControls = {
   aspectRatio: RenderAspectRatio;
   cropPosition: CropPosition;
@@ -132,6 +141,9 @@ type FinalImageExecutionPlan = {
   cameraWarnings: StackWarning[];
   renderControls: FinalRenderControls;
   validation: FinalImageValidationResult;
+  monochromeLockEnabled: boolean;
+  appendedStyleFragments: string[];
+  postProcessingSteps: string[];
 };
 
 export const FINAL_RENDER_ASPECT_RATIOS: Array<{ id: RenderAspectRatio; title: string; help: string }> = [
@@ -495,6 +507,14 @@ function isStyleChangingPreset(presetId: RefinementPresetId) {
   return ["final_bw_editorial", "final_luxury_finish", "final_skin_detail", "final_sweat_detail", "final_soften_expression", "final_add_slight_smile"].includes(presetId);
 }
 
+function shouldEnableMonochromeLock(options: {
+  executionMode: FinalImageExecutionMode;
+  stack: RefinementPresetId[];
+  sourceAnalysis?: SourceImageAnalysis;
+}) {
+  return options.executionMode === "aspect_ratio_recompose" && Boolean(options.sourceAnalysis?.isMonochrome) && !options.stack.some(isStyleChangingPreset);
+}
+
 function getAiActivePresetIds(stack: RefinementPresetId[]) {
   return stack.filter((presetId) => presetId !== "final_4k_upscale");
 }
@@ -617,6 +637,7 @@ export function validateFinalImageRequest(options: {
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
   renderControls?: Partial<FinalRenderControls>;
+  sourceAnalysis?: SourceImageAnalysis;
 }) {
   const blockingIssues: FinalImageValidationIssue[] = [];
   const warningIssues: FinalImageValidationIssue[] = [];
@@ -657,6 +678,16 @@ export function validateFinalImageRequest(options: {
         message: "Custom instruction conflicts with keeping the same exact image.",
         reason: "Aspect Ratio Recompose Mode allows controlled frame expansion, not a new camera language or strong visual reinterpretation.",
         fix: "Remove the camera/lens-style custom instruction or switch to Full Reframe Mode.",
+      });
+    }
+
+    if ((options.customInstruction || "").match(/new pose|different pose|change pose|restyle|new wardrobe|warm it up|sepia|bronze|beige/i)) {
+      pushValidationIssue(blockingIssues, {
+        id: "recompose-vs-style-or-pose-instruction",
+        level: "blocking",
+        message: "This request conflicts with keeping the same exact image.",
+        reason: "Aspect Ratio Recompose Mode is for preserving the same photograph feel, not changing pose, styling, or warmth.",
+        fix: "Remove the pose/style instruction or switch to Full Reframe Mode.",
       });
     }
   }
@@ -977,6 +1008,7 @@ function buildAspectRatioRecomposePrompt(options: {
   sourceType: "generated" | "enhanced" | "uploaded";
   export4k: boolean;
   renderControls: FinalRenderControls;
+  monochromeLockEnabled: boolean;
 }) {
   const subjectProtectionLines = getSubjectProtectionLines(options.renderControls.subjectProtection);
 
@@ -993,14 +1025,25 @@ function buildAspectRatioRecomposePrompt(options: {
     "Goal: preserve the same image while fitting the new frame.",
     "",
     "Core recompose instructions:",
-    "- Preserve the same exact woman, same face, same expression, same outfit, same pose intent, same lighting direction, same tonal treatment, and same editorial finish.",
+    "- Preserve the same exact woman, same face, same expression, same outfit, same pose intent, same lighting direction, and the same existing finish already present in the source image.",
     "- Do not reinterpret the shot as a new image.",
     "- Do not change the color palette or black-and-white balance.",
+    "- Do not add cinematic warmth, editorial warmth, tonal polish, skin glow, luxury finish, or any new style treatment.",
     "- Do not crop off important parts of the body or face.",
     "- Expand and rebalance the composition naturally so the image fits the new frame while remaining visually the same photograph.",
-    "- Keep realism high and maintain website-ready premium quality.",
+    "- Keep realism high and preserve the original perceived image quality without adding a new look.",
     "- Preserve the same environment family and background style.",
     "- Preserve softness/sharpness feel, contrast structure, and overall visual mood.",
+    ...(options.monochromeLockEnabled
+      ? [
+          "- Preserve the exact monochrome tonality.",
+          "- Do not warm the image.",
+          "- Do not introduce sepia, bronze, cream, beige, or skin-warming tones.",
+          "- Preserve the same black point, white point, and neutral grayscale balance.",
+          "- Do not brighten, darken, warm, cool, tint, or recolor the image.",
+          "- Recompose only; do not restyle.",
+        ]
+      : []),
     "",
     "Allowed adjustments:",
     "- Extend the frame.",
@@ -1189,6 +1232,7 @@ export function buildFinalImageExecutionPlan(options: {
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
   renderControls?: Partial<FinalRenderControls>;
+  sourceAnalysis?: SourceImageAnalysis;
 }) {
   const presets = options.stack.map((presetId) => getFinalRefinementPreset(presetId)).filter(Boolean) as RefinementPreset[];
 
@@ -1220,6 +1264,12 @@ export function buildFinalImageExecutionPlan(options: {
     cameraPresetIds: mode.normalizedCameraPresetIds,
     reframeIntensity: options.reframeIntensity,
     renderControls,
+    sourceAnalysis: options.sourceAnalysis,
+  });
+  const monochromeLockEnabled = shouldEnableMonochromeLock({
+    executionMode: mode.executionMode,
+    stack: options.stack,
+    sourceAnalysis: options.sourceAnalysis,
   });
   const activePreserveRules = getPreserveRuleInstructions(options.preserveFlags, mode.executionMode);
   const activeCameraInstructions = [
@@ -1241,10 +1291,11 @@ export function buildFinalImageExecutionPlan(options: {
             customInstruction: options.customInstruction,
             preserveFlags: options.preserveFlags,
             sourceTitle: options.sourceTitle,
-            sourceType: options.sourceType,
-            export4k: options.export4k,
-            renderControls,
-          })
+          sourceType: options.sourceType,
+          export4k: options.export4k,
+          renderControls,
+          monochromeLockEnabled,
+        })
       : mode.executionMode === "reframe"
       ? buildReframeModePrompt({
           stack: presets,
@@ -1283,6 +1334,9 @@ export function buildFinalImageExecutionPlan(options: {
     cameraWarnings,
     renderControls,
     validation,
+    monochromeLockEnabled,
+    appendedStyleFragments: [],
+    postProcessingSteps: [mode.executionMode === "aspect_ratio_recompose" ? "no post-processing applied after Gemini output" : "no post-processing applied"],
   } satisfies FinalImageExecutionPlan;
 }
 
@@ -1315,6 +1369,7 @@ export type {
   CropPosition,
   RecomposeFramingPreference,
   RecomposeSubjectProtection,
+  SourceImageAnalysis,
   FinalImageValidationIssue,
   FinalImageValidationResult,
   FinalImageExecutionMode,
