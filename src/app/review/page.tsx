@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   applyCameraPresetToggle,
@@ -10,6 +10,7 @@ import {
   normalizeCameraPresetIds,
   type CameraDirectionPresetId,
 } from "@/lib/camera-direction";
+import { buildFinalImageExecutionPlan, type FinalImageExecutionMode, type RefinementPresetId } from "@/lib/final-refinement";
 
 type PromptManifest = {
   id: string;
@@ -212,6 +213,14 @@ type RefineResult = {
     lens_look: string;
     camera_modifiers: string[];
     camera_direction_narrative: string;
+    execution_mode: FinalImageExecutionMode;
+    execution_trigger_reasons: string[];
+    active_preserve_rules: string[];
+    active_camera_instructions: string[];
+    active_custom_instructions: string[];
+    custom_instruction_warnings: string[];
+    debug_prompt_text: string;
+    reframe_mode_triggered: boolean;
     reframe_intensity: string;
     allow_reframing: boolean;
     allow_perspective_shift: boolean;
@@ -221,11 +230,42 @@ type RefineResult = {
   responseText?: string;
   warning?: string;
   decision?: "approve" | "reject";
+  debug?: {
+    executionMode: FinalImageExecutionMode;
+    reframeTriggered: boolean;
+    triggerReasons: string[];
+    normalizedCameraPresetIds: string[];
+    activePreserveRules: string[];
+    activeCameraInstructions: string[];
+    activeCustomInstructions: string[];
+    customInstructionWarnings: StackWarning[];
+    promptText: string;
+  };
 };
 
 type AsyncState = {
   loading: boolean;
   error: string | null;
+};
+
+type JobProgressStageId = "preparing" | "building" | "sending" | "waiting" | "receiving" | "rendering" | "saving" | "done" | "error";
+
+type JobProgressKind = "generate" | "refine";
+
+type JobProgressState = {
+  kind: JobProgressKind;
+  stageId: JobProgressStageId;
+  stageLabel: string;
+  helperText: string;
+  percentage: number;
+  isError?: boolean;
+};
+
+type ProgressController = {
+  advance: (stageId: Exclude<JobProgressStageId, "done" | "error">, options?: { helperText?: string; percentage?: number }) => void;
+  complete: (helperText?: string) => void;
+  fail: (helperText: string) => void;
+  stop: () => void;
 };
 
 type TabId = "prompt-review" | "fit-generate" | "fit-enhance" | "fit-refine";
@@ -236,6 +276,188 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: "fit-enhance", label: "Enhance Original Fit Ref" },
   { id: "fit-refine", label: "Refine Final Images" },
 ];
+
+const JOB_PROGRESS_FLOORS: Record<JobProgressStageId, number> = {
+  preparing: 6,
+  building: 14,
+  sending: 24,
+  waiting: 36,
+  receiving: 78,
+  rendering: 90,
+  saving: 96,
+  done: 100,
+  error: 0,
+};
+
+const JOB_PROGRESS_CEILINGS: Record<JobProgressStageId, number> = {
+  preparing: 10,
+  building: 20,
+  sending: 30,
+  waiting: 75,
+  receiving: 88,
+  rendering: 95,
+  saving: 99,
+  done: 100,
+  error: 100,
+};
+
+function getJobStageCopy(kind: JobProgressKind, stageId: JobProgressStageId) {
+  if (stageId === "preparing") {
+    return {
+      stageLabel: kind === "refine" ? "Preparing your refinement…" : "Preparing your generation…",
+      helperText: "Checking selected options and source inputs.",
+    };
+  }
+
+  if (stageId === "building") {
+    return {
+      stageLabel: kind === "refine" ? "Building final image instructions…" : "Building image instructions…",
+      helperText: "Merging presets, preserve rules, and image direction.",
+    };
+  }
+
+  if (stageId === "sending") {
+    return {
+      stageLabel: "Sending image job…",
+      helperText: "Uploading the request to the model.",
+    };
+  }
+
+  if (stageId === "waiting") {
+    return {
+      stageLabel: "Model is rendering your image…",
+      helperText: "This is usually the longest step.",
+    };
+  }
+
+  if (stageId === "receiving") {
+    return {
+      stageLabel: "Receiving output…",
+      helperText: "Parsing the model response.",
+    };
+  }
+
+  if (stageId === "rendering") {
+    return {
+      stageLabel: "Finishing preview…",
+      helperText: "Preparing the image for the interface.",
+    };
+  }
+
+  if (stageId === "saving") {
+    return {
+      stageLabel: "Saving final asset…",
+      helperText: "Persisting the completed result.",
+    };
+  }
+
+  if (stageId === "done") {
+    return {
+      stageLabel: "Done",
+      helperText: kind === "refine" ? "Your refined image is ready." : "Your generated image is ready.",
+    };
+  }
+
+  return {
+    stageLabel: kind === "refine" ? "Refinement failed" : "Generation failed",
+    helperText: kind === "refine" ? "The model did not return a usable edit." : "Generation failed before output was returned.",
+  };
+}
+
+function createProgressController(kind: JobProgressKind, setState: (state: JobProgressState | null) => void): ProgressController {
+  let currentStage: JobProgressStageId = "preparing";
+  let percentage = JOB_PROGRESS_FLOORS.preparing;
+
+  const emit = (stageId: JobProgressStageId, helperText?: string, nextPercentage?: number, isError = false) => {
+    const copy = getJobStageCopy(kind, stageId);
+    percentage = Math.max(percentage, nextPercentage ?? JOB_PROGRESS_FLOORS[stageId]);
+    setState({
+      kind,
+      stageId,
+      stageLabel: copy.stageLabel,
+      helperText: helperText || copy.helperText,
+      percentage: Math.min(100, Math.round(percentage)),
+      isError,
+    });
+  };
+
+  emit("preparing");
+
+  const interval = setInterval(() => {
+    if (currentStage === "done" || currentStage === "error") {
+      return;
+    }
+
+    const ceiling = JOB_PROGRESS_CEILINGS[currentStage];
+
+    if (percentage >= ceiling) {
+      return;
+    }
+
+    const increment = currentStage === "waiting" ? Math.max(0.4, (ceiling - percentage) / 18) : Math.max(0.6, (ceiling - percentage) / 10);
+    emit(currentStage, undefined, Math.min(ceiling, percentage + increment));
+  }, 450);
+
+  return {
+    advance(stageId, options) {
+      currentStage = stageId;
+      emit(stageId, options?.helperText, options?.percentage);
+    },
+    complete(helperText) {
+      currentStage = "done";
+      clearInterval(interval);
+      emit("done", helperText, 100);
+    },
+    fail(helperText) {
+      currentStage = "error";
+      clearInterval(interval);
+      emit("error", helperText, Math.min(95, percentage), true);
+    },
+    stop() {
+      clearInterval(interval);
+    },
+  };
+}
+
+function mapJobFailureMessage(kind: JobProgressKind, message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("no image") || normalized.includes("image part")) {
+    return kind === "refine" ? "No image data received. The model did not return a usable edit." : "No image data received.";
+  }
+
+  if (normalized.includes("usable edit")) {
+    return "The model did not return a usable edit.";
+  }
+
+  if (normalized.includes("reframe") || normalized.includes("camera") || normalized.includes("perspective")) {
+    return "Try simplifying the stack or disabling strong reframing.";
+  }
+
+  return kind === "refine" ? "Generation failed before output was returned." : "Generation failed before output was returned.";
+}
+
+function renderJobProgress(progress: JobProgressState | null) {
+  if (!progress) {
+    return null;
+  }
+
+  return (
+    <div className={`mt-4 rounded-3xl border p-4 ${progress.isError ? "border-red-300 bg-red-50" : "border-black/10 bg-[#f7f4ef]"}`}>
+      <div className="flex items-center justify-between gap-4 text-sm">
+        <p className={`font-medium ${progress.isError ? "text-red-800" : "text-black/75"}`}>{progress.stageLabel}</p>
+        <p className={`text-xs uppercase tracking-[0.2em] ${progress.isError ? "text-red-700" : "text-black/45"}`}>{progress.percentage}%</p>
+      </div>
+      <div className={`mt-3 h-2 overflow-hidden rounded-full ${progress.isError ? "bg-red-100" : "bg-black/10"}`}>
+        <div
+          className={`h-full rounded-full transition-[width] duration-500 ${progress.isError ? "bg-red-500" : "bg-black"}`}
+          style={{ width: `${progress.percentage}%` }}
+        />
+      </div>
+      <p className={`mt-3 text-sm leading-6 ${progress.isError ? "text-red-800" : "text-black/60"}`}>{progress.helperText}</p>
+    </div>
+  );
+}
 
 function buttonClass(isActive: boolean) {
   return isActive
@@ -257,6 +479,8 @@ export default function ReviewPage() {
   const [selectedAspectRatio, setSelectedAspectRatio] = useState("16:9");
   const [selectedOutputMode, setSelectedOutputMode] = useState("high_end");
   const [fitGenerateState, setFitGenerateState] = useState<AsyncState>({ loading: false, error: null });
+  const [fitGenerateProgress, setFitGenerateProgress] = useState<JobProgressState | null>(null);
+  const fitGenerateProgressController = useRef<ProgressController | null>(null);
   const [fitCampaignResults, setFitCampaignResults] = useState<FitCampaignResult[]>([]);
 
   const [selectedEnhancementSourceId, setSelectedEnhancementSourceId] = useState("");
@@ -288,6 +512,8 @@ export default function ReviewPage() {
   const [refineExport4k, setRefineExport4k] = useState(false);
   const [refineKeepOriginalAspectRatio, setRefineKeepOriginalAspectRatio] = useState(true);
   const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
+  const [fitRefineProgress, setFitRefineProgress] = useState<JobProgressState | null>(null);
+  const fitRefineProgressController = useRef<ProgressController | null>(null);
   const [fitRefineResults, setFitRefineResults] = useState<RefineResult[]>([]);
 
   useEffect(() => {
@@ -387,6 +613,32 @@ export default function ReviewPage() {
     () => getCameraSelectionSummary(selectedCameraPresetIds as CameraDirectionPresetId[]),
     [selectedCameraPresetIds],
   );
+  const currentExecutionPlan = useMemo(() => {
+    if (selectedRefinementStack.length === 0) {
+      return null;
+    }
+
+    return buildFinalImageExecutionPlan({
+      stack: selectedRefinementStack as RefinementPresetId[],
+      customInstruction: refinementCustomInstruction,
+      preserveFlags: refinementPreserveFlags,
+      sourceTitle: selectedRefineSource?.title || "Selected source image",
+      sourceType: selectedRefineSource?.sourceType || "uploaded",
+      export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
+      keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
+      cameraPresetIds: selectedCameraPresetIds,
+      reframeIntensity: selectedReframeIntensity,
+    });
+  }, [
+    selectedRefinementStack,
+    refinementCustomInstruction,
+    refinementPreserveFlags,
+    selectedRefineSource,
+    refineExport4k,
+    refineKeepOriginalAspectRatio,
+    selectedCameraPresetIds,
+    selectedReframeIntensity,
+  ]);
   const refinementStackWarnings = useMemo(() => {
     const warnings: StackWarning[] = [];
     const bwIndex = selectedRefinementStack.indexOf("final_bw_editorial");
@@ -439,6 +691,13 @@ export default function ReviewPage() {
       }),
     [selectedCameraPresetIds, selectedReframeIntensity, refinementPreserveFlags],
   );
+
+  useEffect(() => {
+    return () => {
+      fitGenerateProgressController.current?.stop();
+      fitRefineProgressController.current?.stop();
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedRefineSourceId && refineSourceOptions[0]) {
@@ -550,32 +809,48 @@ export default function ReviewPage() {
   async function runFitGeneration() {
     if (!selectedFitPromptId) return;
 
+    fitGenerateProgressController.current?.stop();
+    fitGenerateProgressController.current = createProgressController("generate", setFitGenerateProgress);
     setFitGenerateState({ loading: true, error: null });
 
     try {
-      const response = await fetch("/api/review/fit/generate", {
+      fitGenerateProgressController.current.advance("building", { helperText: "Preparing prompt, references, and output settings." });
+      const requestBody = {
+        promptId: selectedFitPromptId,
+        fitReferenceIds: selectedFitReferenceIds,
+        likenessReferenceIds: selectedLikenessReferenceIds,
+        aspectRatio: selectedAspectRatio,
+        outputMode: selectedOutputMode,
+      };
+      fitGenerateProgressController.current.advance("sending");
+      const responsePromise = fetch("/api/review/fit/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          promptId: selectedFitPromptId,
-          fitReferenceIds: selectedFitReferenceIds,
-          likenessReferenceIds: selectedLikenessReferenceIds,
-          aspectRatio: selectedAspectRatio,
-          outputMode: selectedOutputMode,
-        }),
+        body: JSON.stringify(requestBody),
       });
+      fitGenerateProgressController.current.advance("waiting");
+      const response = await responsePromise;
 
+      fitGenerateProgressController.current.advance("receiving");
       const data = (await response.json()) as FitCampaignResult & { error?: string };
 
       if (!response.ok || !data.asset) {
         throw new Error(data.error || "Fit campaign generation failed.");
       }
 
+      fitGenerateProgressController.current.advance("rendering");
       setFitCampaignResults((current) => [data, ...current]);
+      if (fitManifest?.storageConfigured && data.asset) {
+        fitGenerateProgressController.current.advance("saving", { helperText: "Final asset is being finalized for download." });
+      }
+      fitGenerateProgressController.current.complete();
       setFitGenerateState({ loading: false, error: null });
     } catch (error) {
+      fitGenerateProgressController.current?.fail(
+        mapJobFailureMessage("generate", error instanceof Error ? error.message : "Unknown fit campaign generation error."),
+      );
       setFitGenerateState({
         loading: false,
         error: error instanceof Error ? error.message : "Unknown fit campaign generation error.",
@@ -839,39 +1114,63 @@ export default function ReviewPage() {
       return;
     }
 
+    fitRefineProgressController.current?.stop();
+    fitRefineProgressController.current = createProgressController("refine", setFitRefineProgress);
     setFitRefineState({ loading: true, error: null });
 
     try {
+      fitRefineProgressController.current.advance("building", { helperText: "Resolving source image and building the final instruction stack." });
       const sourceImageDataUrl = await resolveRefineSourceDataUrl(selectedRefineSource);
-      const response = await fetch("/api/review/fit/refine", {
+      const requestBody = {
+        sourceImageId: selectedRefineSource.assetPathname || selectedRefineSource.id,
+        sourceType: selectedRefineSource.sourceType,
+        sourceTitle: selectedRefineSource.title,
+        sourceImageDataUrl,
+        refinementStack: selectedRefinementStack,
+        customInstruction: refinementCustomInstruction,
+        preserveFlags: refinementPreserveFlags,
+        export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
+        keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
+        cameraPresetIds: selectedCameraPresetIds,
+        reframeIntensity: selectedReframeIntensity,
+      };
+      fitRefineProgressController.current.advance("sending");
+      const responsePromise = fetch("/api/review/fit/refine", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          sourceImageId: selectedRefineSource.assetPathname || selectedRefineSource.id,
-          sourceType: selectedRefineSource.sourceType,
-          sourceTitle: selectedRefineSource.title,
-          sourceImageDataUrl,
-          refinementStack: selectedRefinementStack,
-          customInstruction: refinementCustomInstruction,
-          preserveFlags: refinementPreserveFlags,
-          export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
-          keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
-          cameraPresetIds: selectedCameraPresetIds,
-          reframeIntensity: selectedReframeIntensity,
-        }),
+        body: JSON.stringify(requestBody),
       });
+      fitRefineProgressController.current.advance("waiting");
+      const response = await responsePromise;
 
+      fitRefineProgressController.current.advance("receiving");
       const data = (await response.json()) as RefineResult & { error?: string };
 
       if (!response.ok) {
         throw new Error(data.error || "Final refinement failed.");
       }
 
+      if (!data.asset && !data.imageDataUrl) {
+        throw new Error("No image data received.");
+      }
+
+      fitRefineProgressController.current.advance("rendering", {
+        helperText: data.metadata.execution_mode === "reframe" ? "Rendering your reframed preview." : "Rendering your refined preview.",
+      });
       setFitRefineResults((current) => [data, ...current]);
+      if (data.savedToBlob) {
+        fitRefineProgressController.current.advance("saving", { helperText: "Final asset is being finalized for download." });
+      }
+      fitRefineProgressController.current.complete(
+        data.metadata.execution_mode === "reframe" ? "Your reframed image is ready." : "Your refined image is ready.",
+      );
       setFitRefineState({ loading: false, error: null });
     } catch (error) {
+      fitRefineProgressController.current?.fail(
+        mapJobFailureMessage("refine", error instanceof Error ? error.message : "Unknown final refinement error."),
+      );
       setFitRefineState({
         loading: false,
         error: error instanceof Error ? error.message : "Unknown final refinement error.",
@@ -1319,6 +1618,8 @@ export default function ReviewPage() {
               >
                 {fitGenerateState.loading ? "Generating fit campaign…" : "Generate fit campaign image"}
               </button>
+
+              {renderJobProgress(fitGenerateProgress)}
             </div>
 
             <div className="flex flex-col gap-6">
@@ -1727,6 +2028,10 @@ export default function ReviewPage() {
               <div className="rounded-3xl bg-[#f7f4ef] p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement Recipe Summary</p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Execution mode:</span>{" "}
+                  {currentExecutionPlan?.executionMode === "reframe" ? "Reframe Mode" : "Refine Mode"}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Execution order:</span>{" "}
                   {selectedRefinementStackPresets.length > 0
                     ? selectedRefinementStackPresets.map((preset) => preset.title).join(" → ")
@@ -1760,6 +2065,9 @@ export default function ReviewPage() {
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Camera Direction</p>
                   <p className="mt-2 text-sm leading-6 text-black/60">
                     Build one coordinated camera-language direction instead of one-off effects. Combine one main angle and one main lens for best results, then layer compatible modifiers when they add clarity.
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-black/60">
+                    Camera Direction requires Reframe Mode for strong visible changes. In Refine Mode, camera/lens changes remain subtle or may be ignored.
                   </p>
                 </div>
 
@@ -1948,6 +2256,48 @@ export default function ReviewPage() {
                 ) : null}
               </div>
 
+              {currentExecutionPlan ? (
+                <div className="rounded-3xl border border-black/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Execution Debug</p>
+                  <div className="mt-3 rounded-2xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
+                    <p>
+                      <span className="font-semibold">Mode:</span>{" "}
+                      {currentExecutionPlan.executionMode === "reframe" ? "Reframe Mode" : "Refine Mode"}
+                    </p>
+                    <p className="mt-2">
+                      <span className="font-semibold">Reframe triggered:</span>{" "}
+                      {currentExecutionPlan.reframeTriggered ? "Yes" : "No"}
+                    </p>
+                    <p className="mt-2">
+                      <span className="font-semibold">Trigger reasons:</span>{" "}
+                      {currentExecutionPlan.triggerReasons.join(" • ") || "None"}
+                    </p>
+                    <p className="mt-2">
+                      <span className="font-semibold">Active preserve rules:</span>{" "}
+                      {currentExecutionPlan.activePreserveRules.join(" • ")}
+                    </p>
+                    <p className="mt-2">
+                      <span className="font-semibold">Active camera instructions:</span>{" "}
+                      {currentExecutionPlan.activeCameraInstructions.join(" • ")}
+                    </p>
+                    <p className="mt-2">
+                      <span className="font-semibold">Active custom instructions:</span>{" "}
+                      {currentExecutionPlan.activeCustomInstructions.join(" • ") || "None"}
+                    </p>
+                    {currentExecutionPlan.customInstructionWarnings.length > 0 ? (
+                      <p className="mt-2 text-amber-900">
+                        <span className="font-semibold">Custom warnings:</span>{" "}
+                        {currentExecutionPlan.customInstructionWarnings.map((warning) => warning.message).join(" • ")}
+                      </p>
+                    ) : null}
+                    <p className="mt-3 font-semibold">Merged instruction preview</p>
+                    <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-2xl bg-white p-4 text-xs leading-5 text-black/75">
+                      {currentExecutionPlan.promptText}
+                    </pre>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="rounded-3xl border border-black/10 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Preserve Rules</p>
                 <p className="mt-2 text-sm leading-6 text-black/60">
@@ -1971,6 +2321,19 @@ export default function ReviewPage() {
                   placeholder="remove tattoos; make her smile slightly; convert to refined black and white; increase pores and sweat detail subtly; remove brand logos from outfit; clean flyaway hairs; keep the same exact face and composition"
                   className="mt-3 min-h-32 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm leading-6 text-black outline-none"
                 />
+                <p className="mt-3 text-sm leading-6 text-black/60">
+                  Custom instructions are merged into the final image direction and can override presets unless they conflict with preserve rules.
+                </p>
+                {currentExecutionPlan && currentExecutionPlan.customInstructionWarnings.length > 0 ? (
+                  <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                    <p className="font-semibold">Custom instruction warnings</p>
+                    <ul className="mt-2 space-y-2">
+                      {currentExecutionPlan.customInstructionWarnings.map((warning) => (
+                        <li key={warning.id}>- {warning.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </label>
 
               <div className="rounded-3xl border border-black/10 p-4">
@@ -2000,8 +2363,16 @@ export default function ReviewPage() {
                 disabled={!selectedRefineSource || selectedRefinementStack.length === 0 || fitRefineState.loading}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >
-                {fitRefineState.loading ? "Refining final image…" : "Run final refinement"}
+                {fitRefineState.loading
+                  ? currentExecutionPlan?.executionMode === "reframe"
+                    ? "Running reframe…"
+                    : "Refining final image…"
+                  : currentExecutionPlan?.executionMode === "reframe"
+                    ? "Run final reframe"
+                    : "Run final refinement"}
               </button>
+
+              {renderJobProgress(fitRefineProgress)}
             </div>
 
             <div className="flex flex-col gap-6">
@@ -2022,7 +2393,7 @@ export default function ReviewPage() {
                   <article key={`${result.metadata.created_at}-${result.metadata.source_image_id}`} className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">Before / after</p>
+                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">{result.metadata.execution_mode === "reframe" ? "Reframe Mode" : "Refine Mode"}</p>
                         <h3 className="mt-2 text-2xl font-semibold tracking-tight">{result.metadata.source_title}</h3>
                         <p className="mt-2 text-sm text-black/60">{stackTitle} • {result.metadata.output_size}</p>
                       </div>
@@ -2080,12 +2451,23 @@ export default function ReviewPage() {
                       <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement metadata</p>
                       <p className="mt-2"><span className="font-semibold">Source:</span> {result.metadata.source_type}</p>
                       <p className="mt-2"><span className="font-semibold">Stack:</span> {stackTitle}</p>
+                      <p className="mt-2"><span className="font-semibold">Execution mode:</span> {result.metadata.execution_mode}</p>
+                      <p className="mt-2"><span className="font-semibold">Reframe triggered:</span> {result.metadata.reframe_mode_triggered ? "Yes" : "No"}</p>
+                      <p className="mt-2"><span className="font-semibold">Trigger reasons:</span> {result.metadata.execution_trigger_reasons.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Camera:</span> {result.metadata.camera_angle} • {result.metadata.lens_look} • {result.metadata.reframe_intensity}</p>
                       <p className="mt-2"><span className="font-semibold">Modifiers:</span> {result.metadata.camera_modifiers.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Direction summary:</span> {result.metadata.camera_direction_narrative}</p>
+                      <p className="mt-2"><span className="font-semibold">Active preserve rules:</span> {result.metadata.active_preserve_rules.join(" • ")}</p>
+                      <p className="mt-2"><span className="font-semibold">Active camera instructions:</span> {result.metadata.active_camera_instructions.join(" • ")}</p>
+                      <p className="mt-2"><span className="font-semibold">Active custom instructions:</span> {result.metadata.active_custom_instructions.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Custom instruction:</span> {result.metadata.custom_instruction_text || "None"}</p>
+                      {result.metadata.custom_instruction_warnings.length > 0 ? (
+                        <p className="mt-2 text-amber-900"><span className="font-semibold">Custom warnings:</span> {result.metadata.custom_instruction_warnings.join(" • ")}</p>
+                      ) : null}
                       <p className="mt-2"><span className="font-semibold">Output size:</span> {result.metadata.output_size}</p>
                       <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
+                      <p className="mt-3 font-semibold">Final merged instruction</p>
+                      <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-2xl bg-white p-4 text-xs leading-5 text-black/75">{result.metadata.debug_prompt_text}</pre>
                       {result.stackWarnings && result.stackWarnings.length > 0 ? (
                         <p className="mt-2"><span className="font-semibold">Warnings:</span> {result.stackWarnings.map((warning) => warning.message).join(" • ")}</p>
                       ) : null}

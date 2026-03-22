@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isBlobStorageConfigured, uploadBinaryAsset, uploadJsonAsset } from "@/lib/blob-storage";
 import {
-  buildFinalRefinementPrompt,
-  getCameraDirectionWarnings,
+  buildFinalImageExecutionPlan,
   getCameraSelectionSummary,
-  getFinalRefinementStackWarnings,
   normalizeCameraPresetIds,
   type CameraDirectionPresetId,
   type PreserveFlags,
@@ -81,7 +79,7 @@ export async function POST(request: NextRequest) {
     const sourceImage = parseDataUrl(sourceImageDataUrl);
     const normalizedCameraPresetIds = normalizeCameraPresetIds(cameraPresetIds);
     const cameraSummary = getCameraSelectionSummary(normalizedCameraPresetIds);
-    const promptText = buildFinalRefinementPrompt({
+    const executionPlan = buildFinalImageExecutionPlan({
       stack: refinementStack,
       customInstruction,
       preserveFlags,
@@ -92,6 +90,7 @@ export async function POST(request: NextRequest) {
       cameraPresetIds: normalizedCameraPresetIds,
       reframeIntensity,
     });
+    const promptText = executionPlan.promptText;
 
     const result = await generateGeminiImage([
       {
@@ -104,12 +103,8 @@ export async function POST(request: NextRequest) {
     ]);
 
     const outputSize = export4k || refinementStack.includes("final_4k_upscale") ? "4k" : "source_preserved";
-    const stackWarnings = getFinalRefinementStackWarnings(refinementStack, customInstruction);
-    const cameraWarnings = getCameraDirectionWarnings({
-      presetIds: normalizedCameraPresetIds,
-      reframeIntensity,
-      preserveFlags,
-    });
+    const stackWarnings = executionPlan.stackWarnings;
+    const cameraWarnings = executionPlan.cameraWarnings;
     const metadata = {
       source_image_id: sourceImageId,
       source_type: sourceType,
@@ -125,6 +120,14 @@ export async function POST(request: NextRequest) {
       lens_look: cameraSummary.primaryLens.id,
       camera_modifiers: cameraSummary.modifiers.map((modifier) => modifier.id),
       camera_direction_narrative: cameraSummary.narrative,
+      execution_mode: executionPlan.executionMode,
+      execution_trigger_reasons: executionPlan.triggerReasons,
+      active_preserve_rules: executionPlan.activePreserveRules,
+      active_camera_instructions: executionPlan.activeCameraInstructions,
+      active_custom_instructions: executionPlan.activeCustomInstructions,
+      custom_instruction_warnings: executionPlan.customInstructionWarnings.map((warning) => warning.message),
+      debug_prompt_text: promptText,
+      reframe_mode_triggered: executionPlan.reframeTriggered,
       reframe_intensity: reframeIntensity,
       allow_reframing: preserveFlags.allow_reframing,
       allow_perspective_shift: preserveFlags.allow_perspective_shift,
@@ -134,12 +137,12 @@ export async function POST(request: NextRequest) {
     if (isBlobStorageConfigured()) {
       const extension = result.image.mimeType === "image/jpeg" ? "jpg" : result.image.mimeType.split("/")[1] || "png";
       const uploaded = await uploadBinaryAsset(
-        `review/final-refine/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-"))}-${Date.now()}.${extension}`,
+        `review/final-${executionPlan.executionMode}/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-"))}-${Date.now()}.${extension}`,
         Buffer.from(result.image.data, "base64"),
         result.image.mimeType,
       );
       const metadataRecord = await uploadJsonAsset(
-        `review/final-refine/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-"))}-${Date.now()}-metadata.json`,
+        `review/final-${executionPlan.executionMode}/${sanitizeSlug(sourceTitle)}-${sanitizeSlug(refinementStack.join("-"))}-${Date.now()}-metadata.json`,
         {
           ...metadata,
           asset_pathname: uploaded.pathname,
@@ -151,8 +154,9 @@ export async function POST(request: NextRequest) {
         asset: uploaded,
         metadata,
         metadataRecord,
-        stackWarnings: [...stackWarnings, ...cameraWarnings],
+        stackWarnings: [...stackWarnings, ...cameraWarnings, ...executionPlan.customInstructionWarnings],
         responseText: result.text,
+        debug: executionPlan,
       });
     }
 
@@ -161,8 +165,9 @@ export async function POST(request: NextRequest) {
       temporary: true,
       imageDataUrl: `data:${result.image.mimeType};base64,${result.image.data}`,
       metadata,
-      stackWarnings: [...stackWarnings, ...cameraWarnings],
+      stackWarnings: [...stackWarnings, ...cameraWarnings, ...executionPlan.customInstructionWarnings],
       responseText: result.text,
+      debug: executionPlan,
       warning: "Blob is not configured, so this refined result is temporary and available only in the current session.",
     });
   } catch (error) {
