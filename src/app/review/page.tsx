@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -10,7 +10,16 @@ import {
   normalizeCameraPresetIds,
   type CameraDirectionPresetId,
 } from "@/lib/camera-direction";
-import { buildFinalImageExecutionPlan, type FinalImageExecutionMode, type RefinementPresetId } from "@/lib/final-refinement";
+import {
+  buildFinalImageExecutionPlan,
+  DEFAULT_RENDER_CONTROLS,
+  FINAL_RENDER_ASPECT_RATIOS,
+  validateFinalImageRequest,
+  type FinalImageExecutionMode,
+  type FinalImageValidationIssue,
+  type RefinementPresetId,
+  type RenderAspectRatio,
+} from "@/lib/final-refinement";
 
 type PromptManifest = {
   id: string;
@@ -208,6 +217,10 @@ type RefineResult = {
     created_at: string;
     source_title: string;
     keep_original_aspect_ratio: boolean;
+    aspect_ratio: RenderAspectRatio;
+    temperature: number;
+    top_p: number;
+    validation_status: "blocked" | "ready";
     camera_preset_ids: string[];
     camera_angle: string;
     lens_look: string;
@@ -220,6 +233,11 @@ type RefineResult = {
     active_custom_instructions: string[];
     custom_instruction_warnings: string[];
     debug_prompt_text: string;
+    debug_validation?: {
+      blockingIssues: FinalImageValidationIssue[];
+      warningIssues: FinalImageValidationIssue[];
+      isBlocked: boolean;
+    };
     reframe_mode_triggered: boolean;
     reframe_intensity: string;
     allow_reframing: boolean;
@@ -240,6 +258,16 @@ type RefineResult = {
     activeCustomInstructions: string[];
     customInstructionWarnings: StackWarning[];
     promptText: string;
+    renderControls?: {
+      aspectRatio: RenderAspectRatio;
+      temperature: number;
+      topP: number;
+    };
+    validation?: {
+      blockingIssues: FinalImageValidationIssue[];
+      warningIssues: FinalImageValidationIssue[];
+      isBlocked: boolean;
+    };
   };
 };
 
@@ -459,6 +487,23 @@ function renderJobProgress(progress: JobProgressState | null) {
   );
 }
 
+function HelpBubble({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={onToggle}
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-[#f7f4ef] text-sm font-semibold text-black/70 transition hover:border-black/25 hover:text-black"
+      >
+        ?
+      </button>
+      {open ? <div className="mt-3 rounded-2xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">{children}</div> : null}
+    </div>
+  );
+}
+
 function buttonClass(isActive: boolean) {
   return isActive
     ? "rounded-full bg-black px-4 py-2 text-sm font-medium text-white"
@@ -508,9 +553,14 @@ export default function ReviewPage() {
   );
   const [cameraSelectionFeedback, setCameraSelectionFeedback] = useState<string | null>(null);
   const [showReframingHelp, setShowReframingHelp] = useState(false);
+  const [showAspectRatioHelp, setShowAspectRatioHelp] = useState(false);
+  const [showTemperatureHelp, setShowTemperatureHelp] = useState(false);
+  const [showTopPHelp, setShowTopPHelp] = useState(false);
   const [selectedReframeIntensity, setSelectedReframeIntensity] = useState<"subtle" | "moderate" | "strong">("subtle");
   const [refineExport4k, setRefineExport4k] = useState(false);
-  const [refineKeepOriginalAspectRatio, setRefineKeepOriginalAspectRatio] = useState(true);
+  const [refineAspectRatio, setRefineAspectRatio] = useState<RenderAspectRatio>(DEFAULT_RENDER_CONTROLS.aspectRatio);
+  const [refineTemperature, setRefineTemperature] = useState(DEFAULT_RENDER_CONTROLS.temperature);
+  const [refineTopP, setRefineTopP] = useState(DEFAULT_RENDER_CONTROLS.topP);
   const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
   const [fitRefineProgress, setFitRefineProgress] = useState<JobProgressState | null>(null);
   const fitRefineProgressController = useRef<ProgressController | null>(null);
@@ -625,9 +675,14 @@ export default function ReviewPage() {
       sourceTitle: selectedRefineSource?.title || "Selected source image",
       sourceType: selectedRefineSource?.sourceType || "uploaded",
       export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
-      keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
+      keepOriginalAspectRatio: refineAspectRatio === "source_auto",
       cameraPresetIds: selectedCameraPresetIds,
       reframeIntensity: selectedReframeIntensity,
+      renderControls: {
+        aspectRatio: refineAspectRatio,
+        temperature: refineTemperature,
+        topP: refineTopP,
+      },
     });
   }, [
     selectedRefinementStack,
@@ -635,10 +690,37 @@ export default function ReviewPage() {
     refinementPreserveFlags,
     selectedRefineSource,
     refineExport4k,
-    refineKeepOriginalAspectRatio,
+    refineAspectRatio,
+    refineTemperature,
+    refineTopP,
     selectedCameraPresetIds,
     selectedReframeIntensity,
   ]);
+  const currentValidation = useMemo(
+    () =>
+      validateFinalImageRequest({
+        stack: selectedRefinementStack as RefinementPresetId[],
+        customInstruction: refinementCustomInstruction,
+        preserveFlags: refinementPreserveFlags,
+        cameraPresetIds: selectedCameraPresetIds,
+        reframeIntensity: selectedReframeIntensity,
+        renderControls: {
+          aspectRatio: refineAspectRatio,
+          temperature: refineTemperature,
+          topP: refineTopP,
+        },
+      }),
+    [
+      selectedRefinementStack,
+      refinementCustomInstruction,
+      refinementPreserveFlags,
+      selectedCameraPresetIds,
+      selectedReframeIntensity,
+      refineAspectRatio,
+      refineTemperature,
+      refineTopP,
+    ],
+  );
   const refinementStackWarnings = useMemo(() => {
     const warnings: StackWarning[] = [];
     const bwIndex = selectedRefinementStack.indexOf("final_bw_editorial");
@@ -1093,7 +1175,70 @@ export default function ReviewPage() {
     setSelectedReframeIntensity(recipe.reframe_intensity);
   }
 
+  function getCameraOptionBlockReason(presetId: CameraDirectionPresetId) {
+    const summary = getCameraSelectionSummary(selectedCameraPresetIds as CameraDirectionPresetId[]);
+
+    if (selectedCameraPresetIds.includes(presetId)) {
+      return null;
+    }
+
+    if (
+      presetId !== "keep_original_angle" &&
+      [
+        "eye_level",
+        "low_angle_heroic",
+        "high_angle",
+        "three_quarter_portrait",
+        "side_profile",
+        "floor_level",
+        "overhead",
+      ].includes(presetId) &&
+      summary.primaryAngle.id !== "keep_original_angle"
+    ) {
+      return `${getCameraSelectionSummary([summary.primaryAngle.id, "keep_original_lens_feel"]).primaryAngle.title} is already your primary angle. Remove it first, then choose a new primary angle.`;
+    }
+
+    if (
+      presetId !== "keep_original_lens_feel" &&
+      [
+        "24mm_wide_editorial",
+        "35mm_cinematic",
+        "50mm_natural",
+        "85mm_portrait",
+        "135mm_compressed_portrait",
+        "macro_close_detail",
+        "fisheye",
+      ].includes(presetId) &&
+      summary.primaryLens.id !== "keep_original_lens_feel"
+    ) {
+      return `${summary.primaryLens.title} is already your primary lens. Remove it first, then choose a new primary lens.`;
+    }
+
+    const previewSelection = [...selectedCameraPresetIds, presetId] as CameraDirectionPresetId[];
+    const previewValidation = validateFinalImageRequest({
+      stack: selectedRefinementStack as RefinementPresetId[],
+      customInstruction: refinementCustomInstruction,
+      preserveFlags: refinementPreserveFlags,
+      cameraPresetIds: previewSelection,
+      reframeIntensity: selectedReframeIntensity,
+      renderControls: {
+        aspectRatio: refineAspectRatio,
+        temperature: refineTemperature,
+        topP: refineTopP,
+      },
+    });
+
+    return previewValidation.blockingIssues.find((issue) => issue.id !== "missing-stack")?.message || null;
+  }
+
   function toggleCameraPreset(presetId: string) {
+    const blockReason = getCameraOptionBlockReason(presetId as CameraDirectionPresetId);
+
+    if (blockReason) {
+      setCameraSelectionFeedback(blockReason);
+      return;
+    }
+
     const result = applyCameraPresetToggle(
       selectedCameraPresetIds as CameraDirectionPresetId[],
       presetId as CameraDirectionPresetId,
@@ -1114,6 +1259,11 @@ export default function ReviewPage() {
       return;
     }
 
+    if (currentValidation.isBlocked) {
+      setFitRefineState({ loading: false, error: "Render blocked until conflicts are fixed." });
+      return;
+    }
+
     fitRefineProgressController.current?.stop();
     fitRefineProgressController.current = createProgressController("refine", setFitRefineProgress);
     setFitRefineState({ loading: true, error: null });
@@ -1130,9 +1280,14 @@ export default function ReviewPage() {
         customInstruction: refinementCustomInstruction,
         preserveFlags: refinementPreserveFlags,
         export4k: refineExport4k || selectedRefinementStack.includes("final_4k_upscale"),
-        keepOriginalAspectRatio: refineKeepOriginalAspectRatio,
+        keepOriginalAspectRatio: refineAspectRatio === "source_auto",
         cameraPresetIds: selectedCameraPresetIds,
         reframeIntensity: selectedReframeIntensity,
+        renderControls: {
+          aspectRatio: refineAspectRatio,
+          temperature: refineTemperature,
+          topP: refineTopP,
+        },
       };
       fitRefineProgressController.current.advance("sending");
       const responsePromise = fetch("/api/review/fit/refine", {
@@ -1929,12 +2084,81 @@ export default function ReviewPage() {
                 </div>
 
                 <div className="rounded-3xl border border-black/10 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Output controls</p>
-                  <div className="mt-3 space-y-3 text-sm text-black/70">
-                    <label className="flex items-center gap-3">
-                      <input type="checkbox" checked={refineKeepOriginalAspectRatio} onChange={() => setRefineKeepOriginalAspectRatio((current) => !current)} />
-                      Keep original aspect ratio
-                    </label>
+                  <p className="text-xs uppercase tracking-[0.2em] text-black/45">Render Controls</p>
+                  <div className="mt-4 space-y-5 text-sm text-black/70">
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-black/80">Aspect Ratio</p>
+                        <HelpBubble label="What aspect ratio means" open={showAspectRatioHelp} onToggle={() => setShowAspectRatioHelp((current) => !current)}>
+                          <p>
+                            Aspect Ratio controls the shape of the final image frame. Use 4:5 for editorial portraits, 9:16 for stories, and 16:9 for wide campaign images. Start with Source/Auto when you want the model to stay closest to the original framing.
+                          </p>
+                        </HelpBubble>
+                      </div>
+                      <select
+                        value={refineAspectRatio}
+                        onChange={(event) => setRefineAspectRatio(event.target.value as RenderAspectRatio)}
+                        className="mt-3 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm text-black outline-none"
+                      >
+                        {FINAL_RENDER_ASPECT_RATIOS.map((aspectRatio) => (
+                          <option key={aspectRatio.id} value={aspectRatio.id}>
+                            {aspectRatio.title}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs leading-5 text-black/55">Best default: Source / Auto. In this execution path, aspect ratio is applied as composition guidance and may be limited by preserve rules.</p>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-black/80">Temperature</p>
+                        <HelpBubble label="What temperature means" open={showTemperatureHelp} onToggle={() => setShowTemperatureHelp((current) => !current)}>
+                          <p>
+                            Temperature controls how literal versus creative the render feels. Lower values stay closer to the source and instructions. Higher values allow more variation and reinterpretation. Suggested starting point: 0.7.
+                          </p>
+                        </HelpBubble>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={refineTemperature}
+                        onChange={(event) => setRefineTemperature(Number(event.target.value))}
+                        className="mt-3 w-full"
+                      />
+                      <div className="mt-2 flex items-center justify-between text-xs text-black/55">
+                        <span>0.3 safer</span>
+                        <span>{refineTemperature.toFixed(2)}</span>
+                        <span>0.9 looser</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-black/80">Top P</p>
+                        <HelpBubble label="What Top P means" open={showTopPHelp} onToggle={() => setShowTopPHelp((current) => !current)}>
+                          <p>
+                            Top P controls how widely the model samples from likely choices. Lower values are more constrained and deterministic. Higher values allow broader variation. Suggested starting point: 0.95.
+                          </p>
+                        </HelpBubble>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1"
+                        step="0.05"
+                        value={refineTopP}
+                        onChange={(event) => setRefineTopP(Number(event.target.value))}
+                        className="mt-3 w-full"
+                      />
+                      <div className="mt-2 flex items-center justify-between text-xs text-black/55">
+                        <span>0.7 tighter</span>
+                        <span>{refineTopP.toFixed(2)}</span>
+                        <span>1.0 widest</span>
+                      </div>
+                    </div>
+
                     <label className="flex items-center gap-3">
                       <input type="checkbox" checked={refineExport4k || selectedRefinementStack.includes("final_4k_upscale")} onChange={() => setRefineExport4k((current) => !current)} />
                       Export 4K if selected
@@ -2032,6 +2256,10 @@ export default function ReviewPage() {
                   {currentExecutionPlan?.executionMode === "reframe" ? "Reframe Mode" : "Refine Mode"}
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Validation status:</span>{" "}
+                  {currentValidation.isBlocked ? "Render blocked until conflicts are fixed" : "Ready to render"}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Execution order:</span>{" "}
                   {selectedRefinementStackPresets.length > 0
                     ? selectedRefinementStackPresets.map((preset) => preset.title).join(" → ")
@@ -2054,6 +2282,10 @@ export default function ReviewPage() {
                     : ""}
                   {" • "}
                   {selectedReframeIntensity}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Render controls:</span>{" "}
+                  {refineAspectRatio === "source_auto" ? "Source / Auto" : refineAspectRatio} • Temperature {refineTemperature.toFixed(2)} • Top P {refineTopP.toFixed(2)}
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Final output goals:</span> preserve the same exact woman, preserve the existing shot, keep realism high, and finish the image as a premium website-ready editorial asset.
@@ -2137,13 +2369,15 @@ export default function ReviewPage() {
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {fitManifest?.cameraAngleOptions.map((option) => {
                           const selected = selectedCameraPresetIds.includes(option.id as CameraDirectionPresetId);
+                          const blockReason = getCameraOptionBlockReason(option.id as CameraDirectionPresetId);
+                          const blocked = !selected && Boolean(blockReason);
 
                           return (
                             <button
                               key={option.id}
                               type="button"
                               onClick={() => toggleCameraPreset(option.id)}
-                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
+                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900 opacity-80" : "border-black/10 bg-[#f7f4ef] text-black"}`}
                             >
                               <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2154,6 +2388,7 @@ export default function ReviewPage() {
                               </div>
                               <p className="mt-3 text-sm font-semibold">{option.title}</p>
                               <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
+                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">This conflicts with your current camera direction. {blockReason}</p> : null}
                             </button>
                           );
                         })}
@@ -2165,13 +2400,15 @@ export default function ReviewPage() {
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {fitManifest?.lensLookOptions.map((option) => {
                           const selected = selectedCameraPresetIds.includes(option.id as CameraDirectionPresetId);
+                          const blockReason = getCameraOptionBlockReason(option.id as CameraDirectionPresetId);
+                          const blocked = !selected && Boolean(blockReason);
 
                           return (
                             <button
                               key={option.id}
                               type="button"
                               onClick={() => toggleCameraPreset(option.id)}
-                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : "border-black/10 bg-[#f7f4ef] text-black"}`}
+                              className={`rounded-[1.25rem] border p-3 text-left transition ${selected ? "border-black bg-black text-white" : blocked ? "border-red-200 bg-red-50 text-red-900 opacity-80" : "border-black/10 bg-[#f7f4ef] text-black"}`}
                             >
                               <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/10 bg-[#ebe5dc]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2182,6 +2419,7 @@ export default function ReviewPage() {
                               </div>
                               <p className="mt-3 text-sm font-semibold">{option.title}</p>
                               <p className={`mt-2 text-xs leading-5 ${selected ? "text-white/75" : "text-black/55"}`}>{option.shortDescription}</p>
+                              {blocked ? <p className="mt-2 text-xs leading-5 text-red-800">This conflicts with your current camera direction. {blockReason}</p> : null}
                             </button>
                           );
                         })}
@@ -2281,8 +2519,18 @@ export default function ReviewPage() {
                       {currentExecutionPlan.activeCameraInstructions.join(" • ")}
                     </p>
                     <p className="mt-2">
+                      <span className="font-semibold">Render controls:</span>{" "}
+                      {currentExecutionPlan.renderControls
+                        ? `${currentExecutionPlan.renderControls.aspectRatio === "source_auto" ? "Source / Auto" : currentExecutionPlan.renderControls.aspectRatio} • Temperature ${currentExecutionPlan.renderControls.temperature.toFixed(2)} • Top P ${currentExecutionPlan.renderControls.topP.toFixed(2)}`
+                        : "Default controls"}
+                    </p>
+                    <p className="mt-2">
                       <span className="font-semibold">Active custom instructions:</span>{" "}
                       {currentExecutionPlan.activeCustomInstructions.join(" • ") || "None"}
+                    </p>
+                    <p className="mt-2">
+                      <span className="font-semibold">Validation:</span>{" "}
+                      {currentExecutionPlan.validation?.isBlocked ? "blocked" : "ready"}
                     </p>
                     {currentExecutionPlan.customInstructionWarnings.length > 0 ? (
                       <p className="mt-2 text-amber-900">
@@ -2322,7 +2570,7 @@ export default function ReviewPage() {
                   className="mt-3 min-h-32 w-full rounded-2xl border border-black/10 bg-[#f7f4ef] px-4 py-3 text-sm leading-6 text-black outline-none"
                 />
                 <p className="mt-3 text-sm leading-6 text-black/60">
-                  Custom instructions are merged into the final image direction and can override presets unless they conflict with preserve rules.
+                  Custom instructions are validated against your active presets, preserve rules, and camera direction. Conflicting instructions must be resolved before rendering.
                 </p>
                 {currentExecutionPlan && currentExecutionPlan.customInstructionWarnings.length > 0 ? (
                   <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
@@ -2351,6 +2599,32 @@ export default function ReviewPage() {
                 </div>
               ) : null}
 
+              {currentValidation.isBlocked ? (
+                <div className="rounded-3xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-900">
+                  <p className="font-semibold">Fix these conflicts before rendering</p>
+                  <ul className="mt-3 space-y-3">
+                    {currentValidation.blockingIssues.map((issue) => (
+                      <li key={issue.id}>
+                        <p>• {issue.message}</p>
+                        <p className="mt-1 text-red-800/90">Why: {issue.reason}</p>
+                        <p className="mt-1 font-medium text-red-900">Fix: {issue.fix}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {!currentValidation.isBlocked && currentValidation.warningIssues.length > 0 ? (
+                <div className="rounded-3xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                  <p className="font-semibold">Render warnings</p>
+                  <ul className="mt-2 space-y-2">
+                    {currentValidation.warningIssues.map((issue) => (
+                      <li key={issue.id}>- {issue.message} Fix: {issue.fix}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               {fitRefineState.error ? (
                 <div className="rounded-3xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-800">
                   {fitRefineState.error}
@@ -2360,7 +2634,7 @@ export default function ReviewPage() {
               <button
                 type="button"
                 onClick={runFinalRefinement}
-                disabled={!selectedRefineSource || selectedRefinementStack.length === 0 || fitRefineState.loading}
+                disabled={!selectedRefineSource || selectedRefinementStack.length === 0 || fitRefineState.loading || currentValidation.isBlocked}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >
                 {fitRefineState.loading
@@ -2452,8 +2726,12 @@ export default function ReviewPage() {
                       <p className="mt-2"><span className="font-semibold">Source:</span> {result.metadata.source_type}</p>
                       <p className="mt-2"><span className="font-semibold">Stack:</span> {stackTitle}</p>
                       <p className="mt-2"><span className="font-semibold">Execution mode:</span> {result.metadata.execution_mode}</p>
+                      <p className="mt-2"><span className="font-semibold">Validation status:</span> {result.metadata.validation_status}</p>
                       <p className="mt-2"><span className="font-semibold">Reframe triggered:</span> {result.metadata.reframe_mode_triggered ? "Yes" : "No"}</p>
                       <p className="mt-2"><span className="font-semibold">Trigger reasons:</span> {result.metadata.execution_trigger_reasons.join(" • ") || "None"}</p>
+                      <p className="mt-2"><span className="font-semibold">Aspect ratio:</span> {result.metadata.aspect_ratio === "source_auto" ? "Source / Auto" : result.metadata.aspect_ratio}</p>
+                      <p className="mt-2"><span className="font-semibold">Temperature:</span> {result.metadata.temperature.toFixed(2)}</p>
+                      <p className="mt-2"><span className="font-semibold">Top P:</span> {result.metadata.top_p.toFixed(2)}</p>
                       <p className="mt-2"><span className="font-semibold">Camera:</span> {result.metadata.camera_angle} • {result.metadata.lens_look} • {result.metadata.reframe_intensity}</p>
                       <p className="mt-2"><span className="font-semibold">Modifiers:</span> {result.metadata.camera_modifiers.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Direction summary:</span> {result.metadata.camera_direction_narrative}</p>

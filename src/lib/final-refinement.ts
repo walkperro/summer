@@ -56,6 +56,42 @@ type StackWarning = {
   message: string;
 };
 
+type RenderAspectRatio = "source_auto" | "1:1" | "3:4" | "4:5" | "9:16" | "16:9" | "21:9";
+
+type FinalRenderControls = {
+  aspectRatio: RenderAspectRatio;
+  temperature: number;
+  topP: number;
+};
+
+type CustomInstructionIntent =
+  | "remove_tattoos"
+  | "remove_logos"
+  | "add_smile"
+  | "black_and_white"
+  | "dramatic_reframe"
+  | "preserve_composition"
+  | "fisheye"
+  | "overhead_angle"
+  | "floor_level_angle"
+  | "compressed_portrait_lens"
+  | "wide_editorial_lens";
+
+type FinalImageValidationIssue = {
+  id: string;
+  level: "blocking" | "warning";
+  message: string;
+  reason: string;
+  fix: string;
+};
+
+type FinalImageValidationResult = {
+  blockingIssues: FinalImageValidationIssue[];
+  warningIssues: FinalImageValidationIssue[];
+  customInstructionIntents: CustomInstructionIntent[];
+  isBlocked: boolean;
+};
+
 type FinalImageExecutionMode = "refine" | "reframe";
 
 type FinalImageExecutionPlan = {
@@ -70,6 +106,24 @@ type FinalImageExecutionPlan = {
   promptText: string;
   stackWarnings: StackWarning[];
   cameraWarnings: StackWarning[];
+  renderControls: FinalRenderControls;
+  validation: FinalImageValidationResult;
+};
+
+export const FINAL_RENDER_ASPECT_RATIOS: Array<{ id: RenderAspectRatio; title: string; help: string }> = [
+  { id: "source_auto", title: "Source / Auto", help: "Best default when you want the result to stay closest to the original framing." },
+  { id: "1:1", title: "1:1", help: "Square crop for product or profile-style delivery." },
+  { id: "3:4", title: "3:4", help: "Slightly taller portrait crop." },
+  { id: "4:5", title: "4:5", help: "Editorial portrait default for premium feed crops." },
+  { id: "9:16", title: "9:16", help: "Vertical stories and reels framing." },
+  { id: "16:9", title: "16:9", help: "Wide campaign and hero layout." },
+  { id: "21:9", title: "21:9", help: "Ultra-wide cinematic framing." },
+];
+
+export const DEFAULT_RENDER_CONTROLS: FinalRenderControls = {
+  aspectRatio: "source_auto",
+  temperature: 0.7,
+  topP: 0.95,
 };
 
 export {
@@ -338,6 +392,284 @@ function getIntensityLanguage(reframeIntensity: ReframeIntensity) {
   return "clear re-shoot energy with a strong visible change in framing, perspective, and optical feel";
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeRenderControls(renderControls?: Partial<FinalRenderControls>): FinalRenderControls {
+  const aspectRatio = FINAL_RENDER_ASPECT_RATIOS.some((entry) => entry.id === renderControls?.aspectRatio)
+    ? (renderControls?.aspectRatio as RenderAspectRatio)
+    : DEFAULT_RENDER_CONTROLS.aspectRatio;
+
+  return {
+    aspectRatio,
+    temperature: clamp(renderControls?.temperature ?? DEFAULT_RENDER_CONTROLS.temperature, 0, 1),
+    topP: clamp(renderControls?.topP ?? DEFAULT_RENDER_CONTROLS.topP, 0.1, 1),
+  };
+}
+
+function getAspectRatioPromptLines(renderControls: FinalRenderControls) {
+  if (renderControls.aspectRatio === "source_auto") {
+    return [
+      "Aspect ratio direction: stay closest to the source framing and preserve the natural source canvas behavior.",
+      "Model support note: Source / Auto is treated as the most composition-faithful option for this execution path.",
+    ];
+  }
+
+  return [
+    `Aspect ratio direction: target a ${renderControls.aspectRatio} final frame composition. Compose for this frame intentionally instead of relying on accidental crop fragments.`,
+    "Model support note: Aspect ratio is requested through composition guidance in this refine/reframe path and may still be limited by preserve rules.",
+  ];
+}
+
+function parseCustomInstructionIntents(customInstruction?: string) {
+  const normalized = (customInstruction || "").toLowerCase();
+  const intents = new Set<CustomInstructionIntent>();
+
+  if (/(remove|clean).*(tattoo)|tattoo.*(remove|clean)/.test(normalized)) {
+    intents.add("remove_tattoos");
+  }
+
+  if (/(remove|clean).*(logo|brand)|logo.*(remove|clean)/.test(normalized)) {
+    intents.add("remove_logos");
+  }
+
+  if (/(smile|smiling|slight smile)/.test(normalized)) {
+    intents.add("add_smile");
+  }
+
+  if (/(black and white|black-and-white|b\/w|monochrome)/.test(normalized)) {
+    intents.add("black_and_white");
+  }
+
+  if (/(dramatic reframe|change the angle|change angle dramatically|re-shot|reframe strongly|strong reframe)/.test(normalized)) {
+    intents.add("dramatic_reframe");
+  }
+
+  if (/(exact composition|keep the same composition|preserve composition)/.test(normalized)) {
+    intents.add("preserve_composition");
+  }
+
+  if (/fisheye/.test(normalized)) {
+    intents.add("fisheye");
+  }
+
+  if (/(overhead|top-down|top down)/.test(normalized)) {
+    intents.add("overhead_angle");
+  }
+
+  if (/(floor level|ground level|low to the ground)/.test(normalized)) {
+    intents.add("floor_level_angle");
+  }
+
+  if (/(135mm|compressed portrait|tight compression)/.test(normalized)) {
+    intents.add("compressed_portrait_lens");
+  }
+
+  if (/(24mm|wide editorial|wide lens)/.test(normalized)) {
+    intents.add("wide_editorial_lens");
+  }
+
+  return [...intents];
+}
+
+function pushValidationIssue(
+  issues: FinalImageValidationIssue[],
+  issue: FinalImageValidationIssue,
+) {
+  if (!issues.some((entry) => entry.id === issue.id)) {
+    issues.push(issue);
+  }
+}
+
+export function validateFinalImageRequest(options: {
+  stack: RefinementPresetId[];
+  customInstruction?: string;
+  preserveFlags: PreserveFlags;
+  cameraPresetIds: CameraDirectionPresetId[];
+  reframeIntensity: ReframeIntensity;
+  renderControls?: Partial<FinalRenderControls>;
+}) {
+  const blockingIssues: FinalImageValidationIssue[] = [];
+  const warningIssues: FinalImageValidationIssue[] = [];
+  const normalizedCameraPresetIds = normalizeCameraPresetIds(options.cameraPresetIds);
+  const cameraSummary = getCameraSelectionSummary(normalizedCameraPresetIds);
+  const stack = options.stack;
+  const renderControls = normalizeRenderControls(options.renderControls);
+  const customInstructionIntents = parseCustomInstructionIntents(options.customInstruction);
+  const hasVisibleCameraDirection = cameraSummary.hasNonOriginalSelection;
+  const wantsStrongReframe = options.reframeIntensity === "strong" || options.preserveFlags.allow_perspective_shift || customInstructionIntents.includes("dramatic_reframe");
+
+  if (stack.length === 0) {
+    pushValidationIssue(blockingIssues, {
+      id: "missing-stack",
+      level: "blocking",
+      message: "A refinement or reframe stack is required.",
+      reason: "The pipeline needs at least one finishing instruction to build a valid render request.",
+      fix: "Add at least one preset or apply a recipe before rendering.",
+    });
+  }
+
+  if (stack.includes("final_soften_expression") && stack.includes("final_add_slight_smile")) {
+    pushValidationIssue(blockingIssues, {
+      id: "expression-preset-conflict",
+      level: "blocking",
+      message: "`Add Slight Smile` conflicts with `Soften Expression` in the current stack.",
+      reason: "They push the mouth and expression in different directions, so the result becomes inconsistent.",
+      fix: "Keep one expression preset and remove the other before rendering.",
+    });
+  }
+
+  const bwIndex = stack.indexOf("final_bw_editorial");
+  const removeLogosIndex = stack.indexOf("final_remove_logos");
+  if (bwIndex !== -1 && removeLogosIndex !== -1 && bwIndex < removeLogosIndex) {
+    pushValidationIssue(blockingIssues, {
+      id: "bw-before-logo-block",
+      level: "blocking",
+      message: "`Final B/W Editorial` conflicts with `Remove Logos` in the current order.",
+      reason: "Logo cleanup works better before black-and-white conversion, when color and material cues are still available.",
+      fix: "Move `Remove Logos` before `Final B/W Editorial`, or remove one of those steps.",
+    });
+  }
+
+  if (hasVisibleCameraDirection && options.reframeIntensity === "strong" && options.preserveFlags.preserve_composition) {
+    pushValidationIssue(blockingIssues, {
+      id: "strong-reframe-vs-preserve-composition",
+      level: "blocking",
+      message: "Strong camera or lens changes are blocked while `Preserve Composition` is ON.",
+      reason: "A strong reframe needs visible crop and perspective movement, but preserve composition keeps the source shot architecture locked.",
+      fix: "Turn `Preserve Composition` off, or lower reframe intensity to `subtle` or `moderate`.",
+    });
+  }
+
+  if (wantsStrongReframe && options.preserveFlags.preserve_composition && options.preserveFlags.preserve_pose && options.preserveFlags.preserve_background) {
+    pushValidationIssue(blockingIssues, {
+      id: "reframe-vs-strict-preserve-rules",
+      level: "blocking",
+      message: "Visible reframing is blocked by your current preserve rules.",
+      reason: "The request asks for visible camera reinterpretation, but composition, pose, and background are all locked too tightly.",
+      fix: "Relax at least one of `Preserve Composition`, `Preserve Pose`, or `Preserve Background`, or reduce the reframe request.",
+    });
+  }
+
+  if (customInstructionIntents.includes("add_smile") && stack.includes("final_soften_expression")) {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-smile-vs-expression-direction",
+      level: "blocking",
+      message: "Your custom smile instruction conflicts with the current expression direction.",
+      reason: "The active stack is steering expression restraint while the custom instruction asks for a smile.",
+      fix: "Remove the smile instruction or remove the conflicting expression preset before rendering.",
+    });
+  }
+
+  if (customInstructionIntents.includes("dramatic_reframe") && options.preserveFlags.preserve_composition) {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-reframe-vs-preserve-composition",
+      level: "blocking",
+      message: "The custom instruction requests a strong camera change while `Preserve Composition` is ON.",
+      reason: "A dramatic reframe and exact composition preservation cannot both be satisfied honestly.",
+      fix: "Turn `Preserve Composition` off, or simplify the custom instruction so it asks for a subtler change.",
+    });
+  }
+
+  if (customInstructionIntents.includes("preserve_composition") && (options.reframeIntensity === "strong" || options.preserveFlags.allow_reframing)) {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-preserve-vs-strong-reframe",
+      level: "blocking",
+      message: "The custom instruction asks to keep the exact composition, but strong reframing is selected.",
+      reason: "These directions conflict because one locks the shot while the other asks to reinterpret it visibly.",
+      fix: "Remove the exact-composition instruction or reduce the reframe settings.",
+    });
+  }
+
+  if (customInstructionIntents.includes("fisheye") && cameraSummary.primaryLens.id === "135mm_compressed_portrait") {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-fisheye-vs-compressed-lens",
+      level: "blocking",
+      message: "The custom fisheye request conflicts with `135mm Compressed Portrait`.",
+      reason: "Fisheye distortion and compressed portrait optics are opposite lens directions.",
+      fix: "Choose one lens direction: keep `135mm Compressed Portrait` or switch the active lens to `Fisheye`.",
+    });
+  }
+
+  if (customInstructionIntents.includes("overhead_angle") && cameraSummary.primaryAngle.id === "floor_level") {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-overhead-vs-floor-level",
+      level: "blocking",
+      message: "The custom overhead request conflicts with `Floor Level`.",
+      reason: "A top-down angle and a floor-level angle cannot both be the primary camera position.",
+      fix: "Remove the overhead instruction or replace `Floor Level` with an overhead-compatible angle.",
+    });
+  }
+
+  if (customInstructionIntents.includes("floor_level_angle") && cameraSummary.primaryAngle.id === "overhead") {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-floor-vs-overhead",
+      level: "blocking",
+      message: "The custom floor-level request conflicts with `Overhead`.",
+      reason: "A floor-level angle and a top-down angle cannot both define the same shot.",
+      fix: "Remove the floor-level instruction or replace `Overhead` with a compatible angle.",
+    });
+  }
+
+  if (customInstructionIntents.includes("wide_editorial_lens") && cameraSummary.primaryLens.id === "135mm_compressed_portrait") {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-wide-vs-compressed-lens",
+      level: "blocking",
+      message: "The custom wide-lens request conflicts with `135mm Compressed Portrait`.",
+      reason: "Wide editorial perspective and compressed portrait perspective are opposite optical directions.",
+      fix: "Choose one lens direction and remove the conflicting one.",
+    });
+  }
+
+  if (customInstructionIntents.includes("compressed_portrait_lens") && cameraSummary.primaryLens.id === "24mm_wide_editorial") {
+    pushValidationIssue(blockingIssues, {
+      id: "custom-compressed-vs-wide-lens",
+      level: "blocking",
+      message: "The custom compressed-lens request conflicts with `24mm Wide Editorial`.",
+      reason: "Compressed portrait optics and wide editorial optics create opposite spatial behavior.",
+      fix: "Keep one lens direction and remove the conflicting request.",
+    });
+  }
+
+  if (renderControls.aspectRatio !== "source_auto" && options.preserveFlags.preserve_composition && hasVisibleCameraDirection) {
+    pushValidationIssue(warningIssues, {
+      id: "aspect-ratio-vs-preserve-composition",
+      level: "warning",
+      message: "The chosen aspect ratio may be limited while `Preserve Composition` is ON.",
+      reason: "A locked composition leaves less room for intentional crop changes into a new frame shape.",
+      fix: "Use `Source / Auto`, or relax `Preserve Composition` if you want a more assertive reframe.",
+    });
+  }
+
+  if (renderControls.temperature >= 0.9 && options.preserveFlags.preserve_face && options.preserveFlags.preserve_body_shape) {
+    pushValidationIssue(warningIssues, {
+      id: "high-temperature-vs-preserve-rules",
+      level: "warning",
+      message: "High temperature may reduce consistency with strict preserve rules.",
+      reason: "Higher creativity can loosen identity and structure adherence.",
+      fix: "Lower temperature closer to 0.7 or 0.3 for more literal results.",
+    });
+  }
+
+  if (renderControls.temperature >= 0.9 && renderControls.topP >= 0.98 && options.preserveFlags.preserve_face) {
+    pushValidationIssue(warningIssues, {
+      id: "high-creativity-drift-warning",
+      level: "warning",
+      message: "Very high creativity settings may increase drift.",
+      reason: "High temperature and high Top P together widen sampling substantially.",
+      fix: "Lower either temperature or Top P if identity lock is more important than variation.",
+    });
+  }
+
+  return {
+    blockingIssues,
+    warningIssues,
+    customInstructionIntents,
+    isBlocked: blockingIssues.length > 0,
+  } satisfies FinalImageValidationResult;
+}
+
 function getPreserveRuleInstructions(preserveFlags: PreserveFlags, executionMode: FinalImageExecutionMode) {
   const instructions: string[] = [];
 
@@ -460,6 +792,7 @@ function buildRefineModePrompt(options: {
   sourceType: "generated" | "enhanced" | "uploaded";
   export4k: boolean;
   keepOriginalAspectRatio: boolean;
+  renderControls: FinalRenderControls;
 }) {
   const preserveRuleInstructions = getPreserveRuleInstructions(options.preserveFlags, "refine");
 
@@ -472,6 +805,11 @@ function buildRefineModePrompt(options: {
     `Ordered refinement stack: ${options.stack.map((preset, index) => `${index + 1}. ${preset.title}`).join(" -> ")}`,
     `Keep original aspect ratio: ${options.keepOriginalAspectRatio ? "yes" : "no"}`,
     `Export 4K: ${options.export4k ? "yes" : "no"}`,
+    `Temperature: ${options.renderControls.temperature.toFixed(2)}`,
+    `Top P: ${options.renderControls.topP.toFixed(2)}`,
+    "",
+    "Render controls:",
+    ...getAspectRatioPromptLines(options.renderControls).map((line) => `- ${line}`),
     "",
     "Retouching language:",
     "- Use premium Nike-style editorial sports campaign or luxury portrait retouch language depending on the image.",
@@ -510,6 +848,7 @@ function buildReframeModePrompt(options: {
   keepOriginalAspectRatio: boolean;
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
+  renderControls: FinalRenderControls;
 }) {
   const cameraSummary = getCameraSelectionSummary(options.cameraPresetIds);
   const preserveRuleInstructions = getPreserveRuleInstructions(options.preserveFlags, "reframe");
@@ -545,6 +884,11 @@ function buildReframeModePrompt(options: {
     `Source type: ${options.sourceType}`,
     `Keep original aspect ratio: ${options.keepOriginalAspectRatio ? "yes" : "no"}`,
     `Export 4K: ${options.export4k ? "yes" : "no"}`,
+    `Temperature: ${options.renderControls.temperature.toFixed(2)}`,
+    `Top P: ${options.renderControls.topP.toFixed(2)}`,
+    "",
+    "Render controls:",
+    ...getAspectRatioPromptLines(options.renderControls).map((line) => `- ${line}`),
     "",
     "Core reframe instruction:",
     `- ${mainReframeSentence}`,
@@ -629,6 +973,7 @@ export function buildFinalImageExecutionPlan(options: {
   keepOriginalAspectRatio: boolean;
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
+  renderControls?: Partial<FinalRenderControls>;
 }) {
   const presets = options.stack.map((presetId) => getFinalRefinementPreset(presetId)).filter(Boolean) as RefinementPreset[];
 
@@ -642,6 +987,7 @@ export function buildFinalImageExecutionPlan(options: {
     reframeIntensity: options.reframeIntensity,
   });
   const stackWarnings = getFinalRefinementStackWarnings(options.stack, options.customInstruction);
+  const renderControls = normalizeRenderControls(options.renderControls);
   const cameraWarnings = getCameraDirectionWarnings({
     presetIds: mode.normalizedCameraPresetIds,
     reframeIntensity: options.reframeIntensity,
@@ -653,6 +999,14 @@ export function buildFinalImageExecutionPlan(options: {
     stack: options.stack,
   });
   const cameraSummary = getCameraSelectionSummary(mode.normalizedCameraPresetIds);
+  const validation = validateFinalImageRequest({
+    stack: options.stack,
+    customInstruction: options.customInstruction,
+    preserveFlags: options.preserveFlags,
+    cameraPresetIds: mode.normalizedCameraPresetIds,
+    reframeIntensity: options.reframeIntensity,
+    renderControls,
+  });
   const activePreserveRules = getPreserveRuleInstructions(options.preserveFlags, mode.executionMode);
   const activeCameraInstructions = [
     `Primary angle: ${cameraSummary.primaryAngle.title}`,
@@ -673,6 +1027,7 @@ export function buildFinalImageExecutionPlan(options: {
           keepOriginalAspectRatio: options.keepOriginalAspectRatio,
           cameraPresetIds: mode.normalizedCameraPresetIds,
           reframeIntensity: options.reframeIntensity,
+          renderControls,
         })
       : buildRefineModePrompt({
           stack: presets,
@@ -682,6 +1037,7 @@ export function buildFinalImageExecutionPlan(options: {
           sourceType: options.sourceType,
           export4k: options.export4k,
           keepOriginalAspectRatio: options.keepOriginalAspectRatio,
+          renderControls,
         });
 
   return {
@@ -696,6 +1052,8 @@ export function buildFinalImageExecutionPlan(options: {
     promptText,
     stackWarnings,
     cameraWarnings,
+    renderControls,
+    validation,
   } satisfies FinalImageExecutionPlan;
 }
 
@@ -709,6 +1067,7 @@ export function buildFinalRefinementPrompt(options: {
   keepOriginalAspectRatio: boolean;
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
+  renderControls?: Partial<FinalRenderControls>;
 }) {
   return buildFinalImageExecutionPlan(options).promptText;
 }
@@ -721,8 +1080,13 @@ export type {
   CameraRecipe,
   LensLookId,
   PreserveFlags,
+  RenderAspectRatio,
+  FinalRenderControls,
+  FinalImageValidationIssue,
+  FinalImageValidationResult,
   FinalImageExecutionMode,
   FinalImageExecutionPlan,
+  CustomInstructionIntent,
   ReframeIntensity,
   RefinementPreset,
   RefinementPresetId,

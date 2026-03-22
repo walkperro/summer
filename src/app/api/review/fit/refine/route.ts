@@ -3,9 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { isBlobStorageConfigured, uploadBinaryAsset, uploadJsonAsset } from "@/lib/blob-storage";
 import {
   buildFinalImageExecutionPlan,
+  DEFAULT_RENDER_CONTROLS,
   getCameraSelectionSummary,
   normalizeCameraPresetIds,
+  validateFinalImageRequest,
   type CameraDirectionPresetId,
+  type FinalRenderControls,
   type PreserveFlags,
   type RefinementPresetId,
   type ReframeIntensity,
@@ -26,6 +29,7 @@ type RefineRequest = {
   keepOriginalAspectRatio?: boolean;
   cameraPresetIds?: CameraDirectionPresetId[];
   reframeIntensity?: ReframeIntensity;
+  renderControls?: Partial<FinalRenderControls>;
 };
 
 function sanitizeSlug(value: string) {
@@ -58,6 +62,7 @@ export async function POST(request: NextRequest) {
     keepOriginalAspectRatio,
     cameraPresetIds,
     reframeIntensity,
+    renderControls,
   } = (await request.json()) as RefineRequest;
 
   if (
@@ -78,6 +83,29 @@ export async function POST(request: NextRequest) {
   try {
     const sourceImage = parseDataUrl(sourceImageDataUrl);
     const normalizedCameraPresetIds = normalizeCameraPresetIds(cameraPresetIds);
+    const resolvedRenderControls = {
+      ...DEFAULT_RENDER_CONTROLS,
+      ...renderControls,
+    };
+    const validation = validateFinalImageRequest({
+      stack: refinementStack,
+      customInstruction,
+      preserveFlags,
+      cameraPresetIds: normalizedCameraPresetIds,
+      reframeIntensity,
+      renderControls: resolvedRenderControls,
+    });
+
+    if (validation.isBlocked) {
+      return NextResponse.json(
+        {
+          error: "Render blocked until conflicts are fixed.",
+          validation,
+        },
+        { status: 400 },
+      );
+    }
+
     const cameraSummary = getCameraSelectionSummary(normalizedCameraPresetIds);
     const executionPlan = buildFinalImageExecutionPlan({
       stack: refinementStack,
@@ -89,6 +117,7 @@ export async function POST(request: NextRequest) {
       keepOriginalAspectRatio: keepOriginalAspectRatio !== false,
       cameraPresetIds: normalizedCameraPresetIds,
       reframeIntensity,
+      renderControls: resolvedRenderControls,
     });
     const promptText = executionPlan.promptText;
 
@@ -100,7 +129,10 @@ export async function POST(request: NextRequest) {
         },
       },
       { text: promptText },
-    ]);
+    ], {
+      temperature: executionPlan.renderControls.temperature,
+      topP: executionPlan.renderControls.topP,
+    });
 
     const outputSize = export4k || refinementStack.includes("final_4k_upscale") ? "4k" : "source_preserved";
     const stackWarnings = executionPlan.stackWarnings;
@@ -115,6 +147,10 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
       source_title: sourceTitle,
       keep_original_aspect_ratio: keepOriginalAspectRatio !== false,
+      aspect_ratio: executionPlan.renderControls.aspectRatio,
+      temperature: executionPlan.renderControls.temperature,
+      top_p: executionPlan.renderControls.topP,
+      validation_status: executionPlan.validation.isBlocked ? "blocked" : "ready",
       camera_preset_ids: normalizedCameraPresetIds,
       camera_angle: cameraSummary.primaryAngle.id,
       lens_look: cameraSummary.primaryLens.id,
@@ -127,6 +163,7 @@ export async function POST(request: NextRequest) {
       active_custom_instructions: executionPlan.activeCustomInstructions,
       custom_instruction_warnings: executionPlan.customInstructionWarnings.map((warning) => warning.message),
       debug_prompt_text: promptText,
+      debug_validation: executionPlan.validation,
       reframe_mode_triggered: executionPlan.reframeTriggered,
       reframe_intensity: reframeIntensity,
       allow_reframing: preserveFlags.allow_reframing,

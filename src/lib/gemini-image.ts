@@ -20,6 +20,11 @@ export type GeminiImageResult = {
   raw: unknown;
 };
 
+export type GeminiImageOptions = {
+  temperature?: number;
+  topP?: number;
+};
+
 function extractImagePart(parts: GeminiPart[]) {
   for (const part of parts) {
     if ("inlineData" in part) {
@@ -44,7 +49,7 @@ export function assertGeminiConfigured() {
   }
 }
 
-export async function generateGeminiImage(parts: GeminiPart[]): Promise<GeminiImageResult> {
+export async function generateGeminiImage(parts: GeminiPart[], options: GeminiImageOptions = {}): Promise<GeminiImageResult> {
   assertGeminiConfigured();
 
   const response = await fetch(`${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
@@ -61,6 +66,8 @@ export async function generateGeminiImage(parts: GeminiPart[]): Promise<GeminiIm
       ],
       generationConfig: {
         responseModalities: ["IMAGE", "TEXT"],
+        ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+        ...(typeof options.topP === "number" ? { topP: options.topP } : {}),
       },
     }),
   });
