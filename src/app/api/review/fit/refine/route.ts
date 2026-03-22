@@ -119,6 +119,16 @@ export async function POST(request: NextRequest) {
       reframeIntensity,
       renderControls: resolvedRenderControls,
     });
+
+    if (executionPlan.executionMode === "exact_crop") {
+      return NextResponse.json(
+        {
+          error: "Exact Crop Mode should run through the local exact crop/export pipeline, not Gemini.",
+        },
+        { status: 400 },
+      );
+    }
+
     const promptText = executionPlan.promptText;
 
     const result = await generateGeminiImage([
@@ -148,8 +158,9 @@ export async function POST(request: NextRequest) {
       source_title: sourceTitle,
       keep_original_aspect_ratio: keepOriginalAspectRatio !== false,
       aspect_ratio: executionPlan.renderControls.aspectRatio,
-      temperature: executionPlan.renderControls.temperature,
-      top_p: executionPlan.renderControls.topP,
+      crop_position: executionPlan.renderControls.cropPosition,
+      ai_refinement_used: true,
+      model_render_used: true,
       validation_status: executionPlan.validation.isBlocked ? "blocked" : "ready",
       camera_preset_ids: normalizedCameraPresetIds,
       camera_angle: cameraSummary.primaryAngle.id,

@@ -58,8 +58,11 @@ type StackWarning = {
 
 type RenderAspectRatio = "source_auto" | "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "9:16" | "16:9" | "21:9";
 
+type CropPosition = "smart_auto" | "center" | "top" | "bottom" | "left" | "right";
+
 type FinalRenderControls = {
   aspectRatio: RenderAspectRatio;
+  cropPosition: CropPosition;
   temperature: number;
   topP: number;
 };
@@ -92,7 +95,7 @@ type FinalImageValidationResult = {
   isBlocked: boolean;
 };
 
-type FinalImageExecutionMode = "refine" | "reframe";
+type FinalImageExecutionMode = "exact_crop" | "refine" | "reframe";
 
 type FinalImageExecutionPlan = {
   executionMode: FinalImageExecutionMode;
@@ -125,6 +128,7 @@ export const FINAL_RENDER_ASPECT_RATIOS: Array<{ id: RenderAspectRatio; title: s
 
 export const DEFAULT_RENDER_CONTROLS: FinalRenderControls = {
   aspectRatio: "source_auto",
+  cropPosition: "smart_auto",
   temperature: 0.7,
   topP: 0.95,
 };
@@ -403,11 +407,50 @@ function normalizeRenderControls(renderControls?: Partial<FinalRenderControls>):
   const aspectRatio = FINAL_RENDER_ASPECT_RATIOS.some((entry) => entry.id === renderControls?.aspectRatio)
     ? (renderControls?.aspectRatio as RenderAspectRatio)
     : DEFAULT_RENDER_CONTROLS.aspectRatio;
+  const cropPosition = ["smart_auto", "center", "top", "bottom", "left", "right"].includes(String(renderControls?.cropPosition))
+    ? (renderControls?.cropPosition as CropPosition)
+    : DEFAULT_RENDER_CONTROLS.cropPosition;
 
   return {
     aspectRatio,
+    cropPosition,
     temperature: clamp(renderControls?.temperature ?? DEFAULT_RENDER_CONTROLS.temperature, 0, 1),
     topP: clamp(renderControls?.topP ?? DEFAULT_RENDER_CONTROLS.topP, 0.1, 1),
+  };
+}
+
+function getCropPositionLabel(cropPosition: CropPosition) {
+  if (cropPosition === "smart_auto") return "Smart / Auto";
+  return cropPosition.charAt(0).toUpperCase() + cropPosition.slice(1);
+}
+
+function getAiActivePresetIds(stack: RefinementPresetId[]) {
+  return stack.filter((presetId) => presetId !== "final_4k_upscale");
+}
+
+function hasAiRefinementRequest(options: {
+  stack: RefinementPresetId[];
+  customInstruction?: string;
+  cameraPresetIds: CameraDirectionPresetId[];
+  preserveFlags: PreserveFlags;
+  reframeIntensity: ReframeIntensity;
+}) {
+  const hasAiPresets = getAiActivePresetIds(options.stack).length > 0;
+  const hasCustomInstruction = Boolean(options.customInstruction?.trim());
+  const cameraSummary = getCameraSelectionSummary(normalizeCameraPresetIds(options.cameraPresetIds));
+  const hasCameraDirection = cameraSummary.hasNonOriginalSelection;
+  const hasReframeBehavior =
+    hasCameraDirection ||
+    options.preserveFlags.allow_reframing ||
+    options.preserveFlags.allow_perspective_shift ||
+    options.reframeIntensity !== "subtle";
+
+  return {
+    hasAiPresets,
+    hasCustomInstruction,
+    hasCameraDirection,
+    hasReframeBehavior,
+    hasAnyAiRequest: hasAiPresets || hasCustomInstruction || hasReframeBehavior,
   };
 }
 
@@ -508,19 +551,10 @@ export function validateFinalImageRequest(options: {
   const renderControls = normalizeRenderControls(options.renderControls);
   const customInstructionIntents = parseCustomInstructionIntents(options.customInstruction);
   const hasVisibleCameraDirection = cameraSummary.hasNonOriginalSelection;
+  const aiRequest = hasAiRefinementRequest(options);
   const wantsStrongReframe = options.reframeIntensity === "strong" || options.preserveFlags.allow_perspective_shift || customInstructionIntents.includes("dramatic_reframe");
 
-  if (stack.length === 0) {
-    pushValidationIssue(blockingIssues, {
-      id: "missing-stack",
-      level: "blocking",
-      message: "A refinement or reframe stack is required.",
-      reason: "The pipeline needs at least one finishing instruction to build a valid render request.",
-      fix: "Add at least one preset or apply a recipe before rendering.",
-    });
-  }
-
-  if (stack.includes("final_soften_expression") && stack.includes("final_add_slight_smile")) {
+  if (aiRequest.hasAnyAiRequest && stack.includes("final_soften_expression") && stack.includes("final_add_slight_smile")) {
     pushValidationIssue(blockingIssues, {
       id: "expression-preset-conflict",
       level: "blocking",
@@ -532,7 +566,7 @@ export function validateFinalImageRequest(options: {
 
   const bwIndex = stack.indexOf("final_bw_editorial");
   const removeLogosIndex = stack.indexOf("final_remove_logos");
-  if (bwIndex !== -1 && removeLogosIndex !== -1 && bwIndex < removeLogosIndex) {
+  if (aiRequest.hasAnyAiRequest && bwIndex !== -1 && removeLogosIndex !== -1 && bwIndex < removeLogosIndex) {
     pushValidationIssue(blockingIssues, {
       id: "bw-before-logo-block",
       level: "blocking",
@@ -542,7 +576,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (hasVisibleCameraDirection && options.reframeIntensity === "strong" && options.preserveFlags.preserve_composition) {
+  if (aiRequest.hasReframeBehavior && hasVisibleCameraDirection && options.reframeIntensity === "strong" && options.preserveFlags.preserve_composition) {
     pushValidationIssue(blockingIssues, {
       id: "strong-reframe-vs-preserve-composition",
       level: "blocking",
@@ -552,7 +586,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (wantsStrongReframe && options.preserveFlags.preserve_composition && options.preserveFlags.preserve_pose && options.preserveFlags.preserve_background) {
+  if (aiRequest.hasReframeBehavior && wantsStrongReframe && options.preserveFlags.preserve_composition && options.preserveFlags.preserve_pose && options.preserveFlags.preserve_background) {
     pushValidationIssue(blockingIssues, {
       id: "reframe-vs-strict-preserve-rules",
       level: "blocking",
@@ -562,7 +596,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("add_smile") && stack.includes("final_soften_expression")) {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("add_smile") && stack.includes("final_soften_expression")) {
     pushValidationIssue(blockingIssues, {
       id: "custom-smile-vs-expression-direction",
       level: "blocking",
@@ -572,7 +606,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("dramatic_reframe") && options.preserveFlags.preserve_composition) {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("dramatic_reframe") && options.preserveFlags.preserve_composition) {
     pushValidationIssue(blockingIssues, {
       id: "custom-reframe-vs-preserve-composition",
       level: "blocking",
@@ -582,7 +616,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("preserve_composition") && (options.reframeIntensity === "strong" || options.preserveFlags.allow_reframing)) {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("preserve_composition") && (options.reframeIntensity === "strong" || options.preserveFlags.allow_reframing)) {
     pushValidationIssue(blockingIssues, {
       id: "custom-preserve-vs-strong-reframe",
       level: "blocking",
@@ -592,7 +626,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("fisheye") && cameraSummary.primaryLens.id === "135mm_compressed_portrait") {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("fisheye") && cameraSummary.primaryLens.id === "135mm_compressed_portrait") {
     pushValidationIssue(blockingIssues, {
       id: "custom-fisheye-vs-compressed-lens",
       level: "blocking",
@@ -602,7 +636,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("overhead_angle") && cameraSummary.primaryAngle.id === "floor_level") {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("overhead_angle") && cameraSummary.primaryAngle.id === "floor_level") {
     pushValidationIssue(blockingIssues, {
       id: "custom-overhead-vs-floor-level",
       level: "blocking",
@@ -612,7 +646,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("floor_level_angle") && cameraSummary.primaryAngle.id === "overhead") {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("floor_level_angle") && cameraSummary.primaryAngle.id === "overhead") {
     pushValidationIssue(blockingIssues, {
       id: "custom-floor-vs-overhead",
       level: "blocking",
@@ -622,7 +656,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("wide_editorial_lens") && cameraSummary.primaryLens.id === "135mm_compressed_portrait") {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("wide_editorial_lens") && cameraSummary.primaryLens.id === "135mm_compressed_portrait") {
     pushValidationIssue(blockingIssues, {
       id: "custom-wide-vs-compressed-lens",
       level: "blocking",
@@ -632,7 +666,7 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (customInstructionIntents.includes("compressed_portrait_lens") && cameraSummary.primaryLens.id === "24mm_wide_editorial") {
+  if (aiRequest.hasAnyAiRequest && customInstructionIntents.includes("compressed_portrait_lens") && cameraSummary.primaryLens.id === "24mm_wide_editorial") {
     pushValidationIssue(blockingIssues, {
       id: "custom-compressed-vs-wide-lens",
       level: "blocking",
@@ -642,33 +676,13 @@ export function validateFinalImageRequest(options: {
     });
   }
 
-  if (renderControls.aspectRatio !== "source_auto" && options.preserveFlags.preserve_composition && hasVisibleCameraDirection) {
+  if (aiRequest.hasAnyAiRequest && renderControls.aspectRatio !== "source_auto" && options.preserveFlags.preserve_composition && hasVisibleCameraDirection) {
     pushValidationIssue(warningIssues, {
       id: "aspect-ratio-vs-preserve-composition",
       level: "warning",
       message: "The chosen aspect ratio may be limited while `Preserve Composition` is ON.",
       reason: "A locked composition leaves less room for intentional crop changes into a new frame shape.",
       fix: "Use `Source / Auto`, or relax `Preserve Composition` if you want a more assertive reframe.",
-    });
-  }
-
-  if (renderControls.temperature >= 0.9 && options.preserveFlags.preserve_face && options.preserveFlags.preserve_body_shape) {
-    pushValidationIssue(warningIssues, {
-      id: "high-temperature-vs-preserve-rules",
-      level: "warning",
-      message: "High temperature may reduce consistency with strict preserve rules.",
-      reason: "Higher creativity can loosen identity and structure adherence.",
-      fix: "Lower temperature closer to 0.7 or 0.3 for more literal results.",
-    });
-  }
-
-  if (renderControls.temperature >= 0.9 && renderControls.topP >= 0.98 && options.preserveFlags.preserve_face) {
-    pushValidationIssue(warningIssues, {
-      id: "high-creativity-drift-warning",
-      level: "warning",
-      message: "Very high creativity settings may increase drift.",
-      reason: "High temperature and high Top P together widen sampling substantially.",
-      fix: "Lower either temperature or Top P if identity lock is more important than variation.",
     });
   }
 
@@ -814,6 +828,7 @@ function buildRefineModePrompt(options: {
     `Source type: ${options.sourceType}`,
     `Ordered refinement stack: ${options.stack.map((preset, index) => `${index + 1}. ${preset.title}`).join(" -> ")}`,
     `Keep original aspect ratio: ${options.keepOriginalAspectRatio ? "yes" : "no"}`,
+    `Crop position: ${getCropPositionLabel(options.renderControls.cropPosition)}`,
     `Export 4K: ${options.export4k ? "yes" : "no"}`,
     `Temperature: ${options.renderControls.temperature.toFixed(2)}`,
     `Top P: ${options.renderControls.topP.toFixed(2)}`,
@@ -893,6 +908,7 @@ function buildReframeModePrompt(options: {
     `Source image title: ${options.sourceTitle}`,
     `Source type: ${options.sourceType}`,
     `Keep original aspect ratio: ${options.keepOriginalAspectRatio ? "yes" : "no"}`,
+    `Crop position: ${getCropPositionLabel(options.renderControls.cropPosition)}`,
     `Export 4K: ${options.export4k ? "yes" : "no"}`,
     `Temperature: ${options.renderControls.temperature.toFixed(2)}`,
     `Top P: ${options.renderControls.topP.toFixed(2)}`,
@@ -941,15 +957,17 @@ function buildReframeModePrompt(options: {
 }
 
 export function getFinalImageExecutionMode(options: {
+  stack: RefinementPresetId[];
+  customInstruction?: string;
   preserveFlags: PreserveFlags;
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
 }) {
+  const aiRequest = hasAiRefinementRequest(options);
   const normalizedCameraPresetIds = normalizeCameraPresetIds(options.cameraPresetIds);
-  const cameraSummary = getCameraSelectionSummary(normalizedCameraPresetIds);
   const triggerReasons: string[] = [];
 
-  if (cameraSummary.hasNonOriginalSelection) {
+  if (aiRequest.hasCameraDirection) {
     triggerReasons.push("non-default camera direction is selected");
   }
 
@@ -965,9 +983,26 @@ export function getFinalImageExecutionMode(options: {
     triggerReasons.push(`${options.reframeIntensity} reframe intensity is selected`);
   }
 
+  if (aiRequest.hasCustomInstruction) {
+    triggerReasons.push("custom instruction is selected");
+  }
+
+  if (aiRequest.hasAiPresets) {
+    triggerReasons.push("AI refinement presets are selected");
+  }
+
+  if (!aiRequest.hasAnyAiRequest) {
+    return {
+      executionMode: "exact_crop" as const,
+      reframeTriggered: false,
+      triggerReasons: ["exact crop/export only"],
+      normalizedCameraPresetIds,
+    };
+  }
+
   return {
-    executionMode: triggerReasons.length > 0 ? ("reframe" as const) : ("refine" as const),
-    reframeTriggered: triggerReasons.length > 0,
+    executionMode: aiRequest.hasReframeBehavior ? ("reframe" as const) : ("refine" as const),
+    reframeTriggered: aiRequest.hasReframeBehavior,
     triggerReasons,
     normalizedCameraPresetIds,
   };
@@ -987,11 +1022,9 @@ export function buildFinalImageExecutionPlan(options: {
 }) {
   const presets = options.stack.map((presetId) => getFinalRefinementPreset(presetId)).filter(Boolean) as RefinementPreset[];
 
-  if (presets.length === 0) {
-    throw new Error("Refinement stack cannot be empty.");
-  }
-
   const mode = getFinalImageExecutionMode({
+    stack: options.stack,
+    customInstruction: options.customInstruction,
     preserveFlags: options.preserveFlags,
     cameraPresetIds: options.cameraPresetIds,
     reframeIntensity: options.reframeIntensity,
@@ -1023,10 +1056,13 @@ export function buildFinalImageExecutionPlan(options: {
     `Primary lens: ${cameraSummary.primaryLens.title}`,
     `Modifiers: ${cameraSummary.modifiers.length > 0 ? cameraSummary.modifiers.map((modifier) => modifier.title).join(" • ") : "none"}`,
     `Reframe intensity: ${options.reframeIntensity}`,
+    `Crop position: ${getCropPositionLabel(renderControls.cropPosition)}`,
   ];
   const activeCustomInstructions = getNormalizedCustomInstructions(options.customInstruction);
   const promptText =
-    mode.executionMode === "reframe"
+    mode.executionMode === "exact_crop"
+      ? "No AI prompt used. Exact Crop Mode preserves the original image and applies only deterministic crop/export changes."
+      : mode.executionMode === "reframe"
       ? buildReframeModePrompt({
           stack: presets,
           customInstruction: options.customInstruction,
@@ -1092,6 +1128,7 @@ export type {
   PreserveFlags,
   RenderAspectRatio,
   FinalRenderControls,
+  CropPosition,
   FinalImageValidationIssue,
   FinalImageValidationResult,
   FinalImageExecutionMode,

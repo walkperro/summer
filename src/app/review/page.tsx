@@ -15,6 +15,7 @@ import {
   DEFAULT_RENDER_CONTROLS,
   FINAL_RENDER_ASPECT_RATIOS,
   validateFinalImageRequest,
+  type CropPosition,
   type FinalImageExecutionMode,
   type FinalImageValidationIssue,
   type RefinementPresetId,
@@ -218,8 +219,9 @@ type RefineResult = {
     source_title: string;
     keep_original_aspect_ratio: boolean;
     aspect_ratio: RenderAspectRatio;
-    temperature: number;
-    top_p: number;
+    crop_position: CropPosition;
+    ai_refinement_used: boolean;
+    model_render_used: boolean;
     validation_status: "blocked" | "ready";
     camera_preset_ids: string[];
     camera_angle: string;
@@ -260,8 +262,7 @@ type RefineResult = {
     promptText: string;
     renderControls?: {
       aspectRatio: RenderAspectRatio;
-      temperature: number;
-      topP: number;
+      cropPosition: CropPosition;
     };
     validation?: {
       blockingIssues: FinalImageValidationIssue[];
@@ -280,6 +281,15 @@ type OverloadFallbackState = {
   available: boolean;
   message: string | null;
 };
+
+const EXACT_CROP_POSITIONS: Array<{ id: CropPosition; title: string }> = [
+  { id: "smart_auto", title: "Smart / Auto" },
+  { id: "center", title: "Center" },
+  { id: "top", title: "Top" },
+  { id: "bottom", title: "Bottom" },
+  { id: "left", title: "Left" },
+  { id: "right", title: "Right" },
+];
 
 type JobProgressStageId = "preparing" | "building" | "sending" | "waiting" | "receiving" | "rendering" | "saving" | "done" | "error";
 
@@ -522,6 +532,113 @@ function HelpBubble({ label, open, onToggle, children }: { label: string; open: 
   );
 }
 
+function parseAspectRatioValue(aspectRatio: RenderAspectRatio, width: number, height: number) {
+  if (aspectRatio === "source_auto") {
+    return width / height;
+  }
+
+  const [ratioWidth, ratioHeight] = aspectRatio.split(":").map(Number);
+  return ratioWidth / ratioHeight;
+}
+
+function getCropPositionLabel(cropPosition: CropPosition) {
+  return EXACT_CROP_POSITIONS.find((entry) => entry.id === cropPosition)?.title || cropPosition;
+}
+
+async function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load image for exact crop."));
+    image.src = src;
+  });
+}
+
+async function createExactCropResult(options: {
+  sourceImageDataUrl: string;
+  aspectRatio: RenderAspectRatio;
+  cropPosition: CropPosition;
+  export4k: boolean;
+}) {
+  const image = await loadImageElement(options.sourceImageDataUrl);
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("Failed to read source dimensions for exact crop.");
+  }
+
+  const targetRatio = parseAspectRatioValue(options.aspectRatio, sourceWidth, sourceHeight);
+  const sourceRatio = sourceWidth / sourceHeight;
+
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+
+  if (Math.abs(sourceRatio - targetRatio) > 0.0001) {
+    if (sourceRatio > targetRatio) {
+      cropWidth = Math.round(sourceHeight * targetRatio);
+    } else {
+      cropHeight = Math.round(sourceWidth / targetRatio);
+    }
+  }
+
+  let cropX = Math.round((sourceWidth - cropWidth) / 2);
+  let cropY = Math.round((sourceHeight - cropHeight) / 2);
+
+  if (options.cropPosition === "top") cropY = 0;
+  if (options.cropPosition === "bottom") cropY = sourceHeight - cropHeight;
+  if (options.cropPosition === "left") cropX = 0;
+  if (options.cropPosition === "right") cropX = sourceWidth - cropWidth;
+  if (options.cropPosition === "smart_auto") {
+    if (cropHeight < sourceHeight) {
+      cropY = Math.round((sourceHeight - cropHeight) * 0.18);
+    }
+  }
+
+  const shouldReturnSource = options.aspectRatio === "source_auto" && !options.export4k;
+
+  if (shouldReturnSource) {
+    return {
+      imageDataUrl: options.sourceImageDataUrl,
+      outputWidth: sourceWidth,
+      outputHeight: sourceHeight,
+    };
+  }
+
+  let outputWidth = cropWidth;
+  let outputHeight = cropHeight;
+
+  if (options.export4k) {
+    const longEdge = 3840;
+    if (cropWidth >= cropHeight) {
+      outputWidth = longEdge;
+      outputHeight = Math.round(longEdge / targetRatio);
+    } else {
+      outputHeight = longEdge;
+      outputWidth = Math.round(longEdge * targetRatio);
+    }
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Exact crop canvas could not be created.");
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, outputWidth, outputHeight);
+
+  return {
+    imageDataUrl: canvas.toDataURL("image/png"),
+    outputWidth,
+    outputHeight,
+  };
+}
+
 function buttonClass(isActive: boolean) {
   return isActive
     ? "rounded-full bg-black px-4 py-2 text-sm font-medium text-white"
@@ -555,7 +672,7 @@ export default function ReviewPage() {
   const [selectedRefineSourceId, setSelectedRefineSourceId] = useState("");
   const [uploadedRefineSource, setUploadedRefineSource] = useState<RefineSource | null>(null);
   const [availablePresetToAdd, setAvailablePresetToAdd] = useState("final_luxury_finish");
-  const [selectedRefinementStack, setSelectedRefinementStack] = useState<string[]>(["final_luxury_finish"]);
+  const [selectedRefinementStack, setSelectedRefinementStack] = useState<string[]>([]);
   const [refinementCustomInstruction, setRefinementCustomInstruction] = useState("");
   const [refinementPreserveFlags, setRefinementPreserveFlags] = useState<PreserveFlags>({
     preserve_face: true,
@@ -573,13 +690,10 @@ export default function ReviewPage() {
   const [cameraSelectionFeedback, setCameraSelectionFeedback] = useState<string | null>(null);
   const [showReframingHelp, setShowReframingHelp] = useState(false);
   const [showAspectRatioHelp, setShowAspectRatioHelp] = useState(false);
-  const [showTemperatureHelp, setShowTemperatureHelp] = useState(false);
-  const [showTopPHelp, setShowTopPHelp] = useState(false);
   const [selectedReframeIntensity, setSelectedReframeIntensity] = useState<"subtle" | "moderate" | "strong">("subtle");
   const [refineExport4k, setRefineExport4k] = useState(false);
   const [refineAspectRatio, setRefineAspectRatio] = useState<RenderAspectRatio>(DEFAULT_RENDER_CONTROLS.aspectRatio);
-  const [refineTemperature, setRefineTemperature] = useState(DEFAULT_RENDER_CONTROLS.temperature);
-  const [refineTopP, setRefineTopP] = useState(DEFAULT_RENDER_CONTROLS.topP);
+  const [refineCropPosition, setRefineCropPosition] = useState<CropPosition>(DEFAULT_RENDER_CONTROLS.cropPosition);
   const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
   const [fitRefineFallbackState, setFitRefineFallbackState] = useState<OverloadFallbackState>({ available: false, message: null });
   const [fitRefineProgress, setFitRefineProgress] = useState<JobProgressState | null>(null);
@@ -684,10 +798,6 @@ export default function ReviewPage() {
     [selectedCameraPresetIds],
   );
   const currentExecutionPlan = useMemo(() => {
-    if (selectedRefinementStack.length === 0) {
-      return null;
-    }
-
     return buildFinalImageExecutionPlan({
       stack: selectedRefinementStack as RefinementPresetId[],
       customInstruction: refinementCustomInstruction,
@@ -700,8 +810,7 @@ export default function ReviewPage() {
       reframeIntensity: selectedReframeIntensity,
       renderControls: {
         aspectRatio: refineAspectRatio,
-        temperature: refineTemperature,
-        topP: refineTopP,
+        cropPosition: refineCropPosition,
       },
     });
   }, [
@@ -711,8 +820,7 @@ export default function ReviewPage() {
     selectedRefineSource,
     refineExport4k,
     refineAspectRatio,
-    refineTemperature,
-    refineTopP,
+    refineCropPosition,
     selectedCameraPresetIds,
     selectedReframeIntensity,
   ]);
@@ -726,8 +834,7 @@ export default function ReviewPage() {
         reframeIntensity: selectedReframeIntensity,
         renderControls: {
           aspectRatio: refineAspectRatio,
-          temperature: refineTemperature,
-          topP: refineTopP,
+          cropPosition: refineCropPosition,
         },
       }),
     [
@@ -737,8 +844,7 @@ export default function ReviewPage() {
       selectedCameraPresetIds,
       selectedReframeIntensity,
       refineAspectRatio,
-      refineTemperature,
-      refineTopP,
+      refineCropPosition,
     ],
   );
   const refinementStackWarnings = useMemo(() => {
@@ -1267,12 +1373,11 @@ export default function ReviewPage() {
       reframeIntensity: selectedReframeIntensity,
       renderControls: {
         aspectRatio: refineAspectRatio,
-        temperature: refineTemperature,
-        topP: refineTopP,
+        cropPosition: refineCropPosition,
       },
     });
 
-    return previewValidation.blockingIssues.find((issue) => issue.id !== "missing-stack")?.message || null;
+    return previewValidation.blockingIssues[0]?.message || null;
   }
 
   function toggleCameraPreset(presetId: string) {
@@ -1298,17 +1403,13 @@ export default function ReviewPage() {
       return;
     }
 
-    if (selectedRefinementStack.length === 0) {
-      setFitRefineState({ loading: false, error: "Add at least one refinement preset to the stack." });
-      return;
-    }
-
     if (currentValidation.isBlocked) {
       setFitRefineState({ loading: false, error: "Render blocked until conflicts are fixed." });
       return;
     }
 
     const effectiveExport4k = options?.export4kOverride ?? (refineExport4k || selectedRefinementStack.includes("final_4k_upscale"));
+    const executionMode = currentExecutionPlan?.executionMode ?? "exact_crop";
 
     fitRefineProgressController.current?.stop();
     fitRefineProgressController.current = createProgressController("refine", setFitRefineProgress);
@@ -1318,6 +1419,72 @@ export default function ReviewPage() {
     try {
       fitRefineProgressController.current.advance("building", { helperText: "Resolving source image and building the final instruction stack." });
       const sourceImageDataUrl = await resolveRefineSourceDataUrl(selectedRefineSource);
+
+      if (executionMode === "exact_crop") {
+        fitRefineProgressController.current.advance("sending", { helperText: "Preparing an exact crop/export without AI reinterpretation." });
+        const exactCrop = await createExactCropResult({
+          sourceImageDataUrl,
+          aspectRatio: refineAspectRatio,
+          cropPosition: refineCropPosition,
+          export4k: effectiveExport4k,
+        });
+        fitRefineProgressController.current.advance("rendering", { helperText: "Rendering exact crop preview with original appearance preserved." });
+
+        const exactResult: RefineResult = {
+          savedToBlob: false,
+          temporary: true,
+          imageDataUrl: exactCrop.imageDataUrl,
+          metadata: {
+            source_image_id: selectedRefineSource.assetPathname || selectedRefineSource.id,
+            source_type: selectedRefineSource.sourceType,
+            refinement_stack: selectedRefinementStack,
+            custom_instruction_text: refinementCustomInstruction,
+            preserve_flags: refinementPreserveFlags,
+            output_size: effectiveExport4k ? "4k_exact_export" : refineAspectRatio === "source_auto" ? "source_exact_export" : "exact_crop_export",
+            created_at: new Date().toISOString(),
+            source_title: selectedRefineSource.title,
+            keep_original_aspect_ratio: refineAspectRatio === "source_auto",
+            aspect_ratio: refineAspectRatio,
+            crop_position: refineCropPosition,
+            ai_refinement_used: false,
+            model_render_used: false,
+            validation_status: currentValidation.isBlocked ? "blocked" : "ready",
+            camera_preset_ids: selectedCameraPresetIds,
+            camera_angle: cameraSelectionSummary.primaryAngle.id,
+            lens_look: cameraSelectionSummary.primaryLens.id,
+            camera_modifiers: cameraSelectionSummary.modifiers.map((modifier) => modifier.id),
+            camera_direction_narrative: cameraSelectionSummary.narrative,
+            execution_mode: "exact_crop",
+            execution_trigger_reasons: ["Aspect ratio/crop/export only"],
+            active_preserve_rules: ["Original image preserved exactly"],
+            active_camera_instructions: [],
+            active_custom_instructions: [],
+            custom_instruction_warnings: [],
+            debug_prompt_text: "No AI prompt used. Exact Crop Mode applied a deterministic crop/export pipeline.",
+            reframe_mode_triggered: false,
+            reframe_intensity: selectedReframeIntensity,
+            allow_reframing: false,
+            allow_perspective_shift: false,
+            model: "none",
+            debug_validation: currentExecutionPlan?.validation,
+          },
+          stackWarnings: [],
+          warning: "No AI reinterpretation applied. Original image preserved with exact crop/export pipeline.",
+          responseText: "Exact Crop Mode completed. Original image preserved.",
+          debug: currentExecutionPlan
+            ? {
+                ...currentExecutionPlan,
+                executionMode: "exact_crop",
+              }
+            : undefined,
+        };
+
+        setFitRefineResults((current) => [exactResult, ...current]);
+        fitRefineProgressController.current.complete("Your exact crop export is ready.");
+        setFitRefineState({ loading: false, error: null });
+        return;
+      }
+
       const requestBody = {
         sourceImageId: selectedRefineSource.assetPathname || selectedRefineSource.id,
         sourceType: selectedRefineSource.sourceType,
@@ -1332,8 +1499,7 @@ export default function ReviewPage() {
         reframeIntensity: selectedReframeIntensity,
         renderControls: {
           aspectRatio: refineAspectRatio,
-          temperature: refineTemperature,
-          topP: refineTopP,
+          cropPosition: refineCropPosition,
         },
       };
       fitRefineProgressController.current.advance("sending");
@@ -1369,14 +1535,23 @@ export default function ReviewPage() {
       }
 
       fitRefineProgressController.current.advance("rendering", {
-        helperText: data.metadata.execution_mode === "reframe" ? "Rendering your reframed preview." : "Rendering your refined preview.",
+        helperText:
+          data.metadata.execution_mode === "reframe"
+            ? "Rendering your reframed preview."
+            : data.metadata.execution_mode === "exact_crop"
+              ? "Rendering your exact crop preview."
+              : "Rendering your refined preview.",
       });
       setFitRefineResults((current) => [data, ...current]);
       if (data.savedToBlob) {
         fitRefineProgressController.current.advance("saving", { helperText: "Final asset is being finalized for download." });
       }
       fitRefineProgressController.current.complete(
-        data.metadata.execution_mode === "reframe" ? "Your reframed image is ready." : "Your refined image is ready.",
+        data.metadata.execution_mode === "reframe"
+          ? "Your reframed image is ready."
+          : data.metadata.execution_mode === "exact_crop"
+            ? "Your exact crop export is ready."
+            : "Your refined image is ready.",
       );
       setFitRefineFallbackState({ available: false, message: null });
       setFitRefineState({ loading: false, error: null });
@@ -2090,7 +2265,7 @@ export default function ReviewPage() {
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Final Stage</p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight">Refine Final Images</h2>
                 <p className="mt-3 text-sm leading-7 text-black/65">
-                  Use this finishing bay to polish an existing generated image, enhanced reference output, or uploaded source into a final website-ready asset without inventing a new composition.
+                  Use this finishing bay to export an exact crop, apply controlled refinement, or run a camera-language reframe on an existing generated image, enhanced reference output, or uploaded source.
                 </p>
               </div>
 
@@ -2209,57 +2384,24 @@ export default function ReviewPage() {
                           </button>
                         ))}
                       </div>
-                      <p className="mt-2 text-xs leading-5 text-black/55">Best default: Source / Auto. In this execution path, aspect ratio is applied as composition guidance and may be limited by preserve rules.</p>
+                      <p className="mt-2 text-xs leading-5 text-black/55">Aspect ratio only = exact crop/export. Aspect ratio + AI edits = model-assisted render, slight visual changes may occur.</p>
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-black/80">Temperature</p>
-                        <HelpBubble label="What temperature means" open={showTemperatureHelp} onToggle={() => setShowTemperatureHelp((current) => !current)}>
-                          <p>
-                            Temperature controls how literal versus creative the render feels. Lower values stay closer to the source and instructions. Higher values allow more variation and reinterpretation. Suggested starting point: 0.7.
-                          </p>
-                        </HelpBubble>
+                      <p className="font-medium text-black/80">Exact crop position</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {EXACT_CROP_POSITIONS.map((position) => (
+                          <button
+                            key={position.id}
+                            type="button"
+                            onClick={() => setRefineCropPosition(position.id)}
+                            className={refineCropPosition === position.id ? "rounded-full bg-black px-4 py-2 text-xs font-medium text-white" : "rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-black/70 transition hover:border-black/25 hover:text-black"}
+                          >
+                            {position.title}
+                          </button>
+                        ))}
                       </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={refineTemperature}
-                        onChange={(event) => setRefineTemperature(Number(event.target.value))}
-                        className="mt-3 w-full"
-                      />
-                      <div className="mt-2 flex items-center justify-between text-xs text-black/55">
-                        <span>0.3 safer</span>
-                        <span>{refineTemperature.toFixed(2)}</span>
-                        <span>0.9 looser</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-black/80">Top P</p>
-                        <HelpBubble label="What Top P means" open={showTopPHelp} onToggle={() => setShowTopPHelp((current) => !current)}>
-                          <p>
-                            Top P controls how widely the model samples from likely choices. Lower values are more constrained and deterministic. Higher values allow broader variation. Suggested starting point: 0.95.
-                          </p>
-                        </HelpBubble>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="1"
-                        step="0.05"
-                        value={refineTopP}
-                        onChange={(event) => setRefineTopP(Number(event.target.value))}
-                        className="mt-3 w-full"
-                      />
-                      <div className="mt-2 flex items-center justify-between text-xs text-black/55">
-                        <span>0.7 tighter</span>
-                        <span>{refineTopP.toFixed(2)}</span>
-                        <span>1.0 widest</span>
-                      </div>
+                      <p className="mt-2 text-xs leading-5 text-black/55">Use crop positioning to keep the subject framed correctly in Exact Crop Mode. `Smart / Auto` applies a gentle top-biased portrait crop when needed.</p>
                     </div>
 
                     <label className="flex items-center gap-3">
@@ -2281,7 +2423,7 @@ export default function ReviewPage() {
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement stack</p>
                     <p className="mt-2 text-sm leading-6 text-black/60">
-                      Build an ordered stack of refinement presets. Cleanup steps usually go first, detail and finish steps go later, and `Final 4K Upscale` usually goes last.
+                      Add AI refinement presets only when you want the model to actively reinterpret or polish the image. Leave the stack empty for Exact Crop Mode.
                     </p>
                   </div>
                   <p className="rounded-full bg-[#f7f4ef] px-3 py-1 text-xs uppercase tracking-[0.2em] text-black/60">
@@ -2343,7 +2485,7 @@ export default function ReviewPage() {
                 </div>
 
                 {selectedRefinementStackPresets.length === 0 ? (
-                  <p className="mt-4 text-sm leading-6 text-black/50">No presets in the stack yet. Add one or apply a quick recipe.</p>
+                  <p className="mt-4 text-sm leading-6 text-black/50">No AI presets in the stack. This is fine for Exact Crop Mode, or add presets when you want AI refinement.</p>
                 ) : null}
               </div>
 
@@ -2362,7 +2504,11 @@ export default function ReviewPage() {
                 <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement Recipe Summary</p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Execution mode:</span>{" "}
-                  {currentExecutionPlan?.executionMode === "reframe" ? "Reframe Mode" : "Refine Mode"}
+                  {currentExecutionPlan?.executionMode === "reframe"
+                    ? "Reframe Mode"
+                    : currentExecutionPlan?.executionMode === "exact_crop"
+                      ? "Exact Crop Mode"
+                      : "Refine Mode"}
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Validation status:</span>{" "}
@@ -2394,7 +2540,10 @@ export default function ReviewPage() {
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Render controls:</span>{" "}
-                  {refineAspectRatio === "source_auto" ? "Source / Auto" : refineAspectRatio} • Temperature {refineTemperature.toFixed(2)} • Top P {refineTopP.toFixed(2)}
+                  {refineAspectRatio === "source_auto" ? "Source / Auto" : refineAspectRatio} • {getCropPositionLabel(refineCropPosition)} • {refineExport4k || selectedRefinementStack.includes("final_4k_upscale") ? "4K final export" : "2K / source exact export"}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Mode note:</span> Aspect ratio only = exact crop/export. Aspect ratio + AI edits = model-assisted render, slight visual changes may occur.
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Final output goals:</span> preserve the same exact woman, preserve the existing shot, keep realism high, and finish the image as a premium website-ready editorial asset.
@@ -2609,7 +2758,11 @@ export default function ReviewPage() {
                   <div className="mt-3 rounded-2xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
                     <p>
                       <span className="font-semibold">Mode:</span>{" "}
-                      {currentExecutionPlan.executionMode === "reframe" ? "Reframe Mode" : "Refine Mode"}
+                      {currentExecutionPlan.executionMode === "reframe"
+                        ? "Reframe Mode"
+                        : currentExecutionPlan.executionMode === "exact_crop"
+                          ? "Exact Crop Mode"
+                          : "Refine Mode"}
                     </p>
                     <p className="mt-2">
                       <span className="font-semibold">Reframe triggered:</span>{" "}
@@ -2630,7 +2783,7 @@ export default function ReviewPage() {
                     <p className="mt-2">
                       <span className="font-semibold">Render controls:</span>{" "}
                       {currentExecutionPlan.renderControls
-                        ? `${currentExecutionPlan.renderControls.aspectRatio === "source_auto" ? "Source / Auto" : currentExecutionPlan.renderControls.aspectRatio} • Temperature ${currentExecutionPlan.renderControls.temperature.toFixed(2)} • Top P ${currentExecutionPlan.renderControls.topP.toFixed(2)}`
+                        ? `${currentExecutionPlan.renderControls.aspectRatio === "source_auto" ? "Source / Auto" : currentExecutionPlan.renderControls.aspectRatio} • ${getCropPositionLabel(currentExecutionPlan.renderControls.cropPosition)}`
                         : "Default controls"}
                     </p>
                     <p className="mt-2">
@@ -2755,13 +2908,17 @@ export default function ReviewPage() {
               <button
                 type="button"
                 onClick={() => void runFinalRefinement()}
-                disabled={!selectedRefineSource || selectedRefinementStack.length === 0 || fitRefineState.loading || currentValidation.isBlocked}
+                disabled={!selectedRefineSource || fitRefineState.loading || currentValidation.isBlocked}
                 className="rounded-full bg-black px-5 py-4 text-sm font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:bg-black/20"
               >
                 {fitRefineState.loading
                   ? currentExecutionPlan?.executionMode === "reframe"
                     ? "Running reframe…"
+                    : currentExecutionPlan?.executionMode === "exact_crop"
+                      ? "Exporting exact crop…"
                     : "Refining final image…"
+                  : currentExecutionPlan?.executionMode === "exact_crop"
+                    ? "Export exact crop"
                   : currentExecutionPlan?.executionMode === "reframe"
                     ? "Run final reframe"
                     : "Run final refinement"}
@@ -2773,7 +2930,7 @@ export default function ReviewPage() {
             <div className="flex flex-col gap-6">
               {fitRefineResults.length === 0 ? (
                 <div className="flex min-h-[32rem] items-center justify-center rounded-[2rem] border border-black/10 bg-white p-10 text-center text-sm leading-7 text-black/45 shadow-sm">
-                  Choose a source image and run a refinement preset to preview a before/after final polish pass here.
+                  Choose a source image and export an exact crop, refine it, or reframe it to preview the final result here.
                 </div>
               ) : null}
 
@@ -2788,9 +2945,9 @@ export default function ReviewPage() {
                   <article key={`${result.metadata.created_at}-${result.metadata.source_image_id}`} className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">{result.metadata.execution_mode === "reframe" ? "Reframe Mode" : "Refine Mode"}</p>
+                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">{result.metadata.execution_mode === "reframe" ? "Reframe Mode" : result.metadata.execution_mode === "exact_crop" ? "Exact Crop Mode" : "Refine Mode"}</p>
                         <h3 className="mt-2 text-2xl font-semibold tracking-tight">{result.metadata.source_title}</h3>
-                        <p className="mt-2 text-sm text-black/60">{stackTitle} • {result.metadata.output_size}</p>
+                        <p className="mt-2 text-sm text-black/60">{stackTitle || "Exact crop/export only"} • {result.metadata.output_size}</p>
                       </div>
                       {result.decision ? (
                         <span className="rounded-full bg-[#f7f4ef] px-3 py-2 text-xs uppercase tracking-[0.2em] text-black/65">{result.decision}</span>
@@ -2845,14 +3002,15 @@ export default function ReviewPage() {
                     <div className="mt-4 rounded-3xl bg-[#f7f4ef] p-4 text-sm leading-6 text-black/70">
                       <p className="text-xs uppercase tracking-[0.2em] text-black/45">Refinement metadata</p>
                       <p className="mt-2"><span className="font-semibold">Source:</span> {result.metadata.source_type}</p>
-                      <p className="mt-2"><span className="font-semibold">Stack:</span> {stackTitle}</p>
+                      <p className="mt-2"><span className="font-semibold">Stack:</span> {stackTitle || "Exact crop/export only"}</p>
                       <p className="mt-2"><span className="font-semibold">Execution mode:</span> {result.metadata.execution_mode}</p>
                       <p className="mt-2"><span className="font-semibold">Validation status:</span> {result.metadata.validation_status}</p>
                       <p className="mt-2"><span className="font-semibold">Reframe triggered:</span> {result.metadata.reframe_mode_triggered ? "Yes" : "No"}</p>
                       <p className="mt-2"><span className="font-semibold">Trigger reasons:</span> {result.metadata.execution_trigger_reasons.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Aspect ratio:</span> {result.metadata.aspect_ratio === "source_auto" ? "Source / Auto" : result.metadata.aspect_ratio}</p>
-                      <p className="mt-2"><span className="font-semibold">Temperature:</span> {result.metadata.temperature.toFixed(2)}</p>
-                      <p className="mt-2"><span className="font-semibold">Top P:</span> {result.metadata.top_p.toFixed(2)}</p>
+                      <p className="mt-2"><span className="font-semibold">Crop position:</span> {getCropPositionLabel(result.metadata.crop_position)}</p>
+                      <p className="mt-2"><span className="font-semibold">AI refinement used:</span> {result.metadata.ai_refinement_used ? "yes" : "no"}</p>
+                      <p className="mt-2"><span className="font-semibold">Model render used:</span> {result.metadata.model_render_used ? "yes" : "no"}</p>
                       <p className="mt-2"><span className="font-semibold">Camera:</span> {result.metadata.camera_angle} • {result.metadata.lens_look} • {result.metadata.reframe_intensity}</p>
                       <p className="mt-2"><span className="font-semibold">Modifiers:</span> {result.metadata.camera_modifiers.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Direction summary:</span> {result.metadata.camera_direction_narrative}</p>
@@ -2864,6 +3022,9 @@ export default function ReviewPage() {
                         <p className="mt-2 text-amber-900"><span className="font-semibold">Custom warnings:</span> {result.metadata.custom_instruction_warnings.join(" • ")}</p>
                       ) : null}
                       <p className="mt-2"><span className="font-semibold">Output size:</span> {result.metadata.output_size}</p>
+                      {result.metadata.execution_mode === "exact_crop" ? (
+                        <p className="mt-2 text-emerald-900">No AI reinterpretation applied. Original image preserved with exact crop/export pipeline.</p>
+                      ) : null}
                       <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
                       <p className="mt-3 font-semibold">Final merged instruction</p>
                       <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-2xl bg-white p-4 text-xs leading-5 text-black/75">{result.metadata.debug_prompt_text}</pre>
