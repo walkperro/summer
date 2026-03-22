@@ -60,9 +60,30 @@ type RenderAspectRatio = "source_auto" | "1:1" | "2:3" | "3:2" | "3:4" | "4:3" |
 
 type CropPosition = "smart_auto" | "center" | "top" | "bottom" | "left" | "right";
 
+type AspectRatioMode = "exact_crop" | "recompose";
+
+type RecomposeFramingPreference =
+  | "keep_original_center_balance"
+  | "add_space_left_right_evenly"
+  | "add_negative_space_for_text"
+  | "favor_top_preservation"
+  | "favor_bottom_preservation";
+
+type RecomposeSubjectProtection = {
+  protectFace: boolean;
+  protectUpperBody: boolean;
+  protectFullBodyIfVisible: boolean;
+  protectHands: boolean;
+  protectHairSilhouette: boolean;
+};
+
 type FinalRenderControls = {
   aspectRatio: RenderAspectRatio;
   cropPosition: CropPosition;
+  aspectRatioMode: AspectRatioMode;
+  framingPreference: RecomposeFramingPreference;
+  subjectProtection: RecomposeSubjectProtection;
+  toneStyleLock: "strict";
   temperature: number;
   topP: number;
 };
@@ -95,7 +116,7 @@ type FinalImageValidationResult = {
   isBlocked: boolean;
 };
 
-type FinalImageExecutionMode = "exact_crop" | "refine" | "reframe";
+type FinalImageExecutionMode = "exact_crop" | "aspect_ratio_recompose" | "refine" | "reframe";
 
 type FinalImageExecutionPlan = {
   executionMode: FinalImageExecutionMode;
@@ -129,6 +150,16 @@ export const FINAL_RENDER_ASPECT_RATIOS: Array<{ id: RenderAspectRatio; title: s
 export const DEFAULT_RENDER_CONTROLS: FinalRenderControls = {
   aspectRatio: "source_auto",
   cropPosition: "smart_auto",
+  aspectRatioMode: "recompose",
+  framingPreference: "keep_original_center_balance",
+  subjectProtection: {
+    protectFace: true,
+    protectUpperBody: true,
+    protectFullBodyIfVisible: true,
+    protectHands: true,
+    protectHairSilhouette: true,
+  },
+  toneStyleLock: "strict",
   temperature: 0.7,
   topP: 0.95,
 };
@@ -410,10 +441,28 @@ function normalizeRenderControls(renderControls?: Partial<FinalRenderControls>):
   const cropPosition = ["smart_auto", "center", "top", "bottom", "left", "right"].includes(String(renderControls?.cropPosition))
     ? (renderControls?.cropPosition as CropPosition)
     : DEFAULT_RENDER_CONTROLS.cropPosition;
+  const aspectRatioMode = renderControls?.aspectRatioMode === "exact_crop" ? "exact_crop" : DEFAULT_RENDER_CONTROLS.aspectRatioMode;
+  const framingPreference = [
+    "keep_original_center_balance",
+    "add_space_left_right_evenly",
+    "add_negative_space_for_text",
+    "favor_top_preservation",
+    "favor_bottom_preservation",
+  ].includes(String(renderControls?.framingPreference))
+    ? (renderControls?.framingPreference as RecomposeFramingPreference)
+    : DEFAULT_RENDER_CONTROLS.framingPreference;
+  const subjectProtection = {
+    ...DEFAULT_RENDER_CONTROLS.subjectProtection,
+    ...(renderControls?.subjectProtection || {}),
+  };
 
   return {
     aspectRatio,
     cropPosition,
+    aspectRatioMode,
+    framingPreference,
+    subjectProtection,
+    toneStyleLock: "strict",
     temperature: clamp(renderControls?.temperature ?? DEFAULT_RENDER_CONTROLS.temperature, 0, 1),
     topP: clamp(renderControls?.topP ?? DEFAULT_RENDER_CONTROLS.topP, 0.1, 1),
   };
@@ -422,6 +471,28 @@ function normalizeRenderControls(renderControls?: Partial<FinalRenderControls>):
 function getCropPositionLabel(cropPosition: CropPosition) {
   if (cropPosition === "smart_auto") return "Smart / Auto";
   return cropPosition.charAt(0).toUpperCase() + cropPosition.slice(1);
+}
+
+function getFramingPreferenceLabel(framingPreference: RecomposeFramingPreference) {
+  if (framingPreference === "keep_original_center_balance") return "Keep original center balance";
+  if (framingPreference === "add_space_left_right_evenly") return "Add space left/right evenly";
+  if (framingPreference === "add_negative_space_for_text") return "Add more negative space for text";
+  if (framingPreference === "favor_top_preservation") return "Favor top preservation";
+  return "Favor bottom preservation";
+}
+
+function getSubjectProtectionLines(subjectProtection: RecomposeSubjectProtection) {
+  return [
+    subjectProtection.protectFace ? "Protect face and keep facial framing intact." : null,
+    subjectProtection.protectUpperBody ? "Protect full upper body framing if visible." : null,
+    subjectProtection.protectFullBodyIfVisible ? "Protect full body framing if the full figure is visible." : null,
+    subjectProtection.protectHands ? "Protect hands and avoid cutting or distorting them." : null,
+    subjectProtection.protectHairSilhouette ? "Protect hair silhouette and avoid clipping important hair shape." : null,
+  ].filter((line): line is string => Boolean(line));
+}
+
+function isStyleChangingPreset(presetId: RefinementPresetId) {
+  return ["final_bw_editorial", "final_luxury_finish", "final_skin_detail", "final_sweat_detail", "final_soften_expression", "final_add_slight_smile"].includes(presetId);
 }
 
 function getAiActivePresetIds(stack: RefinementPresetId[]) {
@@ -434,7 +505,9 @@ function hasAiRefinementRequest(options: {
   cameraPresetIds: CameraDirectionPresetId[];
   preserveFlags: PreserveFlags;
   reframeIntensity: ReframeIntensity;
+  renderControls?: Partial<FinalRenderControls>;
 }) {
+  const renderControls = normalizeRenderControls(options.renderControls);
   const hasAiPresets = getAiActivePresetIds(options.stack).length > 0;
   const hasCustomInstruction = Boolean(options.customInstruction?.trim());
   const cameraSummary = getCameraSelectionSummary(normalizeCameraPresetIds(options.cameraPresetIds));
@@ -444,13 +517,15 @@ function hasAiRefinementRequest(options: {
     options.preserveFlags.allow_reframing ||
     options.preserveFlags.allow_perspective_shift ||
     options.reframeIntensity !== "subtle";
+  const wantsAspectRatioRecompose = renderControls.aspectRatio !== "source_auto" && renderControls.aspectRatioMode === "recompose";
 
   return {
     hasAiPresets,
     hasCustomInstruction,
     hasCameraDirection,
     hasReframeBehavior,
-    hasAnyAiRequest: hasAiPresets || hasCustomInstruction || hasReframeBehavior,
+    wantsAspectRatioRecompose,
+    hasAnyAiRequest: hasAiPresets || hasCustomInstruction || hasReframeBehavior || wantsAspectRatioRecompose,
   };
 }
 
@@ -551,8 +626,40 @@ export function validateFinalImageRequest(options: {
   const renderControls = normalizeRenderControls(options.renderControls);
   const customInstructionIntents = parseCustomInstructionIntents(options.customInstruction);
   const hasVisibleCameraDirection = cameraSummary.hasNonOriginalSelection;
-  const aiRequest = hasAiRefinementRequest(options);
+  const aiRequest = hasAiRefinementRequest({ ...options, renderControls });
   const wantsStrongReframe = options.reframeIntensity === "strong" || options.preserveFlags.allow_perspective_shift || customInstructionIntents.includes("dramatic_reframe");
+
+  if (renderControls.aspectRatioMode === "recompose") {
+    if (hasVisibleCameraDirection || wantsStrongReframe) {
+      pushValidationIssue(blockingIssues, {
+        id: "recompose-vs-camera-reinterpretation",
+        level: "blocking",
+        message: "This request conflicts with keeping the same exact image.",
+        reason: "Aspect Ratio Recompose Mode preserves the same photograph, but your camera/lens selections ask for a stronger reinterpretation.",
+        fix: "Remove camera/lens reinterpretation or switch to Full Reframe Mode.",
+      });
+    }
+
+    if (options.stack.some(isStyleChangingPreset)) {
+      pushValidationIssue(blockingIssues, {
+        id: "recompose-vs-style-preset",
+        level: "blocking",
+        message: "Style-changing presets conflict with Aspect Ratio Recompose Mode.",
+        reason: "This mode is meant to preserve the same exact photo feel, not restyle the image.",
+        fix: "Remove style-changing presets, or switch to Refine/Full Reframe Mode if you want an AI restyle.",
+      });
+    }
+
+    if (customInstructionIntents.some((intent) => ["dramatic_reframe", "fisheye", "overhead_angle", "floor_level_angle", "compressed_portrait_lens", "wide_editorial_lens"].includes(intent))) {
+      pushValidationIssue(blockingIssues, {
+        id: "recompose-vs-custom-camera-instruction",
+        level: "blocking",
+        message: "Custom instruction conflicts with keeping the same exact image.",
+        reason: "Aspect Ratio Recompose Mode allows controlled frame expansion, not a new camera language or strong visual reinterpretation.",
+        fix: "Remove the camera/lens-style custom instruction or switch to Full Reframe Mode.",
+      });
+    }
+  }
 
   if (aiRequest.hasAnyAiRequest && stack.includes("final_soften_expression") && stack.includes("final_add_slight_smile")) {
     pushValidationIssue(blockingIssues, {
@@ -863,6 +970,54 @@ function buildRefineModePrompt(options: {
   ].join("\n");
 }
 
+function buildAspectRatioRecomposePrompt(options: {
+  customInstruction?: string;
+  preserveFlags: PreserveFlags;
+  sourceTitle: string;
+  sourceType: "generated" | "enhanced" | "uploaded";
+  export4k: boolean;
+  renderControls: FinalRenderControls;
+}) {
+  const subjectProtectionLines = getSubjectProtectionLines(options.renderControls.subjectProtection);
+
+  return [
+    "Recompose this exact source image to fit the target aspect ratio while preserving the same photograph feel.",
+    "Execution mode: Aspect Ratio Recompose Mode.",
+    `Source image title: ${options.sourceTitle}`,
+    `Source type: ${options.sourceType}`,
+    `Target aspect ratio: ${options.renderControls.aspectRatio}`,
+    `Framing preference: ${getFramingPreferenceLabel(options.renderControls.framingPreference)}`,
+    `Crop expansion preference: ${getCropPositionLabel(options.renderControls.cropPosition)}`,
+    "Tone/style lock: strict.",
+    "Reinterpretation level: minimal.",
+    "Goal: preserve the same image while fitting the new frame.",
+    "",
+    "Core recompose instructions:",
+    "- Preserve the same exact woman, same face, same expression, same outfit, same pose intent, same lighting direction, same tonal treatment, and same editorial finish.",
+    "- Do not reinterpret the shot as a new image.",
+    "- Do not change the color palette or black-and-white balance.",
+    "- Do not crop off important parts of the body or face.",
+    "- Expand and rebalance the composition naturally so the image fits the new frame while remaining visually the same photograph.",
+    "- Keep realism high and maintain website-ready premium quality.",
+    "- Preserve the same environment family and background style.",
+    "- Preserve softness/sharpness feel, contrast structure, and overall visual mood.",
+    "",
+    "Allowed adjustments:",
+    "- Extend the frame.",
+    "- Add missing side space, top space, or bottom space as needed.",
+    "- Rebalance subject placement subtly to fit the new frame.",
+    "- Complete background/context naturally without introducing visual junk.",
+    "",
+    "Subject protection priority:",
+    ...subjectProtectionLines.map((line) => `- ${line}`),
+    "",
+    "Preserve rules:",
+    ...getPreserveRuleInstructions(options.preserveFlags, "refine").map((instruction) => `- ${instruction}`),
+    ...buildCustomInstructionLines(options.customInstruction),
+    ...(options.export4k ? ["- Prepare the recomposed output for final 4K delivery without changing the underlying image feel."] : []),
+  ].join("\n");
+}
+
 function buildReframeModePrompt(options: {
   stack: RefinementPreset[];
   customInstruction?: string;
@@ -962,8 +1117,10 @@ export function getFinalImageExecutionMode(options: {
   preserveFlags: PreserveFlags;
   cameraPresetIds: CameraDirectionPresetId[];
   reframeIntensity: ReframeIntensity;
+  renderControls?: Partial<FinalRenderControls>;
 }) {
-  const aiRequest = hasAiRefinementRequest(options);
+  const renderControls = normalizeRenderControls(options.renderControls);
+  const aiRequest = hasAiRefinementRequest({ ...options, renderControls });
   const normalizedCameraPresetIds = normalizeCameraPresetIds(options.cameraPresetIds);
   const triggerReasons: string[] = [];
 
@@ -989,6 +1146,19 @@ export function getFinalImageExecutionMode(options: {
 
   if (aiRequest.hasAiPresets) {
     triggerReasons.push("AI refinement presets are selected");
+  }
+
+  if (aiRequest.wantsAspectRatioRecompose) {
+    triggerReasons.push("aspect ratio recomposition is selected");
+  }
+
+  if (renderControls.aspectRatio !== "source_auto" && renderControls.aspectRatioMode === "recompose" && !aiRequest.hasCameraDirection && !aiRequest.hasAiPresets && !aiRequest.hasCustomInstruction && !aiRequest.hasReframeBehavior) {
+    return {
+      executionMode: "aspect_ratio_recompose" as const,
+      reframeTriggered: false,
+      triggerReasons: ["aspect ratio changed and preserve-same-image recomposition is selected"],
+      normalizedCameraPresetIds,
+    };
   }
 
   if (!aiRequest.hasAnyAiRequest) {
@@ -1028,6 +1198,7 @@ export function buildFinalImageExecutionPlan(options: {
     preserveFlags: options.preserveFlags,
     cameraPresetIds: options.cameraPresetIds,
     reframeIntensity: options.reframeIntensity,
+    renderControls: options.renderControls,
   });
   const stackWarnings = getFinalRefinementStackWarnings(options.stack, options.customInstruction);
   const renderControls = normalizeRenderControls(options.renderControls);
@@ -1057,11 +1228,23 @@ export function buildFinalImageExecutionPlan(options: {
     `Modifiers: ${cameraSummary.modifiers.length > 0 ? cameraSummary.modifiers.map((modifier) => modifier.title).join(" • ") : "none"}`,
     `Reframe intensity: ${options.reframeIntensity}`,
     `Crop position: ${getCropPositionLabel(renderControls.cropPosition)}`,
+    `Aspect handling: ${renderControls.aspectRatioMode === "recompose" ? "Aspect Ratio Recompose" : "Exact Crop"}`,
+    `Framing preference: ${getFramingPreferenceLabel(renderControls.framingPreference)}`,
+    `Tone/style lock: ${renderControls.toneStyleLock}`,
   ];
   const activeCustomInstructions = getNormalizedCustomInstructions(options.customInstruction);
   const promptText =
     mode.executionMode === "exact_crop"
       ? "No AI prompt used. Exact Crop Mode preserves the original image and applies only deterministic crop/export changes."
+      : mode.executionMode === "aspect_ratio_recompose"
+        ? buildAspectRatioRecomposePrompt({
+            customInstruction: options.customInstruction,
+            preserveFlags: options.preserveFlags,
+            sourceTitle: options.sourceTitle,
+            sourceType: options.sourceType,
+            export4k: options.export4k,
+            renderControls,
+          })
       : mode.executionMode === "reframe"
       ? buildReframeModePrompt({
           stack: presets,
@@ -1127,8 +1310,11 @@ export type {
   LensLookId,
   PreserveFlags,
   RenderAspectRatio,
+  AspectRatioMode,
   FinalRenderControls,
   CropPosition,
+  RecomposeFramingPreference,
+  RecomposeSubjectProtection,
   FinalImageValidationIssue,
   FinalImageValidationResult,
   FinalImageExecutionMode,

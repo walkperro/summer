@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
     !sourceTitle ||
     !sourceImageDataUrl ||
     !refinementStack ||
-    refinementStack.length === 0 ||
     !preserveFlags ||
     !cameraPresetIds ||
     cameraPresetIds.length === 0 ||
@@ -144,7 +143,14 @@ export async function POST(request: NextRequest) {
       topP: executionPlan.renderControls.topP,
     });
 
-    const outputSize = export4k || refinementStack.includes("final_4k_upscale") ? "4k_final_export" : "2k_iteration";
+    const outputSize =
+      executionPlan.executionMode === "aspect_ratio_recompose"
+        ? export4k || refinementStack.includes("final_4k_upscale")
+          ? "4k_recompose_export"
+          : "2k_recompose_export"
+        : export4k || refinementStack.includes("final_4k_upscale")
+          ? "4k_final_export"
+          : "2k_iteration";
     const stackWarnings = executionPlan.stackWarnings;
     const cameraWarnings = executionPlan.cameraWarnings;
     const metadata = {
@@ -159,6 +165,17 @@ export async function POST(request: NextRequest) {
       keep_original_aspect_ratio: keepOriginalAspectRatio !== false,
       aspect_ratio: executionPlan.renderControls.aspectRatio,
       crop_position: executionPlan.renderControls.cropPosition,
+      aspect_ratio_mode: executionPlan.renderControls.aspectRatioMode,
+      framing_preference: executionPlan.renderControls.framingPreference,
+      subject_protection: executionPlan.renderControls.subjectProtection,
+      tone_style_lock: executionPlan.renderControls.toneStyleLock,
+      reinterpretation_level: executionPlan.executionMode === "aspect_ratio_recompose" ? "minimal" : executionPlan.executionMode === "reframe" ? "high" : "local_only",
+      goal:
+        executionPlan.executionMode === "aspect_ratio_recompose"
+          ? "preserve same image while fitting new frame"
+          : executionPlan.executionMode === "reframe"
+            ? "stronger camera-language reinterpretation"
+            : "local refinement or exact preservation",
       ai_refinement_used: true,
       model_render_used: true,
       validation_status: executionPlan.validation.isBlocked ? "blocked" : "ready",

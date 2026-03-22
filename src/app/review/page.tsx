@@ -15,9 +15,12 @@ import {
   DEFAULT_RENDER_CONTROLS,
   FINAL_RENDER_ASPECT_RATIOS,
   validateFinalImageRequest,
+  type AspectRatioMode,
   type CropPosition,
   type FinalImageExecutionMode,
   type FinalImageValidationIssue,
+  type RecomposeFramingPreference,
+  type RecomposeSubjectProtection,
   type RefinementPresetId,
   type RenderAspectRatio,
 } from "@/lib/final-refinement";
@@ -220,6 +223,12 @@ type RefineResult = {
     keep_original_aspect_ratio: boolean;
     aspect_ratio: RenderAspectRatio;
     crop_position: CropPosition;
+    aspect_ratio_mode?: AspectRatioMode;
+    framing_preference?: RecomposeFramingPreference;
+    subject_protection?: RecomposeSubjectProtection;
+    tone_style_lock?: "strict";
+    reinterpretation_level?: string;
+    goal?: string;
     ai_refinement_used: boolean;
     model_render_used: boolean;
     validation_status: "blocked" | "ready";
@@ -263,6 +272,10 @@ type RefineResult = {
     renderControls?: {
       aspectRatio: RenderAspectRatio;
       cropPosition: CropPosition;
+      aspectRatioMode?: AspectRatioMode;
+      framingPreference?: RecomposeFramingPreference;
+      subjectProtection?: RecomposeSubjectProtection;
+      toneStyleLock?: "strict";
     };
     validation?: {
       blockingIssues: FinalImageValidationIssue[];
@@ -289,6 +302,19 @@ const EXACT_CROP_POSITIONS: Array<{ id: CropPosition; title: string }> = [
   { id: "bottom", title: "Bottom" },
   { id: "left", title: "Left" },
   { id: "right", title: "Right" },
+];
+
+const ASPECT_RATIO_MODES: Array<{ id: AspectRatioMode; title: string; summary: string }> = [
+  { id: "recompose", title: "Keep exact shot, recomposed to fit", summary: "Recommended for website framing. Gemini expands/rebalances the frame while preserving the same image feel." },
+  { id: "exact_crop", title: "Exact crop only", summary: "Deterministic crop/export only. No AI reinterpretation, but content may be cut off." },
+];
+
+const RECOMPOSE_FRAMING_PREFERENCES: Array<{ id: RecomposeFramingPreference; title: string }> = [
+  { id: "keep_original_center_balance", title: "Keep original center balance" },
+  { id: "add_space_left_right_evenly", title: "Add space left/right evenly" },
+  { id: "add_negative_space_for_text", title: "Add more negative space for text" },
+  { id: "favor_top_preservation", title: "Favor top preservation" },
+  { id: "favor_bottom_preservation", title: "Favor bottom preservation" },
 ];
 
 type JobProgressStageId = "preparing" | "building" | "sending" | "waiting" | "receiving" | "rendering" | "saving" | "done" | "error";
@@ -694,6 +720,9 @@ export default function ReviewPage() {
   const [refineExport4k, setRefineExport4k] = useState(false);
   const [refineAspectRatio, setRefineAspectRatio] = useState<RenderAspectRatio>(DEFAULT_RENDER_CONTROLS.aspectRatio);
   const [refineCropPosition, setRefineCropPosition] = useState<CropPosition>(DEFAULT_RENDER_CONTROLS.cropPosition);
+  const [refineAspectRatioMode, setRefineAspectRatioMode] = useState<AspectRatioMode>(DEFAULT_RENDER_CONTROLS.aspectRatioMode);
+  const [refineFramingPreference, setRefineFramingPreference] = useState<RecomposeFramingPreference>(DEFAULT_RENDER_CONTROLS.framingPreference);
+  const [refineSubjectProtection, setRefineSubjectProtection] = useState<RecomposeSubjectProtection>(DEFAULT_RENDER_CONTROLS.subjectProtection);
   const [fitRefineState, setFitRefineState] = useState<AsyncState>({ loading: false, error: null });
   const [fitRefineFallbackState, setFitRefineFallbackState] = useState<OverloadFallbackState>({ available: false, message: null });
   const [fitRefineProgress, setFitRefineProgress] = useState<JobProgressState | null>(null);
@@ -811,6 +840,9 @@ export default function ReviewPage() {
       renderControls: {
         aspectRatio: refineAspectRatio,
         cropPosition: refineCropPosition,
+        aspectRatioMode: refineAspectRatioMode,
+        framingPreference: refineFramingPreference,
+        subjectProtection: refineSubjectProtection,
       },
     });
   }, [
@@ -821,6 +853,9 @@ export default function ReviewPage() {
     refineExport4k,
     refineAspectRatio,
     refineCropPosition,
+    refineAspectRatioMode,
+    refineFramingPreference,
+    refineSubjectProtection,
     selectedCameraPresetIds,
     selectedReframeIntensity,
   ]);
@@ -835,6 +870,9 @@ export default function ReviewPage() {
         renderControls: {
           aspectRatio: refineAspectRatio,
           cropPosition: refineCropPosition,
+          aspectRatioMode: refineAspectRatioMode,
+          framingPreference: refineFramingPreference,
+          subjectProtection: refineSubjectProtection,
         },
       }),
     [
@@ -845,6 +883,9 @@ export default function ReviewPage() {
       selectedReframeIntensity,
       refineAspectRatio,
       refineCropPosition,
+      refineAspectRatioMode,
+      refineFramingPreference,
+      refineSubjectProtection,
     ],
   );
   const refinementStackWarnings = useMemo(() => {
@@ -1374,6 +1415,9 @@ export default function ReviewPage() {
       renderControls: {
         aspectRatio: refineAspectRatio,
         cropPosition: refineCropPosition,
+        aspectRatioMode: refineAspectRatioMode,
+        framingPreference: refineFramingPreference,
+        subjectProtection: refineSubjectProtection,
       },
     });
 
@@ -1446,6 +1490,12 @@ export default function ReviewPage() {
             keep_original_aspect_ratio: refineAspectRatio === "source_auto",
             aspect_ratio: refineAspectRatio,
             crop_position: refineCropPosition,
+            aspect_ratio_mode: refineAspectRatioMode,
+            framing_preference: refineFramingPreference,
+            subject_protection: refineSubjectProtection,
+            tone_style_lock: "strict",
+            reinterpretation_level: "minimal",
+            goal: "preserve same image while fitting new frame",
             ai_refinement_used: false,
             model_render_used: false,
             validation_status: currentValidation.isBlocked ? "blocked" : "ready",
@@ -1500,6 +1550,9 @@ export default function ReviewPage() {
         renderControls: {
           aspectRatio: refineAspectRatio,
           cropPosition: refineCropPosition,
+          aspectRatioMode: refineAspectRatioMode,
+          framingPreference: refineFramingPreference,
+          subjectProtection: refineSubjectProtection,
         },
       };
       fitRefineProgressController.current.advance("sending");
@@ -1538,6 +1591,8 @@ export default function ReviewPage() {
         helperText:
           data.metadata.execution_mode === "reframe"
             ? "Rendering your reframed preview."
+            : data.metadata.execution_mode === "aspect_ratio_recompose"
+              ? "Rendering your recomposed preview."
             : data.metadata.execution_mode === "exact_crop"
               ? "Rendering your exact crop preview."
               : "Rendering your refined preview.",
@@ -1549,6 +1604,8 @@ export default function ReviewPage() {
       fitRefineProgressController.current.complete(
         data.metadata.execution_mode === "reframe"
           ? "Your reframed image is ready."
+          : data.metadata.execution_mode === "aspect_ratio_recompose"
+            ? "Your aspect ratio recompose is ready."
           : data.metadata.execution_mode === "exact_crop"
             ? "Your exact crop export is ready."
             : "Your refined image is ready.",
@@ -2352,6 +2409,24 @@ export default function ReviewPage() {
                 <div className="rounded-3xl border border-black/10 p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-black/45">Render Controls</p>
                   <div className="mt-4 space-y-5 text-sm text-black/70">
+                    <div className="rounded-2xl bg-[#f7f4ef] p-4">
+                      <p className="font-medium text-black/80">Aspect handling</p>
+                      <p className="mt-2 text-xs leading-5 text-black/55">Exact Crop crops the original image only. Aspect Ratio Recompose keeps the same image but expands/rebalances it to fit the new frame using AI. Full Reframe creates a stronger reinterpretation of the image.</p>
+                      <div className="mt-3 space-y-2">
+                        {ASPECT_RATIO_MODES.map((mode) => (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => setRefineAspectRatioMode(mode.id)}
+                            className={`w-full rounded-2xl border p-4 text-left transition ${refineAspectRatioMode === mode.id ? "border-black bg-black text-white" : "border-black/10 bg-white text-black"}`}
+                          >
+                            <p className="text-sm font-semibold">{mode.title}</p>
+                            <p className={`mt-2 text-xs leading-5 ${refineAspectRatioMode === mode.id ? "text-white/75" : "text-black/55"}`}>{mode.summary}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div>
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-medium text-black/80">Aspect Ratio</p>
@@ -2403,6 +2478,54 @@ export default function ReviewPage() {
                       </div>
                       <p className="mt-2 text-xs leading-5 text-black/55">Use crop positioning to keep the subject framed correctly in Exact Crop Mode. `Smart / Auto` applies a gentle top-biased portrait crop when needed.</p>
                     </div>
+
+                    {refineAspectRatio !== "source_auto" && refineAspectRatioMode === "recompose" ? (
+                      <div className="rounded-2xl bg-[#f7f4ef] p-4">
+                        <p className="font-medium text-black/80">Subject protection</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {([
+                            ["protectFace", "Protect face"],
+                            ["protectUpperBody", "Protect full upper body"],
+                            ["protectFullBodyIfVisible", "Protect full body if visible"],
+                            ["protectHands", "Protect hands"],
+                            ["protectHairSilhouette", "Protect hair silhouette"],
+                          ] as const).map(([key, label]) => (
+                            <label key={key} className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/75">
+                              <input
+                                type="checkbox"
+                                checked={refineSubjectProtection[key]}
+                                onChange={() =>
+                                  setRefineSubjectProtection((current: RecomposeSubjectProtection) => ({
+                                    ...current,
+                                    [key]: !current[key],
+                                  }))
+                                }
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+
+                        <p className="mt-4 font-medium text-black/80">Framing preference</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {RECOMPOSE_FRAMING_PREFERENCES.map((preference) => (
+                            <button
+                              key={preference.id}
+                              type="button"
+                              onClick={() => setRefineFramingPreference(preference.id)}
+                              className={refineFramingPreference === preference.id ? "rounded-full bg-black px-4 py-2 text-xs font-medium text-white" : "rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-black/70 transition hover:border-black/25 hover:text-black"}
+                            >
+                              {preference.title}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4 text-xs leading-5 text-black/60">
+                          <p className="font-semibold text-black/75">Tone/style lock: strict</p>
+                          <p className="mt-2">Aspect Ratio Recompose Mode strongly preserves grayscale balance or color grading, contrast structure, softness/sharpness feel, and the overall visual mood.</p>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <label className="flex items-center gap-3">
                       <input type="checkbox" checked={refineExport4k || selectedRefinementStack.includes("final_4k_upscale")} onChange={() => setRefineExport4k((current) => !current)} />
@@ -2506,6 +2629,8 @@ export default function ReviewPage() {
                   <span className="font-semibold">Execution mode:</span>{" "}
                   {currentExecutionPlan?.executionMode === "reframe"
                     ? "Reframe Mode"
+                    : currentExecutionPlan?.executionMode === "aspect_ratio_recompose"
+                      ? "Aspect Ratio Recompose Mode"
                     : currentExecutionPlan?.executionMode === "exact_crop"
                       ? "Exact Crop Mode"
                       : "Refine Mode"}
@@ -2540,10 +2665,18 @@ export default function ReviewPage() {
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Render controls:</span>{" "}
-                  {refineAspectRatio === "source_auto" ? "Source / Auto" : refineAspectRatio} • {getCropPositionLabel(refineCropPosition)} • {refineExport4k || selectedRefinementStack.includes("final_4k_upscale") ? "4K final export" : "2K / source exact export"}
+                  {refineAspectRatio === "source_auto" ? "Source / Auto" : refineAspectRatio} • {refineAspectRatioMode === "recompose" ? "Recompose to fit" : getCropPositionLabel(refineCropPosition)} • {refineExport4k || selectedRefinementStack.includes("final_4k_upscale") ? "4K final export" : "2K / source exact export"}
                 </p>
+                {refineAspectRatioMode === "recompose" ? (
+                  <p className="mt-3 text-sm leading-6 text-black/70">
+                    <span className="font-semibold">Recompose controls:</span> {RECOMPOSE_FRAMING_PREFERENCES.find((entry) => entry.id === refineFramingPreference)?.title} • Tone/style lock strict
+                  </p>
+                ) : null}
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Mode note:</span> Aspect ratio only = exact crop/export. Aspect ratio + AI edits = model-assisted render, slight visual changes may occur.
+                </p>
+                <p className="mt-3 text-sm leading-6 text-black/70">
+                  <span className="font-semibold">Recompose note:</span> Aspect Ratio Recompose keeps the same image but expands/rebalances it to fit the new frame using AI with strict tone/style lock and subject protection.
                 </p>
                 <p className="mt-3 text-sm leading-6 text-black/70">
                   <span className="font-semibold">Final output goals:</span> preserve the same exact woman, preserve the existing shot, keep realism high, and finish the image as a premium website-ready editorial asset.
@@ -2557,7 +2690,7 @@ export default function ReviewPage() {
                     Build one coordinated camera-language direction instead of one-off effects. Combine one main angle and one main lens for best results, then layer compatible modifiers when they add clarity.
                   </p>
                   <p className="mt-3 text-sm leading-6 text-black/60">
-                    Camera Direction requires Reframe Mode for strong visible changes. In Refine Mode, camera/lens changes remain subtle or may be ignored.
+                    Camera Direction requires Full Reframe Mode for strong visible changes. Aspect Ratio Recompose is for preserving the same image while fitting a new frame, not for creating a new camera interpretation.
                   </p>
                 </div>
 
@@ -2760,6 +2893,8 @@ export default function ReviewPage() {
                       <span className="font-semibold">Mode:</span>{" "}
                       {currentExecutionPlan.executionMode === "reframe"
                         ? "Reframe Mode"
+                        : currentExecutionPlan.executionMode === "aspect_ratio_recompose"
+                          ? "Aspect Ratio Recompose Mode"
                         : currentExecutionPlan.executionMode === "exact_crop"
                           ? "Exact Crop Mode"
                           : "Refine Mode"}
@@ -2783,9 +2918,14 @@ export default function ReviewPage() {
                     <p className="mt-2">
                       <span className="font-semibold">Render controls:</span>{" "}
                       {currentExecutionPlan.renderControls
-                        ? `${currentExecutionPlan.renderControls.aspectRatio === "source_auto" ? "Source / Auto" : currentExecutionPlan.renderControls.aspectRatio} • ${getCropPositionLabel(currentExecutionPlan.renderControls.cropPosition)}`
+                        ? `${currentExecutionPlan.renderControls.aspectRatio === "source_auto" ? "Source / Auto" : currentExecutionPlan.renderControls.aspectRatio} • ${currentExecutionPlan.renderControls.aspectRatioMode === "recompose" ? "Recompose to fit" : getCropPositionLabel(currentExecutionPlan.renderControls.cropPosition)}`
                         : "Default controls"}
                     </p>
+                    {currentExecutionPlan.renderControls?.aspectRatioMode === "recompose" ? (
+                      <p className="mt-2">
+                        <span className="font-semibold">Tone/style lock:</span> {currentExecutionPlan.renderControls.toneStyleLock}
+                      </p>
+                    ) : null}
                     <p className="mt-2">
                       <span className="font-semibold">Active custom instructions:</span>{" "}
                       {currentExecutionPlan.activeCustomInstructions.join(" • ") || "None"}
@@ -2914,9 +3054,13 @@ export default function ReviewPage() {
                 {fitRefineState.loading
                   ? currentExecutionPlan?.executionMode === "reframe"
                     ? "Running reframe…"
+                    : currentExecutionPlan?.executionMode === "aspect_ratio_recompose"
+                      ? "Recomposing to fit…"
                     : currentExecutionPlan?.executionMode === "exact_crop"
                       ? "Exporting exact crop…"
                     : "Refining final image…"
+                  : currentExecutionPlan?.executionMode === "aspect_ratio_recompose"
+                    ? "Run aspect ratio recompose"
                   : currentExecutionPlan?.executionMode === "exact_crop"
                     ? "Export exact crop"
                   : currentExecutionPlan?.executionMode === "reframe"
@@ -2945,7 +3089,7 @@ export default function ReviewPage() {
                   <article key={`${result.metadata.created_at}-${result.metadata.source_image_id}`} className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">{result.metadata.execution_mode === "reframe" ? "Reframe Mode" : result.metadata.execution_mode === "exact_crop" ? "Exact Crop Mode" : "Refine Mode"}</p>
+                        <p className="text-xs uppercase tracking-[0.2em] text-black/45">{result.metadata.execution_mode === "reframe" ? "Reframe Mode" : result.metadata.execution_mode === "aspect_ratio_recompose" ? "Aspect Ratio Recompose Mode" : result.metadata.execution_mode === "exact_crop" ? "Exact Crop Mode" : "Refine Mode"}</p>
                         <h3 className="mt-2 text-2xl font-semibold tracking-tight">{result.metadata.source_title}</h3>
                         <p className="mt-2 text-sm text-black/60">{stackTitle || "Exact crop/export only"} • {result.metadata.output_size}</p>
                       </div>
@@ -3009,6 +3153,12 @@ export default function ReviewPage() {
                       <p className="mt-2"><span className="font-semibold">Trigger reasons:</span> {result.metadata.execution_trigger_reasons.join(" • ") || "None"}</p>
                       <p className="mt-2"><span className="font-semibold">Aspect ratio:</span> {result.metadata.aspect_ratio === "source_auto" ? "Source / Auto" : result.metadata.aspect_ratio}</p>
                       <p className="mt-2"><span className="font-semibold">Crop position:</span> {getCropPositionLabel(result.metadata.crop_position)}</p>
+                      {result.metadata.aspect_ratio_mode ? <p className="mt-2"><span className="font-semibold">Aspect handling:</span> {result.metadata.aspect_ratio_mode === "recompose" ? "Aspect Ratio Recompose" : "Exact Crop"}</p> : null}
+                      {result.metadata.framing_preference ? <p className="mt-2"><span className="font-semibold">Framing preference:</span> {RECOMPOSE_FRAMING_PREFERENCES.find((entry) => entry.id === result.metadata.framing_preference)?.title || result.metadata.framing_preference}</p> : null}
+                      {result.metadata.subject_protection ? <p className="mt-2"><span className="font-semibold">Subject protection:</span> {Object.entries(result.metadata.subject_protection).filter(([, enabled]) => enabled).map(([key]) => key.replace(/[A-Z]/g, (character) => ` ${character.toLowerCase()}`)).join(" • ") || "None"}</p> : null}
+                      {result.metadata.tone_style_lock ? <p className="mt-2"><span className="font-semibold">Tone/style lock:</span> {result.metadata.tone_style_lock}</p> : null}
+                      {result.metadata.reinterpretation_level ? <p className="mt-2"><span className="font-semibold">Reinterpretation level:</span> {result.metadata.reinterpretation_level}</p> : null}
+                      {result.metadata.goal ? <p className="mt-2"><span className="font-semibold">Goal:</span> {result.metadata.goal}</p> : null}
                       <p className="mt-2"><span className="font-semibold">AI refinement used:</span> {result.metadata.ai_refinement_used ? "yes" : "no"}</p>
                       <p className="mt-2"><span className="font-semibold">Model render used:</span> {result.metadata.model_render_used ? "yes" : "no"}</p>
                       <p className="mt-2"><span className="font-semibold">Camera:</span> {result.metadata.camera_angle} • {result.metadata.lens_look} • {result.metadata.reframe_intensity}</p>
@@ -3024,6 +3174,9 @@ export default function ReviewPage() {
                       <p className="mt-2"><span className="font-semibold">Output size:</span> {result.metadata.output_size}</p>
                       {result.metadata.execution_mode === "exact_crop" ? (
                         <p className="mt-2 text-emerald-900">No AI reinterpretation applied. Original image preserved with exact crop/export pipeline.</p>
+                      ) : null}
+                      {result.metadata.execution_mode === "aspect_ratio_recompose" ? (
+                        <p className="mt-2 text-emerald-900">Aspect Ratio Recompose Mode preserved the same image feel while fitting the new frame with minimal reinterpretation.</p>
                       ) : null}
                       <p className="mt-2"><span className="font-semibold">Created:</span> {new Date(result.metadata.created_at).toLocaleString()}</p>
                       <p className="mt-3 font-semibold">Final merged instruction</p>
