@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { uploadBinaryAsset } from "@/lib/blob-storage";
 import { generateGeminiImage } from "@/lib/gemini-image";
+import { completeSummerImageJob, createSummerImageJob, failSummerImageJob } from "@/lib/summer/image-jobs";
 import {
   buildFitEnhancementPrompt,
   FIT_ENHANCEMENT_MODES,
@@ -30,6 +31,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid enhancement mode." }, { status: 400 });
   }
 
+  let jobId: string | null = null;
+
   try {
     const [sourceReference] = await loadSummerFitReferences([sourceId]);
     const prompt = getFitEnhancementPromptEntry();
@@ -39,6 +42,15 @@ export async function POST(request: NextRequest) {
       sourceReference.id,
       sourceReference.title,
     );
+    const job = await createSummerImageJob({
+      jobType: "fit_enhance_reference",
+      inputPayload: {
+        sourceId,
+        enhancementMode,
+      },
+      promptText,
+    });
+    jobId = job?.id || null;
     const result = await generateGeminiImage([
       {
         inlineData: {
@@ -58,6 +70,29 @@ export async function POST(request: NextRequest) {
     const referenceManifest = await listSummerFitReferences();
     const source = referenceManifest.references.find((reference) => reference.id === sourceId);
 
+    await completeSummerImageJob({
+      jobId,
+      status: "completed",
+      outputPayload: {
+        sourceId,
+        enhancementMode,
+        model: result.model,
+        assetPathname: uploaded.pathname,
+        assetUrl: uploaded.url,
+      },
+      output: {
+        outputPath: uploaded.pathname,
+        publicUrl: uploaded.url,
+        title: sourceReference.title,
+        aspectRatio: "4:5",
+        outputType: "fit_enhance_reference",
+        metadata: {
+          sourceId,
+          enhancementMode,
+        },
+      },
+    });
+
     return NextResponse.json({
       sourceId,
       model: result.model,
@@ -68,6 +103,7 @@ export async function POST(request: NextRequest) {
       responseText: result.text,
     });
   } catch (error) {
+    await failSummerImageJob(jobId, error instanceof Error ? error.message : "Unknown fit enhancement error.");
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unknown fit enhancement error.",

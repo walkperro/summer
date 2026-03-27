@@ -1,45 +1,121 @@
-export default function Home() {
+import type { Metadata } from "next";
+
+import { About } from "@/components/summer/About";
+import { ContactCta } from "@/components/summer/ContactCta";
+import { Gallery } from "@/components/summer/Gallery";
+import { Hero } from "@/components/summer/Hero";
+import { MobileCtaBar } from "@/components/summer/MobileCtaBar";
+import { Offers } from "@/components/summer/Offers";
+import { SignatureBreak } from "@/components/summer/SignatureBreak";
+import { TrainWithMe } from "@/components/summer/TrainWithMe";
+import { getSummerPublicSnapshot } from "@/lib/summer/site-content";
+
+export const metadata: Metadata = {
+  title: "Editorial Fitness & Private Training",
+  description:
+    "A premium editorial homepage for Summer, blending model presence, real training credibility, and private coaching inquiries.",
+  keywords: [
+    "Summer",
+    "private training",
+    "online coaching",
+    "editorial fitness",
+    "brand campaign bookings",
+    "fitness model",
+  ],
+  openGraph: {
+    title: "Summer | Editorial Fitness & Private Training",
+    description:
+      "Editorial presence, serious training credibility, and premium private coaching availability.",
+    images: [
+      {
+        url: "/images/summer/accent/signature_16_9_aspect_ratio.jpg",
+        width: 1376,
+        height: 768,
+        alt: "Summer in a monochrome signature frame inside a refined training space.",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Summer | Editorial Fitness & Private Training",
+    description:
+      "A premium homepage for Summer with private training, coaching, and campaign booking inquiries.",
+    images: ["/images/summer/accent/signature_16_9_aspect_ratio.jpg"],
+  },
+};
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: "Summer",
+  description:
+    "Editorial fitness talent and private coach offering premium private training, online coaching, and brand campaign bookings.",
+  knowsAbout: [
+    "Private Training",
+    "Online Coaching",
+    "Editorial Fitness",
+    "Campaign Bookings",
+  ],
+  makesOffer: [
+    {
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name: "Private Training",
+      },
+    },
+    {
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name: "Online Coaching",
+      },
+    },
+    {
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name: "Brand / Campaign Bookings",
+      },
+    },
+  ],
+};
+
+export default async function Home() {
+  const snapshot = await getSummerPublicSnapshot();
+
   return (
-    <main className="min-h-screen bg-[#f5f1eb] text-[#1d1b18]">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center gap-8 px-6 py-12 md:px-10">
-        <p className="text-sm uppercase tracking-[0.28em] text-black/45">Summer / Image Direction</p>
-        <div className="max-w-4xl space-y-5">
-          <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
-            Gemini review flow for the upgraded editorial prompt pack.
-          </h1>
-          <p className="max-w-3xl text-base leading-8 text-black/65 md:text-lg">
-            Generate first-pass review images with the upgraded cinematic prompt language and the reference
-            attachments listed in the prompt pack, then decide what deserves a final 4K finishing pass.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <a
-            className="inline-flex items-center justify-center rounded-full bg-black px-6 py-4 text-sm font-medium text-white transition hover:bg-black/85"
-            href="/review"
-          >
-            Open review wall
-          </a>
-        </div>
-
-        <div className="grid gap-4 rounded-[2rem] border border-black/10 bg-white p-6 md:grid-cols-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-black/45">Step 1</p>
-            <p className="mt-2 text-lg font-semibold">Generate review-first</p>
-            <p className="mt-2 text-sm leading-6 text-black/65">Use the upgraded prompts and reference images to get composition and likeness right.</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-black/45">Step 2</p>
-            <p className="mt-2 text-lg font-semibold">Approve or reject</p>
-            <p className="mt-2 text-sm leading-6 text-black/65">Review each image on a clean page before investing in any upscale or final pass.</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-black/45">Step 3</p>
-            <p className="mt-2 text-lg font-semibold">Finish in 4K</p>
-            <p className="mt-2 text-sm leading-6 text-black/65">Only upscale approved finalists so quality effort goes into the right images.</p>
-          </div>
-        </div>
-      </div>
+    <main className="overflow-x-hidden bg-[#f6f1ea] text-[#181512]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <Hero
+        slides={snapshot.heroSlides}
+        heading={snapshot.heroHeading}
+        subheading={snapshot.heroSubheading}
+        primaryCtaLabel={snapshot.primaryCtaLabel}
+        primaryCtaHref={snapshot.primaryCtaHref}
+        secondaryCtaLabel={snapshot.secondaryCtaLabel}
+        secondaryCtaHref={snapshot.secondaryCtaHref}
+      />
+      {snapshot.about.section.isVisible ? <About section={snapshot.about.section} images={snapshot.about.images} points={snapshot.about.points} /> : null}
+      {snapshot.offersIntro.isVisible ? <Offers intro={snapshot.offersIntro} offers={snapshot.offers} /> : null}
+      {snapshot.trainWithMe.section.isVisible ? (
+        <TrainWithMe
+          section={snapshot.trainWithMe.section}
+          leadCard={snapshot.trainWithMe.leadCard}
+          pillars={snapshot.trainWithMe.pillars}
+          cards={snapshot.trainWithMe.cards}
+        />
+      ) : null}
+      {snapshot.signature.isVisible ? <SignatureBreak section={snapshot.signature} /> : null}
+      {snapshot.galleryIntro.isVisible ? <Gallery intro={snapshot.galleryIntro} items={snapshot.galleryItems} /> : null}
+      {snapshot.contact.isVisible ? (
+        <ContactCta section={snapshot.contact} contactEmail={snapshot.contactEmail} instagramUrl={snapshot.instagramUrl} />
+      ) : null}
+      <MobileCtaBar />
     </main>
   );
 }

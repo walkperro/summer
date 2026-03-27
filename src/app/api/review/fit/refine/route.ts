@@ -15,6 +15,7 @@ import {
   type SourceImageAnalysis,
 } from "@/lib/final-refinement";
 import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
+import { completeSummerImageJob, createSummerImageJob, failSummerImageJob } from "@/lib/summer/image-jobs";
 
 export const runtime = "nodejs";
 
@@ -84,6 +85,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required refinement payload fields." }, { status: 400 });
   }
 
+  let jobId: string | null = null;
+
   try {
     const sourceImage = parseDataUrl(sourceImageDataUrl);
     const normalizedCameraPresetIds = normalizeCameraPresetIds(cameraPresetIds);
@@ -136,6 +139,21 @@ export async function POST(request: NextRequest) {
     }
 
     const promptText = executionPlan.promptText;
+    const job = await createSummerImageJob({
+      jobType: "fit_refine_final",
+      inputPayload: {
+        sourceImageId,
+        sourceType,
+        sourceTitle,
+        refinementStack,
+        export4k: Boolean(export4k),
+        keepOriginalAspectRatio: keepOriginalAspectRatio !== false,
+        cameraPresetIds: normalizedCameraPresetIds,
+        reframeIntensity,
+      },
+      promptText,
+    });
+    jobId = job?.id || null;
 
     const result = await generateGeminiImage([
       {
@@ -270,6 +288,31 @@ export async function POST(request: NextRequest) {
         },
       );
 
+      await completeSummerImageJob({
+        jobId,
+        status: "completed",
+        outputPayload: {
+          sourceImageId,
+          sourceTitle,
+          executionMode: executionPlan.executionMode,
+          assetPathname: uploaded.pathname,
+          assetUrl: uploaded.url,
+        },
+        output: {
+          outputPath: uploaded.pathname,
+          publicUrl: uploaded.url,
+          title: sourceTitle,
+          aspectRatio: String(executionPlan.renderControls.aspectRatio),
+          outputType: "fit_refine_final",
+          metadata: {
+            metadataRecord,
+            sourceImageId,
+            sourceType,
+            refinementStack,
+          },
+        },
+      });
+
       return NextResponse.json({
         savedToBlob: true,
         asset: uploaded,
@@ -308,6 +351,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    await completeSummerImageJob({
+      jobId,
+      status: "completed",
+      outputPayload: {
+        sourceImageId,
+        sourceTitle,
+        executionMode: executionPlan.executionMode,
+        temporary: true,
+      },
+      output: {
+        outputPath: null,
+        publicUrl: null,
+        title: sourceTitle,
+        aspectRatio: String(executionPlan.renderControls.aspectRatio),
+        outputType: "fit_refine_final_temporary",
+        metadata: {
+          sourceImageId,
+          sourceType,
+          refinementStack,
+          temporary: true,
+        },
+      },
+    });
+
     return NextResponse.json({
       savedToBlob: false,
       temporary: true,
@@ -331,6 +398,7 @@ export async function POST(request: NextRequest) {
       warning: "Blob is not configured, so this refined result is temporary and available only in the current session.",
     });
   } catch (error) {
+    await failSummerImageJob(jobId, error instanceof Error ? error.message : "Unknown final refinement error.");
     if (error instanceof GeminiImageError && error.temporaryOverload) {
       return NextResponse.json(
         {

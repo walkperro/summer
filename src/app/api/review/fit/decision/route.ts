@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { uploadJsonAsset } from "@/lib/blob-storage";
+import { approveSummerImageOutputByPath } from "@/lib/summer/image-jobs";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,10 @@ export async function POST(request: NextRequest) {
         decidedAt: new Date().toISOString(),
       },
     );
+
+    if (payload.decision === "approve") {
+      await approveSummerImageOutputByPath(payload.assetPathname, payload.assetUrl);
+    }
 
     return NextResponse.json({ ok: true, record: uploaded });
   } catch (error) {

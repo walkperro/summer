@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadBinaryAsset, uploadJsonAsset } from "@/lib/blob-storage";
 import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
 import { listLikenessReferences, loadLikenessReferences } from "@/lib/likeness-references";
+import { completeSummerImageJob, createSummerImageJob, failSummerImageJob } from "@/lib/summer/image-jobs";
 import {
   buildFitCampaignPrompt,
   FIT_ASPECT_RATIOS,
@@ -57,6 +58,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Unknown fit prompt id: ${promptId}` }, { status: 404 });
   }
 
+  let jobId: string | null = null;
+
   try {
     const fitReferences = await loadSummerFitReferences(fitReferenceIds);
     const likenessReferences = await loadLikenessReferences(likenessReferenceIds || []);
@@ -66,6 +69,18 @@ export async function POST(request: NextRequest) {
       selectedFitReferences: fitReferences,
       selectedLikenessReferences: likenessReferences,
     });
+    const job = await createSummerImageJob({
+      jobType: "fit_generate_campaign",
+      inputPayload: {
+        promptId,
+        fitReferenceIds,
+        likenessReferenceIds: likenessReferenceIds || [],
+        aspectRatio: resolvedAspectRatio,
+        outputMode: resolvedOutputMode,
+      },
+      promptText,
+    });
+    jobId = job?.id || null;
     const result = await generateGeminiImage([
       ...likenessReferences.map((reference) => ({
         inlineData: {
@@ -108,6 +123,31 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    await completeSummerImageJob({
+      jobId,
+      status: "completed",
+      outputPayload: {
+        promptId,
+        model: result.model,
+        aspectRatio: resolvedAspectRatio,
+        outputMode: resolvedOutputMode,
+        assetPathname: uploaded.pathname,
+        assetUrl: uploaded.url,
+      },
+      output: {
+        outputPath: uploaded.pathname,
+        publicUrl: uploaded.url,
+        title: prompt.title,
+        aspectRatio: resolvedAspectRatio,
+        outputType: "fit_generate_campaign",
+        metadata: {
+          metadataRecord,
+          fitReferenceIds,
+          likenessReferenceIds: likenessReferenceIds || [],
+        },
+      },
+    });
+
     return NextResponse.json({
       promptId,
       model: result.model,
@@ -126,6 +166,7 @@ export async function POST(request: NextRequest) {
           : null,
     });
   } catch (error) {
+    await failSummerImageJob(jobId, error instanceof Error ? error.message : "Unknown fit campaign generation error.");
     if (error instanceof GeminiImageError && error.temporaryOverload) {
       return NextResponse.json(
         {
