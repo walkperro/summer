@@ -18,8 +18,26 @@ const cormorantGaramond = Cormorant_Garamond({
   weight: ["400", "500", "600", "700"],
 });
 
+function getMetadataBase() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (!siteUrl) {
+    return new URL("http://localhost:3000");
+  }
+
+  try {
+    return new URL(siteUrl);
+  } catch {
+    try {
+      return new URL(`https://${siteUrl}`);
+    } catch {
+      return new URL("http://localhost:3000");
+    }
+  }
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: getMetadataBase(),
   title: {
     default: "Summer",
     template: "%s | Summer",
