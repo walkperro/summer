@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { uploadBinaryAsset } from "@/lib/blob-storage";
 import { generateGeminiImage } from "@/lib/gemini-image";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 import { completeSummerImageJob, createSummerImageJob, failSummerImageJob } from "@/lib/summer/image-jobs";
 import {
   buildFitEnhancementPrompt,
@@ -18,6 +19,12 @@ function sanitizeSlug(value: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const { sourceId, enhancementMode } = (await request.json()) as {
     sourceId?: string;
     enhancementMode?: string;

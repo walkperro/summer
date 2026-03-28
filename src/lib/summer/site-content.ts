@@ -77,14 +77,16 @@ export type SummerPublicSnapshot = {
 
 const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
   about: {
-    eyebrow: "About / Trust",
-    heading: "Discipline, detail, and a highly personal standard.",
+    eyebrow: "About Summer Loffler",
+    heading: "Grounded by hardship. Guided by discipline.",
     subheading:
-      "Summer brings a rare balance of polished presence and real coaching credibility. Every client touchpoint is considered, hands-on, and intentionally private.",
+      "Private training and coaching in Los Angeles, shaped by Atlanta roots, lived experience, and a clear respect for what real strength requires.",
     body: {
       paragraphs: [
-        "Her approach is selective by design. Training is structured, communication is direct, and the experience stays calm from first inquiry to final session.",
-        "For private clients, that means tailored programming and real accountability. For creative partners, it means reliability, consistency, and a strong visual presence on set.",
+        "Summer Loffler grew up in Atlanta before moving to Los Angeles, carrying with her a deep respect for resilience, discipline, and self-possession.",
+        "Loss and hardship changed the way she saw herself and the world around her. Fitness became a form of grounding — not an escape, but a way to rebuild strength from the inside out.",
+        "That experience shaped the way she coaches today. Her work blends private training, online coaching, strength training, glute-focused programming, and nutrition guidance with close attention to the person in front of her.",
+        "Her mission is simple: help people become stronger physically and mentally, and carry that strength into every part of their lives.",
       ],
       points: aboutPoints,
     },
@@ -92,52 +94,60 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
     isVisible: true,
   },
   offers_intro: {
-    eyebrow: "Offers",
-    heading: "A focused set of ways to work together.",
+    eyebrow: "Services",
+    heading: "Ways to Work Together",
     subheading:
-      "The offer is intentionally restrained: campaign bookings, remote coaching, and a limited private training roster built around tailored attention.",
+      "Choose the path that best fits your goals — private training, online coaching, or brand and campaign bookings.",
     body: {},
     meta: {},
     isVisible: true,
   },
   train_with_me: {
-    eyebrow: "Train With Me",
-    heading: "Private coaching with structure, precision, and real accountability.",
+    eyebrow: "Private Training / Online Coaching",
+    heading: "Personal training and coaching built on strength, discipline, and clarity.",
     subheading:
-      "This is disciplined coaching for clients who want serious guidance. Programming stays intentional, feedback stays honest, and every session serves a clear purpose.",
+      "For clients who want private training, online coaching, strength training, glute-focused programming, and nutrition guidance delivered with structure and real attention.",
     body: {
-      pillars: ["Technique is coached closely.", "Consistency is expected.", "Support stays tailored and private."],
+      pillars: [
+        "Strength training coached closely.",
+        "Glute-focused work where it serves the goal.",
+        "Nutrition guidance and accountability that stay realistic.",
+      ],
       lead_card:
-        "Serious progress comes from repeatable execution. The work is focused, measured, and shaped around the person in front of you.",
+        "Progress comes from disciplined, repeatable work. Each session is tailored, closely coached, and built to move you forward with clarity.",
     },
     meta: {},
     isVisible: true,
   },
   signature: {
-    eyebrow: "Signature",
-    heading: "A disciplined body. A calm mind. A strong presence.",
-    subheading: "",
+    eyebrow: "Mindset",
+    heading: "The body is capable. The mind decides.",
+    subheading: "Real change starts in the mind. The body follows.",
     body: {},
     meta: {},
     isVisible: true,
   },
   gallery_intro: {
     eyebrow: "Gallery / Portfolio",
-    heading: "A visual mix of performance, portraiture, and campaign polish.",
+    heading: "Editorial Fitness Portfolio",
     subheading:
-      "The portfolio balances athletic credibility with an editorial finish. It is designed to feel cohesive on mobile, spacious on desktop, and strong across both brand and private-training contexts.",
-    body: {},
+      "A closer look at the work — performance, portraiture, and polished campaign imagery shaped by strength and presence.",
+    body: {
+      supporting_sentence:
+        "Each image reflects a balance of athletic credibility, clean presentation, and editorial restraint.",
+    },
     meta: {},
     isVisible: true,
   },
   contact_cta: {
     eyebrow: "Contact / Inquiry",
-    heading: "Start with a thoughtful inquiry.",
+    heading: "Start the conversation.",
     subheading:
-      "Share a few details and we will review your inquiry with care. Private training remains intentionally limited.",
+      "Share a few details about what you're looking for, and Summer will follow up with the best next step for private training, coaching, or bookings in Los Angeles, including Playa Del Rey, Manhattan Beach, and surrounding areas.",
     body: {
       availability_note:
-        "Private training remains intentionally limited. Brand, coaching, and general inquiries are reviewed with equal care.",
+        "Private training remains intentionally limited. Coaching and select brand bookings are reviewed with the same care.",
+      location_signature: "Los Angeles / Playa Del Rey / Manhattan Beach",
     },
     meta: {},
     isVisible: true,
@@ -146,10 +156,10 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
 
 function getDefaultSnapshot(): SummerPublicSnapshot {
   return {
-    siteTitle: "Summer",
-    heroHeading: "Editorial fitness. Private coaching. Real presence.",
+    siteTitle: "Summer Loffler",
+    heroHeading: "Private training with strength, discipline, and presence.",
     heroSubheading:
-      "A refined approach to training and image-making for clients, brands, and private bookings that value discipline, detail, and calm confidence.",
+      "A refined approach to coaching for clients who want serious guidance, polished presentation, and lasting results on and off camera.",
     primaryCtaLabel: "Apply for Private Training",
     primaryCtaHref: "#contact",
     secondaryCtaLabel: "View Portfolio",

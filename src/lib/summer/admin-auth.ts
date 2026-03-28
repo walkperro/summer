@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 
 import { SUMMER_ADMIN_ACCESS_COOKIE, SUMMER_ADMIN_REFRESH_COOKIE } from "@/lib/summer/admin-constants";
 import {
@@ -177,4 +178,14 @@ export async function requireSummerAdminSession() {
   }
 
   return session;
+}
+
+export async function requireSummerAdminApiSession() {
+  const session = await getSummerAdminSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  return null;
 }

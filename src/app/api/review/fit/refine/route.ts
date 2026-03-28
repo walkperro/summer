@@ -15,6 +15,7 @@ import {
   type SourceImageAnalysis,
 } from "@/lib/final-refinement";
 import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 import { completeSummerImageJob, createSummerImageJob, failSummerImageJob } from "@/lib/summer/image-jobs";
 
 export const runtime = "nodejs";
@@ -54,6 +55,12 @@ function parseDataUrl(dataUrl: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const {
     sourceImageId,
     sourceType,

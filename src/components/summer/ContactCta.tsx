@@ -94,7 +94,7 @@ export function ContactCta({
       }
 
       setFormState(initialState);
-      setStatusMessage("Inquiry received. Summer will review it with care.");
+      setStatusMessage("Inquiry received. Summer will follow up with the best next step.");
     } catch {
       setStatusMessage(
         contactEmail
@@ -110,6 +110,10 @@ export function ContactCta({
     typeof section.body.availability_note === "string"
       ? section.body.availability_note
       : "Private training remains intentionally limited. Brand, coaching, and general inquiries are reviewed with equal care.";
+  const locationSignature =
+    typeof section.body.location_signature === "string"
+      ? section.body.location_signature
+      : "Los Angeles / Playa Del Rey / Manhattan Beach";
 
   return (
     <section id="contact" className="border-t border-black/6 bg-[#efe7dd] px-6 py-20 sm:py-24 md:px-10 lg:py-28">
@@ -117,7 +121,7 @@ export function ContactCta({
         <figure className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-black/8 bg-[#ddd3c6] shadow-[0_30px_80px_rgba(0,0,0,0.08)] lg:aspect-auto lg:min-h-[44rem]">
           <Image
             src="/images/summer/contact/summer_contact.jpg"
-            alt="Summer seated in a calm interior, ready for inquiries about training or campaigns."
+            alt="Summer Loffler seated in a calm interior, ready for inquiries about private training or bookings in Los Angeles."
             fill
             sizes="(min-width: 1024px) 36vw, 100vw"
             className="object-cover object-[54%_28%]"
@@ -151,6 +155,7 @@ export function ContactCta({
               ) : null}
             </div>
           ) : null}
+          <p className="mt-4 text-[11px] uppercase tracking-[0.28em] text-[#8a7d72]">{locationSignature}</p>
 
           <form className="mt-10 space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-5 sm:grid-cols-2">

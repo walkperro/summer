@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { uploadJsonAsset } from "@/lib/blob-storage";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 import { approveSummerImageOutputByPath } from "@/lib/summer/image-jobs";
 
 export const runtime = "nodejs";
@@ -18,6 +19,12 @@ function sanitizeSlug(value: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const payload = (await request.json()) as DecisionPayload;
 
   if (!payload.decision || !payload.workflow || !payload.assetPathname) {

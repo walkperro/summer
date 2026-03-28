@@ -22,8 +22,8 @@ type HeroProps = {
 
 export function Hero({
   slides = defaultHeroSlides,
-  heading = "Editorial fitness. Private coaching. Real presence.",
-  subheading = "A refined approach to training and image-making for clients, brands, and private bookings that value discipline, detail, and calm confidence.",
+  heading = "Private training with strength, discipline, and presence.",
+  subheading = "A refined approach to coaching for clients who want serious guidance, polished presentation, and lasting results on and off camera.",
   primaryCtaLabel = "Apply for Private Training",
   primaryCtaHref = "#contact",
   secondaryCtaLabel = "View Portfolio",
@@ -97,14 +97,14 @@ export function Hero({
         <header className="px-6 pt-6 md:px-10 md:pt-8">
           <div className="mx-auto flex max-w-7xl items-center justify-between border-b border-white/12 pb-4">
             <a href="#top" className="font-editorial text-3xl tracking-[0.08em] text-white">
-              Summer
+              Summer Loffler
             </a>
             <nav className="hidden items-center gap-8 text-xs uppercase tracking-[0.28em] text-white/68 md:flex">
               <a href="#about" className="transition hover:text-white">
                 About
               </a>
-              <a href="#services" className="transition hover:text-white">
-                Services
+              <a href="#training" className="transition hover:text-white">
+                Training
               </a>
               <a href="#portfolio" className="transition hover:text-white">
                 Portfolio
@@ -119,7 +119,7 @@ export function Hero({
         <div id="top" className="mx-auto flex w-full max-w-7xl flex-1 items-end px-6 pb-14 pt-16 md:px-10 md:pb-16 md:pt-24">
           <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.2fr)_220px] lg:items-end">
             <div className="max-w-3xl">
-              <p className="text-[11px] uppercase tracking-[0.34em] text-white/70">Editorial Fitness / Private Coaching</p>
+              <p className="text-[11px] uppercase tracking-[0.34em] text-white/70">SUMMER LOFFLER / PRIVATE TRAINING / PORTFOLIO</p>
               <h1 className="font-editorial mt-6 text-balance text-[3.2rem] leading-[0.9] font-medium tracking-[-0.045em] text-white sm:text-[4.4rem] lg:text-[5.8rem]">
                 {heading}
               </h1>
@@ -142,11 +142,11 @@ export function Hero({
 
             <div className="flex items-end justify-between gap-6 lg:flex-col lg:items-start lg:justify-end">
               <div className="space-y-3 text-sm text-white/74">
-                <p className="text-[11px] uppercase tracking-[0.3em] text-white/58">Focused positioning</p>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-white/58">Los Angeles</p>
                 <div className="space-y-2">
-                  <p>Model presence</p>
-                  <p>Evidence-led training</p>
-                  <p>Limited private availability</p>
+                  <p>Private training</p>
+                  <p>Online coaching</p>
+                  <p>Select editorial bookings</p>
                 </div>
               </div>
               <div className="flex items-center gap-2" role="tablist" aria-label="Hero slides">

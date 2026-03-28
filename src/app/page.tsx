@@ -10,80 +10,126 @@ import { SignatureBreak } from "@/components/summer/SignatureBreak";
 import { TrainWithMe } from "@/components/summer/TrainWithMe";
 import { getSummerPublicSnapshot } from "@/lib/summer/site-content";
 
-export const metadata: Metadata = {
-  title: "Editorial Fitness & Private Training",
-  description:
-    "A premium editorial homepage for Summer, blending model presence, real training credibility, and private coaching inquiries.",
-  keywords: [
-    "Summer",
-    "private training",
-    "online coaching",
-    "editorial fitness",
-    "brand campaign bookings",
-    "fitness model",
-  ],
-  openGraph: {
-    title: "Summer | Editorial Fitness & Private Training",
-    description:
-      "Editorial presence, serious training credibility, and premium private coaching availability.",
-    images: [
-      {
-        url: "/images/summer/accent/signature_16_9_aspect_ratio.jpg",
-        width: 1376,
-        height: 768,
-        alt: "Summer in a monochrome signature frame inside a refined training space.",
-      },
-    ],
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Summer | Editorial Fitness & Private Training",
-    description:
-      "A premium homepage for Summer with private training, coaching, and campaign booking inquiries.",
-    images: ["/images/summer/accent/signature_16_9_aspect_ratio.jpg"],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const snapshot = await getSummerPublicSnapshot();
+  const siteTitle = snapshot.siteTitle || "Summer Loffler";
+  const title = `${siteTitle} | Private Training in Los Angeles`;
+  const description =
+    "Private training, online coaching, and editorial fitness work in Los Angeles with Summer Loffler, serving Playa Del Rey, Manhattan Beach, and surrounding areas.";
 
-const structuredData = {
-  "@context": "https://schema.org",
-  "@type": "Person",
-  name: "Summer",
-  description:
-    "Editorial fitness talent and private coach offering premium private training, online coaching, and brand campaign bookings.",
-  knowsAbout: [
-    "Private Training",
-    "Online Coaching",
-    "Editorial Fitness",
-    "Campaign Bookings",
-  ],
-  makesOffer: [
-    {
-      "@type": "Offer",
-      itemOffered: {
-        "@type": "Service",
-        name: "Private Training",
-      },
+  return {
+    title,
+    description,
+    keywords: [
+      "Summer Loffler",
+      "private training in Los Angeles",
+      "online coaching",
+      "personal training",
+      "strength training",
+      "glute-focused training",
+      "nutrition guidance",
+      "fitness coaching",
+      "editorial fitness portfolio",
+      "Playa Del Rey",
+      "Manhattan Beach",
+    ],
+    alternates: {
+      canonical: "/",
     },
-    {
-      "@type": "Offer",
-      itemOffered: {
-        "@type": "Service",
-        name: "Online Coaching",
-      },
+    openGraph: {
+      title,
+      description,
+      url: "/",
+      images: [
+        {
+          url: "/images/summer/accent/signature_16_9_aspect_ratio.jpg",
+          width: 1376,
+          height: 768,
+          alt: "Summer Loffler in a monochrome signature frame inside a refined training space.",
+        },
+      ],
+      type: "website",
     },
-    {
-      "@type": "Offer",
-      itemOffered: {
-        "@type": "Service",
-        name: "Brand / Campaign Bookings",
-      },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/images/summer/accent/signature_16_9_aspect_ratio.jpg"],
     },
-  ],
-};
+  };
+}
 
 export default async function Home() {
   const snapshot = await getSummerPublicSnapshot();
+  const siteTitle = snapshot.siteTitle || "Summer Loffler";
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "/#website",
+        name: siteTitle,
+        url: "/",
+        description:
+          "Private training, online coaching, and editorial fitness work with Summer Loffler in Los Angeles.",
+      },
+      {
+        "@type": "Person",
+        "@id": "/#person",
+        name: siteTitle,
+        url: "/",
+        jobTitle: "Private Trainer and Fitness Coach",
+        description:
+          "Private trainer, online coach, and editorial fitness talent based in Los Angeles.",
+        homeLocation: {
+          "@type": "City",
+          name: "Los Angeles",
+        },
+        areaServed: [
+          { "@type": "City", name: "Los Angeles" },
+          { "@type": "City", name: "Playa Del Rey" },
+          { "@type": "City", name: "Manhattan Beach" },
+        ],
+        knowsAbout: [
+          "Private Training",
+          "Online Coaching",
+          "Personal Training",
+          "Strength Training",
+          "Glute-Focused Training",
+          "Nutrition Guidance",
+          "Fitness Coaching",
+          "Editorial Fitness Portfolio",
+        ],
+        sameAs: snapshot.instagramUrl ? [snapshot.instagramUrl] : undefined,
+      },
+      {
+        "@type": "Service",
+        "@id": "/#private-training",
+        serviceType: "Private Training",
+        provider: { "@id": "/#person" },
+        areaServed: ["Los Angeles", "Playa Del Rey", "Manhattan Beach"],
+        description:
+          "Private training in Los Angeles for clients seeking serious coaching, strength training, and polished presentation.",
+      },
+      {
+        "@type": "Service",
+        "@id": "/#online-coaching",
+        serviceType: "Online Coaching",
+        provider: { "@id": "/#person" },
+        description:
+          "Online coaching with structured programming, strength training, glute-focused work, and nutrition guidance.",
+      },
+      {
+        "@type": "Service",
+        "@id": "/#editorial-bookings",
+        serviceType: "Editorial Fitness Portfolio and Brand Bookings",
+        provider: { "@id": "/#person" },
+        areaServed: ["Los Angeles"],
+        description:
+          "Editorial fitness portfolio work and select campaign bookings with a polished, athletic point of view.",
+      },
+    ],
+  };
 
   return (
     <main className="overflow-x-hidden bg-[#f6f1ea] text-[#181512]">
@@ -115,6 +161,28 @@ export default async function Home() {
       {snapshot.contact.isVisible ? (
         <ContactCta section={snapshot.contact} contactEmail={snapshot.contactEmail} instagramUrl={snapshot.instagramUrl} />
       ) : null}
+      <footer className="border-t border-black/6 bg-[#f6f1ea] px-6 pb-28 pt-8 md:px-10 md:pb-10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-editorial text-3xl leading-none tracking-[0.05em] text-[#181512]">Summer Loffler</p>
+            <p className="mt-3 text-[11px] uppercase tracking-[0.28em] text-[#8a7d72]">Los Angeles / Playa Del Rey / Manhattan Beach</p>
+          </div>
+          <div className="flex flex-wrap gap-5 text-sm text-[#5f5650]">
+            <a href="#about" className="transition hover:text-[#181512]">
+              About
+            </a>
+            <a href="#training" className="transition hover:text-[#181512]">
+              Training
+            </a>
+            <a href="#portfolio" className="transition hover:text-[#181512]">
+              Portfolio
+            </a>
+            <a href="#contact" className="transition hover:text-[#181512]">
+              Inquiry
+            </a>
+          </div>
+        </div>
+      </footer>
       <MobileCtaBar />
     </main>
   );

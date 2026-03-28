@@ -22,7 +22,7 @@ export default async function AdminLoginPage({
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f6f1ea] px-4 py-10 text-[#181512]">
       <div className="w-full max-w-md border border-black/8 bg-[#fbf7f2] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.06)] sm:p-8">
-        <p className="font-editorial text-4xl leading-none tracking-[0.04em]">Summer</p>
+        <p className="font-editorial text-4xl leading-none tracking-[0.04em]">Summer Loffler</p>
         <p className="mt-3 text-xs uppercase tracking-[0.28em] text-[#7a6f67]">Admin Login</p>
         <h1 className="font-editorial mt-6 text-4xl leading-none tracking-[-0.03em]">Protected access.</h1>
         <p className="mt-4 text-sm leading-6 text-[#5f5650]">

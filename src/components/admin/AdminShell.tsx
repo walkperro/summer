@@ -8,7 +8,7 @@ import { adminLogoutAction } from "@/server/summer/admin-actions";
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/content", label: "Content" },
-  { href: "/admin/offers", label: "Offers" },
+  { href: "/admin/offers", label: "Ways to Work Together" },
   { href: "/admin/media", label: "Media" },
   { href: "/admin/hero", label: "Hero" },
   { href: "/admin/gallery", label: "Gallery" },
@@ -32,7 +32,7 @@ export function AdminShell({
         <aside className="border-r border-black/8 bg-[#f2ebe2] px-5 py-6 lg:px-6 lg:py-8">
           <div className="sticky top-0">
             <div className="border-b border-black/8 pb-5">
-              <p className="font-editorial text-4xl leading-none tracking-[0.04em]">Summer</p>
+              <p className="font-editorial text-4xl leading-none tracking-[0.04em]">Summer Loffler</p>
               <p className="mt-3 text-xs uppercase tracking-[0.28em] text-[#7a6f67]">Admin v1</p>
               <p className="mt-4 text-sm text-[#5f5650]">Signed in as {adminEmail}</p>
             </div>

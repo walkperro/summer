@@ -3,10 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildGeminiPrompt, getPromptEntry } from "@/lib/prompt-pack";
 import { generateGeminiImage } from "@/lib/gemini-image";
 import { loadPromptReferenceImages } from "@/lib/reference-images";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const { promptId } = (await request.json()) as { promptId?: string };
 
   if (!promptId) {

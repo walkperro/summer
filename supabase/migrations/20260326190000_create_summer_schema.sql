@@ -256,9 +256,9 @@ insert into summer.site_settings (
   booking_cta_text
 )
 select
-  'Summer',
-  'Editorial fitness. Private coaching. Real presence.',
-  'A refined approach to training and image-making for clients, brands, and private bookings that value discipline, detail, and calm confidence.',
+  'Summer Loffler',
+  'Private training with strength, discipline, and presence.',
+  'A refined approach to coaching for clients who want serious guidance, polished presentation, and lasting results on and off camera.',
   'Apply for Private Training',
   '#contact',
   'View Portfolio',
@@ -271,18 +271,20 @@ insert into summer.section_content (section_key, eyebrow, heading, subheading, b
 values
   (
     'about',
-    'About / Trust',
-    'Discipline, detail, and a highly personal standard.',
-    'Summer brings a rare balance of polished presence and real coaching credibility. Every client touchpoint is considered, hands-on, and intentionally private.',
+    'About Summer Loffler',
+    'Grounded by hardship. Guided by discipline.',
+    'Private training and coaching in Los Angeles, shaped by Atlanta roots, lived experience, and a clear respect for what real strength requires.',
     jsonb_build_object(
       'paragraphs', jsonb_build_array(
-        'Her approach is selective by design. Training is structured, communication is direct, and the experience stays calm from first inquiry to final session.',
-        'For private clients, that means tailored programming and real accountability. For creative partners, it means reliability, consistency, and a strong visual presence on set.'
+        'Summer Loffler grew up in Atlanta before moving to Los Angeles, carrying with her a deep respect for resilience, discipline, and self-possession.',
+        'Loss and hardship changed the way she saw herself and the world around her. Fitness became a form of grounding — not an escape, but a way to rebuild strength from the inside out.',
+        'That experience shaped the way she coaches today. Her work blends private training, online coaching, strength training, glute-focused programming, and nutrition guidance with close attention to the person in front of her.',
+        'Her mission is simple: help people become stronger physically and mentally, and carry that strength into every part of their lives.'
       ),
       'points', jsonb_build_array(
-        'Selective client roster with close personal oversight.',
-        'Technique-led coaching that prioritizes structure and consistency.',
-        'A calm, polished standard across training, presentation, and brand work.'
+        'Private training with close personal oversight and real accountability.',
+        'Strength training, glute-focused work, and fitness coaching shaped around the individual.',
+        'A polished standard across coaching, nutrition guidance, and editorial bookings.'
       )
     ),
     '{}'::jsonb,
@@ -290,34 +292,34 @@ values
   ),
   (
     'offers_intro',
-    'Offers',
-    'A focused set of ways to work together.',
-    'The offer is intentionally restrained: campaign bookings, remote coaching, and a limited private training roster built around tailored attention.',
+    'Services',
+    'Ways to Work Together',
+    'Choose the path that best fits your goals — private training, online coaching, or brand and campaign bookings.',
     '{}'::jsonb,
     '{}'::jsonb,
     20
   ),
   (
     'train_with_me',
-    'Train With Me',
-    'Private coaching with structure, precision, and real accountability.',
-    'This is disciplined coaching for clients who want serious guidance. Programming stays intentional, feedback stays honest, and every session serves a clear purpose.',
+    'Private Training / Online Coaching',
+    'Personal training and coaching built on strength, discipline, and clarity.',
+    'For clients who want private training, online coaching, strength training, glute-focused programming, and nutrition guidance delivered with structure and real attention.',
     jsonb_build_object(
       'pillars', jsonb_build_array(
-        'Technique is coached closely.',
-        'Consistency is expected.',
-        'Support stays tailored and private.'
+        'Strength training coached closely.',
+        'Glute-focused work where it serves the goal.',
+        'Nutrition guidance and accountability that stay realistic.'
       ),
-      'lead_card', 'Serious progress comes from repeatable execution. The work is focused, measured, and shaped around the person in front of you.'
+      'lead_card', 'Progress comes from disciplined, repeatable work. Each session is tailored, closely coached, and built to move you forward with clarity.'
     ),
     '{}'::jsonb,
     30
   ),
   (
     'signature',
-    'Signature',
-    'A disciplined body. A calm mind. A strong presence.',
-    null,
+    'Mindset',
+    'The body is capable. The mind decides.',
+    'Real change starts in the mind. The body follows.',
     '{}'::jsonb,
     '{}'::jsonb,
     40
@@ -325,19 +327,22 @@ values
   (
     'gallery_intro',
     'Gallery / Portfolio',
-    'A visual mix of performance, portraiture, and campaign polish.',
-    'The portfolio balances athletic credibility with an editorial finish. It is designed to feel cohesive on mobile, spacious on desktop, and strong across both brand and private-training contexts.',
-    '{}'::jsonb,
+    'Editorial Fitness Portfolio',
+    'A closer look at the work — performance, portraiture, and polished campaign imagery shaped by strength and presence.',
+    jsonb_build_object(
+      'supporting_sentence', 'Each image reflects a balance of athletic credibility, clean presentation, and editorial restraint.'
+    ),
     '{}'::jsonb,
     50
   ),
   (
     'contact_cta',
     'Contact / Inquiry',
-    'Start with a thoughtful inquiry.',
-    'Share a few details and a polished inquiry draft opens in your preferred mail app. It keeps the first step simple while preserving a more private booking experience.',
+    'Start the conversation.',
+    'Share a few details about what you''re looking for, and Summer will follow up with the best next step for private training, coaching, or bookings in Los Angeles, including Playa Del Rey, Manhattan Beach, and surrounding areas.',
     jsonb_build_object(
-      'availability_note', 'Private training remains intentionally limited. Brand, coaching, and general inquiries are reviewed with equal care.'
+      'availability_note', 'Private training remains intentionally limited. Coaching and select brand bookings are reviewed with the same care.',
+      'location_signature', 'Los Angeles / Playa Del Rey / Manhattan Beach'
     ),
     '{}'::jsonb,
     60
@@ -352,7 +357,7 @@ values
     'Editorial, campaign, and creative partnerships',
     'For editorial shoots, campaigns, creative partnerships, and fitness or lifestyle brand storytelling.',
     jsonb_build_array(
-      'Camera-ready direction and reliable on-set presence.',
+      'A steady on-set presence and reliable creative partnership.',
       'Premium visual point of view from first brief to final frame.',
       'Strong fit for editorial, sports, and lifestyle creative.'
     ),
@@ -367,11 +372,11 @@ values
     'online-coaching',
     'Online Coaching',
     'Remote structure with personal oversight',
-    'Remote programming with measured accountability, weekly structure, and lifestyle guidance that stays personal.',
+    'Remote fitness coaching with structured programming, strength training, glute-focused work, and nutrition guidance that stays personal.',
     jsonb_build_array(
-      'Structured programming built for consistency.',
+      'Structured programming built for consistency and real progress.',
       'Clear feedback without generic templates.',
-      'Lifestyle guidance that still feels private and tailored.'
+      'Nutrition guidance and accountability that still feel private and tailored.'
     ),
     'Explore coaching',
     '#contact',
@@ -384,13 +389,13 @@ values
     'private-training',
     'Private Training',
     'A limited one-to-one training experience',
-    'A limited one-to-one training experience shaped around your schedule, training level, and performance goals.',
+    'Private training in Los Angeles for clients who want hands-on coaching, strength training, and lasting results built with care.',
     jsonb_build_array(
       'Hands-on coaching and protected attention.',
       'Tailored programming built around your goals.',
-      'Serious support in a focused private environment.'
+      'Available for select clients across Los Angeles, including Playa Del Rey and Manhattan Beach.'
     ),
-    'Apply privately',
+    'Apply for Private Training',
     '#contact',
     'Most Exclusive',
     true,

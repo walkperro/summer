@@ -21,10 +21,17 @@ import {
   getFitEnhancementPromptEntry,
   listSummerFitReferences,
 } from "@/lib/summer-fit";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const fitReferenceManifest = await listSummerFitReferences();
   const likenessReferenceManifest = await listLikenessReferences();
   const enhancementPrompt = getFitEnhancementPromptEntry();

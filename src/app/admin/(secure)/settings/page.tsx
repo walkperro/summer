@@ -16,7 +16,7 @@ export default async function AdminSettingsPage({
     <AdminPage title="Settings" description="Manage global site title, contact settings, and top-level CTA copy." result={result}>
       <AdminCard>
         <form action={saveSiteSettingsAction} className="grid gap-4 lg:grid-cols-2">
-          <input name="site_title" defaultValue={siteSettings?.site_title || "Summer"} placeholder="Site title" className="min-h-11 border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/35" />
+          <input name="site_title" defaultValue={siteSettings?.site_title || "Summer Loffler"} placeholder="Site title" className="min-h-11 border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/35" />
           <input name="contact_email" defaultValue={siteSettings?.contact_email || ""} placeholder="Contact email" className="min-h-11 border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/35" />
           <input name="hero_heading" defaultValue={siteSettings?.hero_heading || ""} placeholder="Hero heading" className="min-h-11 border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/35 lg:col-span-2" />
           <textarea name="hero_subheading" rows={4} defaultValue={siteSettings?.hero_subheading || ""} placeholder="Hero subheading" className="border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/35 lg:col-span-2" />

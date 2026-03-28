@@ -10,7 +10,7 @@ export function SignatureBreak({ section }: { section: SummerPublicSection }) {
           <div className="absolute inset-0">
             <Image
               src="/images/summer/accent/signature_16_9_aspect_ratio.jpg"
-              alt="Summer standing in a refined private gym in a signature monochrome frame."
+              alt="Summer Loffler standing in a refined private gym in a signature monochrome frame."
               fill
               sizes="(min-width: 1024px) 65vw, 100vw"
               className="object-cover object-[68%_32%]"
@@ -23,6 +23,7 @@ export function SignatureBreak({ section }: { section: SummerPublicSection }) {
               <blockquote className="font-editorial mt-4 text-balance text-4xl leading-none tracking-[-0.04em] text-white sm:text-5xl">
                 {section.heading}
               </blockquote>
+              {section.subheading ? <p className="mt-5 max-w-md text-sm leading-6 text-white/74 sm:text-base">{section.subheading}</p> : null}
             </div>
           </div>
         </div>
@@ -30,7 +31,7 @@ export function SignatureBreak({ section }: { section: SummerPublicSection }) {
         <figure className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-black/8 bg-[#ddd5cb] shadow-[0_24px_60px_rgba(0,0,0,0.08)]">
           <Image
             src="/images/summer/accent/signature_4_5_aspect_ratio.jpg"
-            alt="Portrait signature image of Summer standing with calm confidence in a monochrome training space."
+            alt="Portrait signature image of Summer Loffler standing with calm confidence in a monochrome training space."
             fill
             sizes="(min-width: 1024px) 24vw, 100vw"
             className="object-cover object-[58%_24%]"

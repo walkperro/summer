@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadBinaryAsset, uploadJsonAsset } from "@/lib/blob-storage";
 import { GeminiImageError, generateGeminiImage } from "@/lib/gemini-image";
 import { listLikenessReferences, loadLikenessReferences } from "@/lib/likeness-references";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 import { completeSummerImageJob, createSummerImageJob, failSummerImageJob } from "@/lib/summer/image-jobs";
 import {
   buildFitCampaignPrompt,
@@ -20,6 +21,12 @@ function sanitizeSlug(value: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const { promptId, fitReferenceIds, likenessReferenceIds, aspectRatio, outputMode } = (await request.json()) as {
     promptId?: string;
     fitReferenceIds?: string[];

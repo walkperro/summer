@@ -39,10 +39,18 @@ function getMetadataBase() {
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
-    default: "Summer",
-    template: "%s | Summer",
+    default: "Summer Loffler",
+    template: "%s | Summer Loffler",
   },
-  description: "Editorial fitness, private coaching, and internal creative review tools for Summer.",
+  description:
+    "Summer Loffler offers private training, online coaching, and editorial fitness work in Los Angeles, serving Playa Del Rey, Manhattan Beach, and surrounding areas.",
+  openGraph: {
+    siteName: "Summer Loffler",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({

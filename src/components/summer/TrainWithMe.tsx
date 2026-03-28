@@ -16,7 +16,7 @@ export function TrainWithMe({
   cards?: typeof trainingCards;
 }) {
   return (
-    <section className="px-6 py-20 sm:py-24 md:px-10 lg:py-28">
+    <section id="training" className="px-6 py-20 sm:py-24 md:px-10 lg:py-28">
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-end">
           <SectionHeading eyebrow={section.eyebrow} title={section.heading} description={section.subheading} />
@@ -30,16 +30,16 @@ export function TrainWithMe({
         <figure className="relative mt-12 aspect-[16/9] overflow-hidden rounded-[2rem] border border-black/8 bg-[#ddd5cb] shadow-[0_30px_80px_rgba(0,0,0,0.08)]">
           <Image
             src="/images/summer/train_with_me/summer_train_lead.jpg"
-            alt="Summer performing a push-up on a court, showing strength and control."
+            alt="Summer Loffler performing a push-up on a court, showing strength and control."
             fill
             sizes="(min-width: 1024px) 80vw, 100vw"
-            className="object-cover object-[42%_40%]"
+            className="object-cover object-[48%_34%] sm:object-[42%_40%]"
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.04),rgba(0,0,0,0.36))]" />
-          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-            <div className="max-w-lg border border-white/18 bg-black/28 p-5 backdrop-blur-sm sm:p-6">
+          <div className="absolute bottom-4 left-4 right-auto sm:bottom-0 sm:left-0 sm:right-0 sm:p-8">
+            <div className="max-w-[15.5rem] border border-white/18 bg-black/28 p-4 backdrop-blur-sm sm:max-w-lg sm:p-6">
               <p className="text-[11px] uppercase tracking-[0.28em] text-white/68">Training Philosophy</p>
-              <p className="mt-3 text-base leading-7 text-white/82">{leadCard}</p>
+              <p className="mt-3 text-sm leading-6 text-white/82 sm:text-base sm:leading-7">{leadCard}</p>
             </div>
           </div>
         </figure>

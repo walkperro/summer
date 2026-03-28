@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
+
 export const runtime = "nodejs";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_API_BASE = process.env.GEMINI_API_BASE || "https://generativelanguage.googleapis.com/v1beta";
 
 export async function GET() {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   if (!GEMINI_API_KEY) {
     return NextResponse.json(
       { error: "Missing GEMINI_API_KEY environment variable." },

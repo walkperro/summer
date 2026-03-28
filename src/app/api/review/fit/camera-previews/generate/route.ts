@@ -7,6 +7,7 @@ import {
   type CameraDirectionPresetId,
 } from "@/lib/final-refinement";
 import { loadLikenessReferences } from "@/lib/likeness-references";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,12 @@ function sanitizeSlug(value: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const body = (await request.json().catch(() => ({}))) as GenerateCameraPreviewRequest;
   const presetIds = body.presetIds?.length ? body.presetIds : undefined;
   const plans = getCameraPreviewGenerationPlans(presetIds);

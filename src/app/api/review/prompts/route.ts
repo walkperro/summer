@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 
 import { getPromptEntries } from "@/lib/prompt-pack";
 import { getPromptReferenceManifest } from "@/lib/reference-images";
+import { requireSummerAdminApiSession } from "@/lib/summer/admin-auth";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const authResponse = await requireSummerAdminApiSession();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   const prompts = await Promise.all(
     getPromptEntries()
       .filter((prompt) => prompt.workflow === "generate_with_references")

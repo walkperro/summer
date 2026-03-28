@@ -13,7 +13,7 @@ export default async function AdminOffersPage({
   const { offers } = await getSummerAdminCollections();
 
   return (
-    <AdminPage title="Offers" description="Manage the public service cards, their ordering, featured state, and CTA copy." result={result}>
+    <AdminPage title="Ways to Work Together" description="Manage the public service cards, their ordering, featured state, and CTA copy." result={result}>
       <div className="grid gap-6 xl:grid-cols-2">
         {offers.map((offer) => (
           <AdminCard key={offer.id}>

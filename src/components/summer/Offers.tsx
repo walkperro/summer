@@ -36,7 +36,7 @@ export function Offers({
             >
               <div>
                 <p className={`text-[11px] uppercase tracking-[0.3em] ${offer.featured ? "text-white/62" : "text-[#8a7d72]"}`}>
-                  {offer.badge || (offer.featured ? "Most Exclusive" : "Offering")}
+                  {offer.badge || (offer.featured ? "Most Exclusive" : "Service")}
                 </p>
                 <h3 className={`font-editorial mt-5 text-3xl leading-none font-medium tracking-[-0.03em] ${offer.featured ? "text-white" : "text-[#181512]"}`}>
                   {offer.title}
