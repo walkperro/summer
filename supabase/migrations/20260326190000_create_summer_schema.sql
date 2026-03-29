@@ -292,9 +292,9 @@ values
   ),
   (
     'offers_intro',
-    'Services',
     'Ways to Work Together',
-    'Choose the path that best fits your goals — private training, online coaching, or brand and campaign bookings.',
+    'Ways to Work Together',
+    'Each service is built around focused attention, clear structure, and real results — whether you''re training in person, working remotely, or booking for a campaign.',
     '{}'::jsonb,
     '{}'::jsonb,
     20
@@ -352,19 +352,19 @@ on conflict (section_key) do nothing;
 insert into summer.offers (slug, title, subtitle, description, bullets, cta_label, cta_href, badge, is_featured, is_visible, sort_order)
 values
   (
-    'brand-campaign-bookings',
-    'Brand / Campaign Bookings',
-    'Editorial, campaign, and creative partnerships',
-    'For editorial shoots, campaigns, creative partnerships, and fitness or lifestyle brand storytelling.',
+    'private-training',
+    'Private Training',
+    'A limited one-to-one training experience',
+    'Private training in Los Angeles for clients who want hands-on coaching, strength training, and lasting results built with care.',
     jsonb_build_array(
-      'A steady on-set presence and reliable creative partnership.',
-      'Premium visual point of view from first brief to final frame.',
-      'Strong fit for editorial, sports, and lifestyle creative.'
+      'Hands-on coaching and protected attention.',
+      'Tailored programming built around your goals.',
+      'Available for select clients across Los Angeles, including Playa Del Rey and Manhattan Beach.'
     ),
-    'Discuss a booking',
+    'Apply for Private Training',
     '#contact',
-    null,
-    false,
+    'Most Exclusive',
+    true,
     true,
     10
   ),
@@ -386,19 +386,17 @@ values
     20
   ),
   (
-    'private-training',
-    'Private Training',
-    'A limited one-to-one training experience',
-    'Private training in Los Angeles for clients who want hands-on coaching, strength training, and lasting results built with care.',
+    'brand-campaign-bookings',
+    'Brand / Campaign Bookings',
+    'Editorial, campaign, and creative partnerships',
+    'For brand campaigns, partnerships, and fitness or lifestyle work that requires a strong on-camera presence and professional direction.',
     jsonb_build_array(
-      'Hands-on coaching and protected attention.',
-      'Tailored programming built around your goals.',
-      'Available for select clients across Los Angeles, including Playa Del Rey and Manhattan Beach.'
+      'Comfortable on set, easy to direct, and consistent from first concept to final frame.'
     ),
-    'Apply for Private Training',
+    'Discuss a booking',
     '#contact',
-    'Most Exclusive',
-    true,
+    null,
+    false,
     true,
     30
   )

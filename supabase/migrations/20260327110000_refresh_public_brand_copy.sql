@@ -32,9 +32,9 @@ where section_key = 'about';
 
 update summer.section_content
 set
-  eyebrow = 'Services',
+  eyebrow = 'Ways to Work Together',
   heading = 'Ways to Work Together',
-  subheading = 'Choose the path that best fits your goals — private training, online coaching, or brand and campaign bookings.'
+  subheading = 'Each service is built around focused attention, clear structure, and real results — whether you''re training in person, working remotely, or booking for a campaign.'
 where section_key = 'offers_intro';
 
 update summer.section_content
@@ -82,11 +82,9 @@ where section_key = 'contact_cta';
 
 update summer.offers
 set
-  description = 'For editorial shoots, campaigns, creative partnerships, and fitness or lifestyle brand storytelling.',
+  description = 'For brand campaigns, partnerships, and fitness or lifestyle work that requires a strong on-camera presence and professional direction.',
   bullets = jsonb_build_array(
-    'A steady on-set presence and reliable creative partnership.',
-    'Premium visual point of view from first brief to final frame.',
-    'Strong fit for editorial, sports, and lifestyle creative.'
+    'Comfortable on set, easy to direct, and consistent from first concept to final frame.'
   )
 where slug = 'brand-campaign-bookings';
 
@@ -110,6 +108,11 @@ set
   ),
   cta_label = 'Apply for Private Training'
 where slug = 'private-training';
+
+update summer.offers set sort_order = 10 where slug = 'private-training';
+update summer.offers set sort_order = 20 where slug = 'online-coaching';
+update summer.offers set sort_order = 30 where slug = 'brand-campaign-bookings';
+
 
 update summer.media_assets
 set alt_text = 'Summer Loffler seated in a calm interior, ready for inquiries about private training or bookings in Los Angeles.'

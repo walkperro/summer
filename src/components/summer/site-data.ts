@@ -83,11 +83,12 @@ export const aboutPoints = [
 
 export const offers: Offer[] = [
   {
-    title: "Brand / Campaign Bookings",
+    title: "Private Training",
     description:
-      "For editorial shoots, campaigns, creative partnerships, and fitness or lifestyle brand storytelling.",
-    detail: "A steady on-set presence, polished presentation, and a strong editorial point of view from first brief to final frame.",
-    cta: "Discuss a booking",
+      "Private training in Los Angeles for clients who want hands-on coaching, strength training, and lasting results built with care.",
+    detail: "Available for select clients across Los Angeles, with particular relevance to Playa Del Rey and Manhattan Beach.",
+    cta: "Apply for Private Training",
+    featured: true,
   },
   {
     title: "Online Coaching",
@@ -97,12 +98,11 @@ export const offers: Offer[] = [
     cta: "Explore coaching",
   },
   {
-    title: "Private Training",
+    title: "Brand / Campaign Bookings",
     description:
-      "Private training in Los Angeles for clients who want hands-on coaching, strength training, and lasting results built with care.",
-    detail: "Available for select clients across Los Angeles, with particular relevance to Playa Del Rey and Manhattan Beach.",
-    cta: "Apply for Private Training",
-    featured: true,
+      "For brand campaigns, partnerships, and fitness or lifestyle work that requires a strong on-camera presence and professional direction.",
+    detail: "Comfortable on set, easy to direct, and consistent from first concept to final frame.",
+    cta: "Discuss a booking",
   },
 ];
 

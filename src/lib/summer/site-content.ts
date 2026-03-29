@@ -94,10 +94,10 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
     isVisible: true,
   },
   offers_intro: {
-    eyebrow: "Services",
+    eyebrow: "Ways to Work Together",
     heading: "Ways to Work Together",
     subheading:
-      "Choose the path that best fits your goals — private training, online coaching, or brand and campaign bookings.",
+      "Each service is built around focused attention, clear structure, and real results — whether you're training in person, working remotely, or booking for a campaign.",
     body: {},
     meta: {},
     isVisible: true,
