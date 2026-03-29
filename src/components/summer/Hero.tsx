@@ -119,7 +119,7 @@ export function Hero({
         <div id="top" className="mx-auto flex w-full max-w-7xl flex-1 items-end px-6 pb-14 pt-16 md:px-10 md:pb-16 md:pt-24">
           <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.2fr)_220px] lg:items-end">
             <div className="max-w-3xl">
-              <p className="text-[11px] uppercase tracking-[0.34em] text-white/70">SUMMER LOFFLER / PRIVATE TRAINING / PORTFOLIO</p>
+              <p className="text-[11px] uppercase tracking-[0.34em] text-white/70">REFINED FITNESS / PRIVATE TRAINING</p>
               <h1 className="font-editorial mt-6 text-balance text-[3.2rem] leading-[0.9] font-medium tracking-[-0.045em] text-white sm:text-[4.4rem] lg:text-[5.8rem]">
                 {heading}
               </h1>

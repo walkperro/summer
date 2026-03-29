@@ -135,7 +135,7 @@ export const galleryItems: GalleryItem[] = [
     title: "Performance Feature",
     category: "Fitness",
     imageSrc: "/images/summer/gallery/summer_gallery_fitness_1.jpg",
-    imageAlt: "Summer Loffler performing a low push-up in a premium editorial fitness image.",
+    imageAlt: "Summer Loffler performing a low push-up in a premium refined fitness image.",
     aspectClass: "aspect-[16/10]",
     spanClass: "xl:col-span-7",
     imagePosition: "object-[38%_38%]",

@@ -129,7 +129,7 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
   },
   gallery_intro: {
     eyebrow: "Gallery / Portfolio",
-    heading: "Editorial Fitness Portfolio",
+    heading: "Refined Fitness Portfolio",
     subheading:
       "A closer look at the work — performance, portraiture, and polished campaign imagery shaped by strength and presence.",
     body: {

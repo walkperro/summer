@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     template: "%s | Summer Loffler",
   },
   description:
-    "Summer Loffler offers private training, online coaching, and editorial fitness work in Los Angeles, serving Playa Del Rey, Manhattan Beach, and surrounding areas.",
+    "Summer Loffler offers private training, online coaching, and refined fitness work in Los Angeles, serving Playa Del Rey, Manhattan Beach, and surrounding areas.",
   openGraph: {
     siteName: "Summer Loffler",
     type: "website",

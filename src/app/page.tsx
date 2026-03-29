@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const siteTitle = snapshot.siteTitle || "Summer Loffler";
   const title = `${siteTitle} | Private Training in Los Angeles`;
   const description =
-    "Private training, online coaching, and editorial fitness work in Los Angeles with Summer Loffler, serving Playa Del Rey, Manhattan Beach, and surrounding areas.";
+    "Private training, online coaching, and refined fitness work in Los Angeles with Summer Loffler, serving Playa Del Rey, Manhattan Beach, and surrounding areas.";
 
   return {
     title,
@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
       "glute-focused training",
       "nutrition guidance",
       "fitness coaching",
-      "editorial fitness portfolio",
+      "refined fitness portfolio",
       "Playa Del Rey",
       "Manhattan Beach",
     ],
@@ -71,7 +71,7 @@ export default async function Home() {
         name: siteTitle,
         url: "/",
         description:
-          "Private training, online coaching, and editorial fitness work with Summer Loffler in Los Angeles.",
+          "Private training, online coaching, and refined fitness work with Summer Loffler in Los Angeles.",
       },
       {
         "@type": "Person",
@@ -80,7 +80,7 @@ export default async function Home() {
         url: "/",
         jobTitle: "Private Trainer and Fitness Coach",
         description:
-          "Private trainer, online coach, and editorial fitness talent based in Los Angeles.",
+          "Private trainer, online coach, and refined fitness talent based in Los Angeles.",
         homeLocation: {
           "@type": "City",
           name: "Los Angeles",
@@ -98,7 +98,7 @@ export default async function Home() {
           "Glute-Focused Training",
           "Nutrition Guidance",
           "Fitness Coaching",
-          "Editorial Fitness Portfolio",
+          "Refined Fitness Portfolio",
         ],
         sameAs: snapshot.instagramUrl ? [snapshot.instagramUrl] : undefined,
       },
@@ -122,11 +122,11 @@ export default async function Home() {
       {
         "@type": "Service",
         "@id": "/#editorial-bookings",
-        serviceType: "Editorial Fitness Portfolio and Brand Bookings",
+        serviceType: "Refined Fitness Portfolio and Brand Bookings",
         provider: { "@id": "/#person" },
         areaServed: ["Los Angeles"],
         description:
-          "Editorial fitness portfolio work and select campaign bookings with a polished, athletic point of view.",
+          "Refined fitness portfolio work and select campaign bookings with a polished, athletic point of view.",
       },
     ],
   };
