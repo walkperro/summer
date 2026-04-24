@@ -1,14 +1,107 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f6f1ea;
-  --foreground: #181512;
+/* =============================================================
+   Maison Summer — design tokens
+   Editorial-luxury system. Paper/Ink/Bronze + sparing Oxblood.
+   ============================================================= */
 
-  /* Accent + luxury tokens — kept minimal so the palette stays editorial. */
-  --accent-bronze: #a8896b;
-  --accent-bronze-soft: #c8b193;
-  --accent-hairline: #d8c8b4;
-  --accent-ink: #2a241f;
+:root {
+  /* Paper — warm vellum tones (was cream) */
+  --paper-50: #faf5ec;
+  --paper-100: #f6f1ea;
+  --paper-200: #efe7dd;
+  --paper-300: #e8ddd0;
+  --paper-400: #ddd3c6;
+  --paper-500: #cfc2b0;
+
+  /* Ink — formalized scale, replaces the old hardcoded blacks */
+  --ink-950: #0c0a07;
+  --ink-900: #181512;
+  --ink-800: #1d1814;
+  --ink-700: #2a241f;
+  --ink-600: #3a322c;
+  --ink-500: #5f5650;
+  --ink-400: #7a6f67;
+  --ink-300: #8a7d72;
+  --ink-200: #b7ada4;
+  --ink-100: #d8ccc0;
+
+  /* Bronze */
+  --bronze-800: #63482f;
+  --bronze-700: #7a5f46;
+  --bronze-600: #8a6d51;
+  --bronze-500: #a8896b;
+  --bronze-400: #c8b193;
+  --bronze-300: #d8c8b4;
+  --bronze-200: #e7ddd1;
+  --bronze-100: #f0e8dc;
+
+  /* Oxblood — sparing editorial accent */
+  --oxblood-800: #2b120f;
+  --oxblood-700: #3f1a18;
+  --oxblood-600: #4e211f;
+  --oxblood-500: #5a2422;
+  --oxblood-400: #6f302d;
+
+  /* Status */
+  --danger-700: #8c2a20;
+  --danger-50: #fbeee9;
+  --success-700: #2f6b3d;
+
+  /* Radii */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 10px;
+  --radius-lg: 20px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
+
+  /* Spacing (8px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.5rem;
+  --space-8: 3rem;
+  --space-10: 4rem;
+  --space-12: 5rem;
+  --space-14: 6rem;
+  --space-16: 7rem;
+  --space-20: 9rem;
+  --space-24: 11rem;
+
+  /* Elevation — 6 tiers, warm shadows */
+  --shadow-xs: 0 1px 0 rgba(24, 21, 18, 0.04);
+  --shadow-sm: 0 2px 8px -4px rgba(24, 21, 18, 0.08);
+  --shadow-md: 0 10px 30px -18px rgba(24, 21, 18, 0.14);
+  --shadow-lg: 0 24px 48px -36px rgba(24, 21, 18, 0.18);
+  --shadow-xl: 0 40px 80px -40px rgba(24, 21, 18, 0.22);
+  --shadow-hero: 0 60px 120px -60px rgba(0, 0, 0, 0.35);
+  --ring-focus: 0 0 0 2px var(--paper-100), 0 0 0 4px var(--bronze-500);
+
+  /* Typography */
+  --track-eyebrow: 0.32em;
+  --track-nav: 0.28em;
+  --track-button: 0.18em;
+  --track-heading: -0.03em;
+  --track-display: -0.045em;
+  --size-eyebrow: 11px;
+  --size-eyebrow-lg: 12px;
+  --size-mono: 10.5px;
+
+  /* Scrims + grain */
+  --hero-scrim: linear-gradient(180deg, rgba(12, 10, 7, 0) 0%, rgba(12, 10, 7, 0.15) 55%, rgba(12, 10, 7, 0.55) 100%);
+  --grain-opacity: 0.045;
+
+  /* Legacy aliases — keep all existing call sites working during migration */
+  --background: var(--paper-100);
+  --foreground: var(--ink-900);
+  --accent-bronze: var(--bronze-500);
+  --accent-bronze-soft: var(--bronze-400);
+  --accent-hairline: var(--bronze-300);
+  --accent-ink: var(--ink-700);
   --accent-shadow: rgba(24, 21, 18, 0.08);
 }
 
@@ -18,10 +111,50 @@
   --color-accent: var(--accent-bronze);
   --color-accent-soft: var(--accent-bronze-soft);
   --color-hairline: var(--accent-hairline);
+
+  --color-paper-50: var(--paper-50);
+  --color-paper-100: var(--paper-100);
+  --color-paper-200: var(--paper-200);
+  --color-paper-300: var(--paper-300);
+  --color-paper-400: var(--paper-400);
+
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-ink-600: var(--ink-600);
+  --color-ink-500: var(--ink-500);
+  --color-ink-400: var(--ink-400);
+  --color-ink-300: var(--ink-300);
+  --color-ink-200: var(--ink-200);
+
+  --color-bronze-700: var(--bronze-700);
+  --color-bronze-600: var(--bronze-600);
+  --color-bronze-500: var(--bronze-500);
+  --color-bronze-400: var(--bronze-400);
+  --color-bronze-300: var(--bronze-300);
+  --color-bronze-200: var(--bronze-200);
+  --color-bronze-100: var(--bronze-100);
+
+  --color-oxblood-700: var(--oxblood-700);
+  --color-oxblood-600: var(--oxblood-600);
+  --color-oxblood-500: var(--oxblood-500);
+  --color-oxblood-400: var(--oxblood-400);
+
+  --color-danger: var(--danger-700);
+  --color-success: var(--success-700);
+
+  --shadow-card: var(--shadow-lg);
+  --shadow-feature: var(--shadow-xl);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-cormorant-garamond);
 }
+
+/* =============================================================
+   Baseline
+   ============================================================= */
 
 html {
   background: var(--background);
@@ -33,6 +166,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-feature-settings: "liga", "clig", "kern";
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -45,29 +180,128 @@ body {
   background: rgba(24, 21, 18, 0.14);
 }
 
+body.no-scroll {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* =============================================================
+   Typography utilities
+   ============================================================= */
+
 .font-editorial {
   font-family: var(--font-cormorant-garamond), Georgia, serif;
+  font-feature-settings: "liga", "dlig", "clig", "kern";
 }
 
 .font-editorial-italic {
   font-family: var(--font-cormorant-garamond), Georgia, serif;
   font-style: italic;
+  font-feature-settings: "liga", "dlig", "clig", "kern";
+}
+
+.font-mono-editorial {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-feature-settings: "tnum", "kern";
 }
 
 .text-balance {
   text-wrap: balance;
 }
 
-/* Hairline divider used across sections. */
+.text-pretty {
+  text-wrap: pretty;
+}
+
+/* Editorial eyebrow — single source of truth for the 11px caps labels */
+.eyebrow {
+  font-size: var(--size-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: var(--track-eyebrow);
+  color: var(--ink-400);
+  font-weight: 500;
+}
+
+.eyebrow-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: var(--size-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--track-nav);
+  color: var(--ink-400);
+  font-weight: 500;
+}
+
+.eyebrow-lg {
+  font-size: var(--size-eyebrow-lg);
+}
+
+.eyebrow-light {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.eyebrow-bronze {
+  color: var(--bronze-600);
+}
+
+/* Drop-cap — for About story lede */
+.drop-cap::first-letter {
+  font-family: var(--font-cormorant-garamond), Georgia, serif;
+  font-weight: 500;
+  font-size: 5.2em;
+  line-height: 0.85;
+  float: left;
+  margin: 0.05em 0.12em 0 -0.04em;
+  color: var(--ink-900);
+}
+
+.drop-cap-italic::first-letter {
+  font-family: var(--font-cormorant-garamond), Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 5.2em;
+  line-height: 0.85;
+  float: left;
+  margin: 0.05em 0.12em 0 -0.04em;
+  color: var(--bronze-600);
+}
+
+/* =============================================================
+   Focus ring (keyboard only)
+   ============================================================= */
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--radius-xs);
+}
+
+/* =============================================================
+   Hairline divider
+   ============================================================= */
+
 .hairline {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--accent-hairline), transparent);
 }
 
-/* Bronze underline reveal — used on nav + CTAs. */
+.hairline-solid {
+  height: 1px;
+  background: var(--accent-hairline);
+}
+
+.hairline-v {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--accent-hairline), transparent);
+}
+
+/* =============================================================
+   Bronze underline reveal — nav + CTAs + editorial links
+   ============================================================= */
+
 .accent-underline {
   position: relative;
 }
+
 .accent-underline::after {
   content: "";
   position: absolute;
@@ -80,24 +314,48 @@ body {
   transform-origin: left center;
   transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
 .accent-underline:hover::after,
 .accent-underline[data-active="true"]::after {
   transform: scaleX(1);
 }
 
-/* Scroll-reveal: base state + revealed state. */
+/* Persistent bronze underline (for hero title accent word) */
+.accent-underline-static::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.08em;
+  height: 2px;
+  background: var(--bronze-500);
+  transform: scaleX(1);
+}
+
+.accent-underline-static {
+  position: relative;
+  padding-bottom: 0.05em;
+}
+
+/* =============================================================
+   Scroll-reveal — supports stagger via --i
+   ============================================================= */
+
 [data-reveal] {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(18px);
   transition:
-    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 820ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 820ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i, 0) * 80ms);
   will-change: opacity, transform;
 }
+
 [data-reveal][data-revealed="true"] {
   opacity: 1;
   transform: translateY(0);
 }
+
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] {
     opacity: 1;
@@ -106,44 +364,271 @@ body {
   }
 }
 
-/* Hero ken-burns — gentle scale, respects reduced motion. */
+/* =============================================================
+   Hero ken-burns — slow, alternating
+   ============================================================= */
+
 @keyframes hero-ken-burns {
   0% { transform: scale(1) translate3d(0, 0, 0); }
-  100% { transform: scale(1.055) translate3d(0, -1.5%, 0); }
+  50% { transform: scale(1.065) translate3d(-1%, -1%, 0); }
+  100% { transform: scale(1.04) translate3d(1%, -1.5%, 0); }
 }
+
 .hero-ken-burns {
-  animation: hero-ken-burns 12s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  animation: hero-ken-burns 22s cubic-bezier(0.25, 0.1, 0.25, 1) infinite alternate;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .hero-ken-burns {
     animation: none;
   }
 }
 
-/* Editorial pull-quote decoration. */
+/* =============================================================
+   Mask-wipe reveal (first-scroll-in hero headings)
+   ============================================================= */
+
+@keyframes mask-wipe-in {
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes scroll-cue {
+  0% { transform: translate(-50%, -100%); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: translate(-50%, 200%); opacity: 0; }
+}
+
+/* =============================================================
+   Cinematic page transition — fires on each route change
+   (PageShell keys off pathname, which restarts this animation)
+   ============================================================= */
+
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+.mask-wipe-in {
+  animation: mask-wipe-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mask-wipe-in {
+    animation: none;
+  }
+}
+
+/* =============================================================
+   Grain overlay — editorial texture
+   ============================================================= */
+
+.grain {
+  position: relative;
+  isolation: isolate;
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+  opacity: var(--grain-opacity);
+  z-index: 1;
+}
+
+.grain-light::after {
+  mix-blend-mode: overlay;
+  opacity: 0.12;
+}
+
+/* =============================================================
+   Editorial pull-quote mark
+   ============================================================= */
+
 .pull-quote-mark {
   font-family: var(--font-cormorant-garamond), Georgia, serif;
   font-style: italic;
   color: var(--accent-bronze);
 }
 
-/* Shadow used on subtle cards (pricing, class cards). */
+/* =============================================================
+   Luxe card — base + featured. Semantic anchors; 20+ call sites.
+   ============================================================= */
+
 .luxe-card {
   background: #fff;
   border: 1px solid rgba(24, 21, 18, 0.06);
-  box-shadow: 0 1px 0 rgba(24, 21, 18, 0.02), 0 24px 48px -36px rgba(24, 21, 18, 0.12);
-  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 400ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.luxe-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 1px 0 rgba(24, 21, 18, 0.02), 0 32px 60px -32px rgba(24, 21, 18, 0.18);
+  box-shadow: var(--shadow-xs), var(--shadow-lg);
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Featured card — soft bronze ring. */
+.luxe-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-xs), var(--shadow-xl);
+  border-color: rgba(168, 137, 107, 0.35);
+}
+
 .luxe-card-featured {
   border-color: var(--accent-bronze-soft);
   box-shadow:
     0 0 0 1px var(--accent-bronze-soft) inset,
-    0 1px 0 rgba(24, 21, 18, 0.02),
-    0 32px 64px -36px rgba(168, 137, 107, 0.28);
+    var(--shadow-xs),
+    0 40px 80px -40px rgba(168, 137, 107, 0.35);
+}
+
+.luxe-card-featured:hover {
+  border-color: var(--bronze-500);
+  box-shadow:
+    0 0 0 1px var(--bronze-500) inset,
+    var(--shadow-xs),
+    0 48px 96px -40px rgba(168, 137, 107, 0.45);
+}
+
+/* Ink tone card — for dark editorial sections */
+.luxe-card-ink {
+  background: var(--ink-900);
+  color: var(--paper-100);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow-xl);
+}
+
+/* =============================================================
+   Status dot
+   ============================================================= */
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+/* =============================================================
+   Masthead — oversized repeating wordmark for SiteFooter
+   ============================================================= */
+
+.masthead {
+  font-family: var(--font-cormorant-garamond), Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: var(--track-display);
+  line-height: 0.85;
+  color: var(--bronze-300);
+  opacity: 0.6;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* =============================================================
+   Press effect — buttons
+   ============================================================= */
+
+.press-effect {
+  transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.press-effect:active {
+  transform: translateY(1px);
+}
+
+/* =============================================================
+   Editorial prose (legal pages)
+   ============================================================= */
+
+.prose-editorial {
+  max-width: 68ch;
+  color: var(--ink-600);
+  line-height: 1.75;
+}
+
+.prose-editorial h1,
+.prose-editorial h2,
+.prose-editorial h3 {
+  font-family: var(--font-cormorant-garamond), Georgia, serif;
+  color: var(--ink-900);
+  letter-spacing: var(--track-heading);
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+}
+
+.prose-editorial h1 {
+  font-size: 2.8rem;
+  line-height: 1.05;
+  margin-top: 0;
+}
+
+.prose-editorial h2 {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.prose-editorial h3 {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.prose-editorial p {
+  margin-bottom: 1em;
+}
+
+.prose-editorial a {
+  color: var(--bronze-600);
+  text-decoration: underline;
+  text-decoration-color: var(--bronze-300);
+  text-underline-offset: 3px;
+}
+
+.prose-editorial a:hover {
+  color: var(--bronze-700);
+  text-decoration-color: var(--bronze-500);
+}
+
+.prose-editorial ul,
+.prose-editorial ol {
+  margin-bottom: 1em;
+  padding-left: 1.4em;
+}
+
+.prose-editorial li {
+  margin-bottom: 0.35em;
+}
+
+.prose-editorial strong {
+  color: var(--ink-900);
+  font-weight: 600;
 }

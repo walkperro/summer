@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 
+import { Container } from "@/components/ui/Container";
+import { Eyebrow } from "@/components/ui/Eyebrow";
+
 export const metadata: Metadata = {
   title: "Terms",
   description: "Summer Loffler — terms of service.",
@@ -8,44 +11,61 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="bg-[#f6f1ea] text-[#181512]">
-      <section className="px-6 pt-32 pb-20 md:px-10 md:pt-40 md:pb-28">
-        <div className="mx-auto max-w-3xl">
-          <p className="text-[11px] uppercase tracking-[0.34em] text-[#8a7d72]">Legal</p>
-          <h1 className="font-editorial mt-3 text-4xl leading-[1.05] tracking-[-0.01em] md:text-5xl">Terms of Service</h1>
-          <div className="prose prose-neutral mt-10 max-w-none text-sm leading-relaxed text-[#3a322c] md:text-base">
-            <p>
-              Welcome to Summer Loffler. These terms govern your use of this site, subscriptions, and one-time
-              digital products. By using the site or making a purchase, you agree to these terms.
-            </p>
-            <h2 className="font-editorial mt-8 text-2xl">Subscriptions</h2>
-            <p>
-              Subscriptions renew automatically each billing period until canceled. You can cancel anytime from
-              your client dashboard or by emailing hello@summerloffler.com. Access remains active until the end
-              of the current billing period.
-            </p>
-            <h2 className="font-editorial mt-8 text-2xl">Digital products</h2>
-            <p>
-              Digital products (guides, meal plans) are delivered immediately on checkout. Because of their nature,
-              one-time purchases are non-refundable except where required by law. If something went wrong, write
-              to us within 7 days and we will make it right.
-            </p>
-            <h2 className="font-editorial mt-8 text-2xl">Health &amp; safety</h2>
-            <p>
-              Training programs are educational. They are not a substitute for medical advice. Consult a qualified
-              professional before starting any exercise or nutrition program, especially if you have injuries or
-              medical conditions.
-            </p>
-            <h2 className="font-editorial mt-8 text-2xl">Intellectual property</h2>
-            <p>
-              All content is owned by Summer Loffler or licensed from the respective owners. Do not redistribute,
-              resell, or share purchased materials.
-            </p>
-            <h2 className="font-editorial mt-8 text-2xl">Contact</h2>
-            <p>Questions: hello@summerloffler.com.</p>
-          </div>
+    <main className="bg-[color:var(--paper-100)] text-[color:var(--ink-900)]">
+      <Container
+        size="sm"
+        className="py-20 md:py-28"
+        style={{ paddingTop: "calc(8rem + env(safe-area-inset-top))" }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="h-px w-8 bg-[color:var(--bronze-500)]" aria-hidden="true" />
+          <Eyebrow variant="mono" tone="bronze">
+            Legal
+          </Eyebrow>
         </div>
-      </section>
+        <h1 className="font-editorial mt-6 text-balance text-5xl leading-[0.95] tracking-[-0.035em] md:text-[4.5rem]">
+          Terms of Service
+        </h1>
+        <p className="mt-4 font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--ink-400)]">
+          Last updated · January 2026
+        </p>
+
+        <div className="prose-editorial mt-14">
+          <p>
+            Welcome to Summer Loffler. These terms govern your use of this site, subscriptions,
+            and one-time digital products. By using the site or making a purchase, you agree to
+            these terms.
+          </p>
+          <h2>Subscriptions</h2>
+          <p>
+            Subscriptions renew automatically each billing period until canceled. You can cancel
+            anytime from your client dashboard or by emailing{" "}
+            <a href="mailto:hello@summerloffler.com">hello@summerloffler.com</a>. Access remains
+            active until the end of the current billing period.
+          </p>
+          <h2>Digital products</h2>
+          <p>
+            Digital products (guides, meal plans) are delivered immediately on checkout. Because
+            of their nature, one-time purchases are non-refundable except where required by law.
+            If something went wrong, write to us within 7 days and we will make it right.
+          </p>
+          <h2>Health &amp; safety</h2>
+          <p>
+            Training programs are educational. They are not a substitute for medical advice.
+            Consult a qualified professional before starting any exercise or nutrition program,
+            especially if you have injuries or medical conditions.
+          </p>
+          <h2>Intellectual property</h2>
+          <p>
+            All content is owned by Summer Loffler or licensed from the respective owners. Do
+            not redistribute, resell, or share purchased materials.
+          </p>
+          <h2>Contact</h2>
+          <p>
+            Questions: <a href="mailto:hello@summerloffler.com">hello@summerloffler.com</a>.
+          </p>
+        </div>
+      </Container>
     </main>
   );
 }

@@ -1,6 +1,12 @@
-import { SectionHeading } from "@/components/summer/SectionHeading";
+import Link from "next/link";
+
+import { Container } from "@/components/ui/Container";
+import { ScrollReveal } from "@/components/summer/ScrollReveal";
 import { offers as defaultOffers } from "@/components/summer/site-data";
+import { cn } from "@/lib/cn";
 import type { SummerPublicSection } from "@/lib/summer/site-content";
+
+import { SectionHeading } from "./SectionHeading";
 
 type OfferItem = {
   id?: string;
@@ -14,6 +20,8 @@ type OfferItem = {
   featured?: boolean;
 };
 
+const NUMBERS = ["01", "02", "03", "04", "05"];
+
 export function Offers({
   intro,
   offers = defaultOffers.map((offer) => ({ ...offer, href: "#contact", badge: offer.featured ? "Most Exclusive" : null })),
@@ -22,45 +30,83 @@ export function Offers({
   offers?: OfferItem[];
 }) {
   return (
-    <section id="services" className="border-y border-black/6 bg-[#f1ebe3] px-6 py-20 sm:py-24 md:px-10 lg:py-28">
-      <div className="mx-auto max-w-7xl">
-        <SectionHeading eyebrow={intro.eyebrow} title={intro.heading} description={intro.subheading} />
+    <section
+      id="services"
+      className="relative overflow-hidden border-y border-[color:var(--bronze-300)] bg-[color:var(--paper-50)]"
+    >
+      <Container size="xl" className="py-24 md:py-32 lg:py-40">
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-5">
+            <ScrollReveal>
+              <SectionHeading
+                eyebrow={intro.eyebrow}
+                title={intro.heading}
+                description={intro.subheading}
+                size="lg"
+                number="§ I"
+              />
+            </ScrollReveal>
+          </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">
-          {offers.map((offer) => (
-            <article
-              key={offer.title}
-              className={`flex h-full flex-col justify-between border px-6 py-7 shadow-[0_24px_50px_rgba(0,0,0,0.04)] ${
-                offer.featured ? "border-[#1d1814] bg-[#191512] text-white" : "border-black/8 bg-[#fbf7f2] text-[#181512]"
-              }`}
-            >
-              <div>
-                <p className={`text-[11px] uppercase tracking-[0.3em] ${offer.featured ? "text-white/62" : "text-[#8a7d72]"}`}>
-                  {offer.badge || (offer.featured ? "Most Exclusive" : "Service")}
-                </p>
-                <h3 className={`font-editorial mt-5 text-3xl leading-none font-medium tracking-[-0.03em] ${offer.featured ? "text-white" : "text-[#181512]"}`}>
-                  {offer.title}
-                </h3>
-                <p className={`mt-4 text-base leading-7 ${offer.featured ? "text-white/78" : "text-[#5f5650]"}`}>{offer.description}</p>
-                <p className={`mt-5 text-sm leading-6 ${offer.featured ? "text-white/65" : "text-[#776d66]"}`}>{offer.detail}</p>
-              </div>
+          <div className="lg:col-span-7">
+            <div className="flex flex-col">
+              {offers.map((offer, idx) => (
+                <ScrollReveal key={offer.title} delayMs={idx * 80}>
+                  <article
+                    className={cn(
+                      "group relative flex flex-col gap-6 border-t border-[color:var(--bronze-300)] py-10 md:flex-row md:items-start md:gap-12 md:py-14",
+                      idx === offers.length - 1 && "border-b",
+                    )}
+                  >
+                    {/* Left — number + title */}
+                    <div className="md:w-[42%]">
+                      <div className="flex items-baseline gap-4">
+                        <span className="font-editorial-italic text-5xl leading-[0.85] text-[color:var(--bronze-500)] md:text-6xl">
+                          {NUMBERS[idx] ?? "•"}
+                        </span>
+                        {offer.featured && (
+                          <span className="rounded-full bg-[color:var(--oxblood-500)] px-3 py-1 font-mono-editorial text-[9.5px] uppercase tracking-[0.28em] text-[color:var(--paper-100)]">
+                            {offer.badge || "Most Exclusive"}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-editorial mt-4 text-3xl leading-[1.02] font-medium tracking-[-0.03em] text-[color:var(--ink-900)] md:text-4xl">
+                        {offer.title}
+                      </h3>
+                    </div>
 
-              <div className="mt-10">
-                <a
-                  href={offer.href || "#contact"}
-                  className={`inline-flex min-h-11 items-center justify-center border px-5 text-sm font-medium tracking-[0.03em] transition ${
-                    offer.featured
-                      ? "border-[#e7ddd1] bg-[#f4ece2] text-[#181512] hover:bg-white"
-                      : "border-black/12 bg-white text-[#181512] hover:bg-[#f3ede5]"
-                  }`}
-                >
-                  {offer.cta}
-                </a>
-              </div>
-            </article>
-          ))}
+                    {/* Right — body + CTA */}
+                    <div className="flex flex-1 flex-col">
+                      <p className="text-[17px] leading-[1.7] text-[color:var(--ink-600)]">
+                        {offer.description}
+                      </p>
+                      {offer.detail && (
+                        <p className="mt-4 text-[14.5px] leading-[1.7] text-[color:var(--ink-400)]">
+                          {offer.detail}
+                        </p>
+                      )}
+
+                      <Link
+                        href={offer.href || "#contact"}
+                        className={cn(
+                          "mt-7 inline-flex w-fit items-center gap-3 font-mono-editorial text-[11px] uppercase tracking-[0.28em] transition",
+                          "text-[color:var(--ink-900)] hover:text-[color:var(--bronze-700)]",
+                          "accent-underline",
+                        )}
+                      >
+                        {offer.cta}
+                        <span aria-hidden="true" className="transition group-hover:translate-x-1">
+                          →
+                        </span>
+                      </Link>
+                    </div>
+                  </article>
+                </ScrollReveal>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

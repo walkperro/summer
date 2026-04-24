@@ -3,171 +3,298 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import { heroSlides as defaultHeroSlides } from "@/components/summer/site-data";
+import { Container } from "@/components/ui/Container";
+import { Eyebrow } from "@/components/ui/Eyebrow";
+import { cn } from "@/lib/cn";
 
-function parseObjectPosition(value: string) {
-  const match = value.match(/^object-\[(.+)\]$/);
-  return match ? match[1].replace(/_/g, " ") : undefined;
-}
+import { ScrollCue } from "./ScrollCue";
+
+type Slide = {
+  id: string;
+  desktopSrc: string;
+  mobileSrc: string;
+  alt: string;
+  desktopPosition: string;
+  mobilePosition: string;
+};
+
+const SLIDES: Slide[] = [
+  {
+    id: "hero-action",
+    desktopSrc: "/images/summer/refined/summer-hero-action-desktop.png",
+    mobileSrc: "/images/summer/refined/summer-hero-action-mobile.png",
+    alt: "Summer Loffler in a cinematic editorial portrait.",
+    desktopPosition: "55% 30%",
+    mobilePosition: "50% 30%",
+  },
+  {
+    id: "hero-bw-2",
+    desktopSrc: "/images/summer/hero/summer_hero_bw_2_desktop.png",
+    mobileSrc: "/images/summer/hero/summer_hero_bw_2_mobile.jpg",
+    alt: "Black and white profile of Summer Loffler in a sculptural training space.",
+    desktopPosition: "62% 38%",
+    mobilePosition: "56% 35%",
+  },
+  {
+    id: "hero-bw-1",
+    desktopSrc: "/images/summer/hero/summer_hero_bw_1_desktop.jpg",
+    mobileSrc: "/images/summer/hero/summer_hero_bw_1_mobile.png",
+    alt: "Black and white portrait of Summer Loffler with a direct, composed expression.",
+    desktopPosition: "70% 35%",
+    mobilePosition: "50% 28%",
+  },
+];
 
 type HeroProps = {
-  slides?: typeof defaultHeroSlides;
-  heading?: string;
-  subheading?: string;
+  eyebrow?: string;
   primaryCtaLabel?: string;
   primaryCtaHref?: string;
   secondaryCtaLabel?: string;
   secondaryCtaHref?: string;
 };
 
+const VOLUME_LINES = [
+  "Volume III · Spring · MMXXVI",
+  "Los Angeles · Private training",
+  "By invitation · Selectively accepting",
+];
+
+const SLIDE_INTERVAL_MS = 7200;
+
 export function Hero({
-  slides = defaultHeroSlides,
-  heading = "Private training with strength, discipline, and presence.",
-  subheading = "A refined approach to coaching for clients who want serious guidance, polished presentation, and lasting results on and off camera.",
+  eyebrow = "Los Angeles · Private Training · Est. MMXVIII",
   primaryCtaLabel = "Apply for Private Training",
   primaryCtaHref = "#contact",
-  secondaryCtaLabel = "View Portfolio",
+  secondaryCtaLabel = "View the lookbook",
   secondaryCtaHref = "#portfolio",
 }: HeroProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [volumeIdx, setVolumeIdx] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncMotionPreference = () => setReducedMotion(mediaQuery.matches);
-
-    syncMotionPreference();
-    mediaQuery.addEventListener("change", syncMotionPreference);
-
-    return () => mediaQuery.removeEventListener("change", syncMotionPreference);
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
   useEffect(() => {
-    if (reducedMotion || slides.length <= 1) {
-      return;
-    }
+    if (reducedMotion || paused || SLIDES.length <= 1) return;
+    const id = window.setInterval(
+      () => setActiveIndex((i) => (i + 1) % SLIDES.length),
+      SLIDE_INTERVAL_MS,
+    );
+    return () => window.clearInterval(id);
+  }, [reducedMotion, paused]);
 
-    const rotation = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % slides.length);
-    }, 6500);
-
-    return () => window.clearInterval(rotation);
-  }, [reducedMotion, slides]);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const id = window.setInterval(
+      () => setVolumeIdx((i) => (i + 1) % VOLUME_LINES.length),
+      4200,
+    );
+    return () => window.clearInterval(id);
+  }, [reducedMotion]);
 
   return (
-    <section className="relative isolate min-h-[100svh] overflow-hidden bg-[#151210] text-white">
-      <div className="absolute inset-0">
-        {slides.map((slide, index) => {
-          const isActive = activeIndex === index;
-
-          return (
+    <section
+      id="top"
+      className="relative isolate overflow-hidden bg-[color:var(--paper-100)] text-[color:var(--ink-900)]"
+      style={{ minHeight: "calc(100svh - 0px)" }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      <div className="relative flex min-h-[100svh] flex-col md:min-h-0">
+        {/* Image stack with cinematic cross-fade */}
+        <div
+          className="pointer-events-none absolute inset-0 md:left-[38%]"
+          aria-hidden="true"
+        >
+          <div className="relative h-full w-full overflow-hidden">
+            {SLIDES.map((slide, idx) => {
+              const isActive = idx === activeIndex;
+              return (
+                <div
+                  key={slide.id}
+                  className={cn(
+                    "absolute inset-0 transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    isActive
+                      ? "opacity-100 scale-100"
+                      : "opacity-0 scale-[1.03]",
+                    "motion-reduce:transition-none",
+                  )}
+                  style={{
+                    transitionProperty: "opacity, transform, filter",
+                  }}
+                >
+                  <Image
+                    src={slide.desktopSrc}
+                    alt={slide.alt}
+                    fill
+                    priority={idx === 0}
+                    sizes="(min-width: 768px) 62vw, 100vw"
+                    className={cn(
+                      "hidden object-cover md:block",
+                      isActive && "hero-ken-burns",
+                    )}
+                    style={{ objectPosition: slide.desktopPosition }}
+                  />
+                  <Image
+                    src={slide.mobileSrc}
+                    alt={slide.alt}
+                    fill
+                    priority={idx === 0}
+                    sizes="100vw"
+                    className={cn(
+                      "object-cover md:hidden",
+                      isActive && "hero-ken-burns",
+                    )}
+                    style={{ objectPosition: slide.mobilePosition }}
+                  />
+                </div>
+              );
+            })}
+            {/* Desktop edge feather + mobile bottom scrim */}
             <div
-              key={slide.id}
-              className={`absolute inset-0 transition-opacity duration-[1600ms] ease-out motion-reduce:duration-0 ${
-                isActive ? "opacity-100" : "opacity-0"
-              }`}
-              aria-hidden={!isActive}
-            >
-              <Image
-                src={slide.desktopSrc}
-                alt={slide.desktopAlt}
-                fill
-                priority={index === 0}
-                sizes="100vw"
-                className="hidden object-cover md:block"
-                style={{ objectPosition: parseObjectPosition(slide.desktopPosition) }}
-              />
-              <Image
-                src={slide.mobileSrc}
-                alt={slide.mobileAlt}
-                fill
-                priority={index === 0}
-                sizes="100vw"
-                className="object-cover md:hidden"
-                style={{ objectPosition: parseObjectPosition(slide.mobilePosition) }}
-              />
-            </div>
-          );
-        })}
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,8,7,0.8)_0%,rgba(10,8,7,0.42)_42%,rgba(10,8,7,0.16)_78%,rgba(10,8,7,0.42)_100%)] md:bg-[linear-gradient(90deg,rgba(10,8,7,0.88)_0%,rgba(10,8,7,0.52)_38%,rgba(10,8,7,0.18)_72%,rgba(10,8,7,0.45)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%),linear-gradient(180deg,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0.18)_55%,rgba(0,0,0,0.55)_100%)]" />
-      </div>
-
-      <div className="relative z-10 flex min-h-[100svh] flex-col">
-        <header className="px-6 pt-6 md:px-10 md:pt-8">
-          <div className="mx-auto flex max-w-7xl items-center justify-between border-b border-white/12 pb-4">
-            <a href="#top" className="font-editorial text-3xl tracking-[0.08em] text-white">
-              Summer Loffler
-            </a>
-            <nav className="hidden items-center gap-8 text-xs uppercase tracking-[0.28em] text-white/68 md:flex">
-              <a href="#about" className="transition hover:text-white">
-                About
-              </a>
-              <a href="#training" className="transition hover:text-white">
-                Training
-              </a>
-              <a href="#portfolio" className="transition hover:text-white">
-                Portfolio
-              </a>
-              <a href="#contact" className="transition hover:text-white">
-                Inquire
-              </a>
-            </nav>
+              className="absolute inset-0 md:bg-[linear-gradient(270deg,transparent_0%,transparent_45%,rgba(246,241,234,0.2)_75%,var(--paper-100)_100%)]"
+              aria-hidden="true"
+            />
+            <div
+              className="absolute inset-0 md:hidden bg-[linear-gradient(180deg,rgba(12,10,7,0)_0%,rgba(12,10,7,0)_40%,rgba(12,10,7,0.35)_100%)]"
+              aria-hidden="true"
+            />
           </div>
-        </header>
+        </div>
 
-        <div id="top" className="mx-auto flex w-full max-w-7xl flex-1 items-end px-6 pb-14 pt-16 md:px-10 md:pb-16 md:pt-24">
-          <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.2fr)_220px] lg:items-end">
-            <div className="max-w-3xl">
-              <p className="text-[11px] uppercase tracking-[0.34em] text-white/70">REFINED FITNESS / PRIVATE TRAINING</p>
-              <h1 className="font-editorial mt-6 text-balance text-[3.2rem] leading-[0.9] font-medium tracking-[-0.045em] text-white sm:text-[4.4rem] lg:text-[5.8rem]">
-                {heading}
+        {/* Grain */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            opacity: 0.05,
+            mixBlendMode: "multiply",
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
+
+        <Container
+          size="xl"
+          className="relative z-[2] flex flex-1 flex-col md:min-h-[100svh]"
+        >
+          <div className="grid flex-1 grid-cols-1 gap-10 md:grid-cols-12 md:gap-6">
+            {/* Title column */}
+            <div
+              className="flex flex-col justify-end pb-10 pt-28 md:col-span-7 md:pb-16 md:pt-36 lg:col-span-6"
+              style={{ paddingTop: "calc(7rem + env(safe-area-inset-top))" }}
+            >
+              <Eyebrow variant="mono" tone="bronze" className="mb-6 md:mb-8">
+                {eyebrow}
+              </Eyebrow>
+
+              <h1
+                className="font-editorial text-balance text-[color:var(--ink-950)] mask-wipe-in"
+                style={{
+                  fontSize: "clamp(2.8rem, 10.5vw, 8.5rem)",
+                  lineHeight: 0.92,
+                  letterSpacing: "-0.045em",
+                  fontWeight: 500,
+                }}
+              >
+                <span className="block">Your summer body,</span>
+                <span
+                  className="block font-editorial-italic text-[color:var(--ink-600)]"
+                  style={{ fontSize: "0.68em", lineHeight: 1 }}
+                >
+                  in every
+                </span>
+                <span className="block">
+                  <span className="accent-underline-static text-[color:var(--ink-950)]">
+                    season.
+                  </span>
+                </span>
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">{subheading}</p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+
+              <p className="mt-7 max-w-[48ch] text-base leading-7 text-[color:var(--ink-500)] sm:text-lg sm:leading-8">
+                Private training, online coaching, and glute-specific programming — built for a
+                body you keep.
+              </p>
+
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <a
                   href={primaryCtaHref}
-                  className="inline-flex min-h-12 items-center justify-center border border-[#e7ddd1] bg-[#f4ece2] px-6 text-sm font-medium tracking-[0.03em] text-[#181512] transition hover:bg-white"
+                  className="press-effect focus-ring inline-flex min-h-12 items-center justify-center border border-[color:var(--ink-900)] bg-[color:var(--ink-900)] px-6 text-sm font-medium uppercase tracking-[0.18em] text-white transition hover:bg-[color:var(--ink-700)]"
                 >
                   {primaryCtaLabel}
                 </a>
                 <a
                   href={secondaryCtaHref}
-                  className="inline-flex min-h-12 items-center justify-center border border-white/24 bg-white/8 px-6 text-sm font-medium tracking-[0.03em] text-white backdrop-blur-sm transition hover:bg-white/14"
+                  className="press-effect focus-ring inline-flex min-h-12 items-center justify-center border border-[color:var(--ink-900)]/22 bg-transparent px-6 text-sm font-medium uppercase tracking-[0.18em] text-[color:var(--ink-900)] transition hover:border-[color:var(--bronze-500)] hover:text-[color:var(--bronze-700)]"
                 >
                   {secondaryCtaLabel}
                 </a>
               </div>
             </div>
 
-            <div className="flex items-end justify-between gap-6 lg:flex-col lg:items-start lg:justify-end">
-              <div className="space-y-3 text-sm text-white/74">
-                <p className="text-[11px] uppercase tracking-[0.3em] text-white/58">Los Angeles</p>
-                <div className="space-y-2">
-                  <p>Private training</p>
-                  <p>Online coaching</p>
-                  <p>Select editorial bookings</p>
+            {/* Right ornament column */}
+            <div className="hidden md:col-span-5 md:col-start-8 md:flex md:flex-col md:items-end md:justify-end md:pb-16 lg:col-span-5">
+              <div className="flex items-center gap-5">
+                <div className="relative h-20 w-px">
+                  <div className="absolute inset-0 hairline-v" aria-hidden="true" />
                 </div>
-              </div>
-              <div className="flex items-center gap-2" role="tablist" aria-label="Hero slides">
-                {slides.map((slide, index) => {
-                  const isActive = activeIndex === index;
-
-                  return (
-                    <button
-                      key={slide.id}
-                      type="button"
-                      onClick={() => setActiveIndex(index)}
-                      className={`h-2.5 transition-all ${isActive ? "w-9 bg-white" : "w-2.5 bg-white/35 hover:bg-white/55"}`}
-                      aria-label={`Show slide ${index + 1}`}
-                      aria-pressed={isActive}
-                    />
-                  );
-                })}
+                <span
+                  key={VOLUME_LINES[volumeIdx]}
+                  className="mask-wipe-in font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--ink-400)]"
+                  aria-live="polite"
+                >
+                  {VOLUME_LINES[volumeIdx]}
+                </span>
               </div>
             </div>
           </div>
-        </div>
+
+          {/* Bottom row — scroll cue + dot indicators */}
+          <div className="relative z-[2] flex items-end justify-between gap-6 pb-10 pt-4 md:pb-14">
+            <ScrollCue tone="ink" />
+            <div
+              className="flex items-center gap-2"
+              role="tablist"
+              aria-label="Hero slides"
+            >
+              {SLIDES.map((slide, idx) => {
+                const isActive = idx === activeIndex;
+                return (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={() => setActiveIndex(idx)}
+                    aria-label={`Show slide ${idx + 1}`}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "relative inline-flex h-8 items-center justify-center px-1 focus-ring",
+                      "touch-manipulation",
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "block h-[2px] transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        isActive
+                          ? "w-10 bg-[color:var(--bronze-500)]"
+                          : "w-6 bg-[color:var(--ink-900)]/25 group-hover:bg-[color:var(--ink-900)]/45",
+                      )}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Container>
       </div>
     </section>
   );

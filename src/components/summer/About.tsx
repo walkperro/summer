@@ -1,6 +1,9 @@
 import Image from "next/image";
 
-import { SectionHeading } from "@/components/summer/SectionHeading";
+import { Container } from "@/components/ui/Container";
+import { Eyebrow } from "@/components/ui/Eyebrow";
+import { PullNumber } from "@/components/ui/PullNumber";
+import { ScrollReveal } from "@/components/summer/ScrollReveal";
 import { aboutImages, aboutPoints } from "@/components/summer/site-data";
 import type { SummerPublicSection } from "@/lib/summer/site-content";
 
@@ -16,48 +19,97 @@ export function About({
   const paragraphs = Array.isArray(section.body.paragraphs) ? (section.body.paragraphs as string[]) : [];
 
   return (
-    <section id="about" className="px-6 py-20 sm:py-24 md:px-10 lg:py-28">
-      <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
-        <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)] sm:items-end">
-          <figure className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-black/8 bg-[#ece3d8] shadow-[0_30px_80px_rgba(0,0,0,0.08)]">
-            <Image
-              src={images.main.src}
-              alt={images.main.alt}
-              fill
-              sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
-              className="object-cover object-center"
-            />
-          </figure>
-          <figure className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-black/8 bg-[#ece3d8] shadow-[0_24px_60px_rgba(0,0,0,0.06)] sm:mb-10">
-            <Image
-              src={images.supporting.src}
-              alt={images.supporting.alt}
-              fill
-              sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 100vw"
-              className="object-cover object-center"
-            />
-          </figure>
-        </div>
+    <section id="about" className="relative overflow-hidden bg-[color:var(--paper-100)]">
+      <Container size="xl" className="py-24 md:py-32 lg:py-40">
+        <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-20 lg:items-start">
+          {/* Images — asymmetric overlap, editorial cadence */}
+          <ScrollReveal className="relative">
+            <div className="grid grid-cols-[1fr_0.68fr] items-start gap-4 sm:gap-5">
+              <figure className="relative aspect-[4/5] overflow-hidden bg-[color:var(--paper-300)]">
+                <Image
+                  src={images.main.src}
+                  alt={images.main.alt}
+                  fill
+                  sizes="(min-width: 1024px) 28vw, (min-width: 640px) 45vw, 60vw"
+                  className="object-cover object-center grayscale-[12%]"
+                />
+              </figure>
+              <figure className="relative mt-14 aspect-[4/5] overflow-hidden bg-[color:var(--paper-300)] sm:mt-20">
+                <Image
+                  src={images.supporting.src}
+                  alt={images.supporting.alt}
+                  fill
+                  sizes="(min-width: 1024px) 20vw, (min-width: 640px) 30vw, 40vw"
+                  className="object-cover object-center grayscale-[10%]"
+                />
+              </figure>
+            </div>
+            <span className="mt-6 block font-mono-editorial text-[10.5px] uppercase tracking-[0.3em] text-[color:var(--ink-400)]">
+              Summer Loffler · Private Training · Los Angeles
+            </span>
+          </ScrollReveal>
 
-        <div>
-          <SectionHeading eyebrow={section.eyebrow} title={section.heading} description={section.subheading} />
-          <div className="mt-8 space-y-5 text-[#5f5650]">
-            {paragraphs.map((paragraph) => (
-              <p key={paragraph} className="max-w-xl text-base leading-7">
-                {paragraph}
-              </p>
-            ))}
-          </div>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            {points.map((point) => (
-              <div key={point} className="border border-black/8 bg-white/70 px-5 py-6 shadow-[0_20px_40px_rgba(0,0,0,0.04)]">
-                <p className="text-sm leading-6 text-[#433c37]">{point}</p>
+          {/* Text column */}
+          <div className="flex flex-col">
+            <ScrollReveal>
+              <div className="flex items-center gap-4">
+                <span className="h-px w-8 bg-[color:var(--bronze-500)]" aria-hidden="true" />
+                <Eyebrow variant="mono" tone="bronze">
+                  {section.eyebrow}
+                </Eyebrow>
               </div>
+            </ScrollReveal>
+
+            <ScrollReveal delayMs={80}>
+              <h2 className="font-editorial mt-6 text-balance text-4xl leading-[0.98] font-medium tracking-[-0.035em] text-[color:var(--ink-900)] sm:text-5xl md:text-[3.75rem]">
+                {section.heading}
+              </h2>
+            </ScrollReveal>
+
+            {paragraphs.length > 0 && (
+              <ScrollReveal delayMs={160}>
+                <p className="drop-cap mt-9 max-w-xl text-[17px] leading-[1.75] text-[color:var(--ink-600)]">
+                  {paragraphs[0]}
+                </p>
+              </ScrollReveal>
+            )}
+
+            {paragraphs.slice(1).map((paragraph, i) => (
+              <ScrollReveal key={paragraph} delayMs={220 + i * 80}>
+                <p className="mt-5 max-w-xl text-[17px] leading-[1.75] text-[color:var(--ink-600)]">
+                  {paragraph}
+                </p>
+              </ScrollReveal>
             ))}
+
+            {/* Credentials row — magazine pull-numbers */}
+            <ScrollReveal delayMs={320}>
+              <div className="mt-12 grid grid-cols-1 gap-6 border-t border-[color:var(--bronze-300)] pt-8 sm:grid-cols-3">
+                <div className="flex flex-col gap-2">
+                  <PullNumber value="08" label="Years coaching" size="md" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <PullNumber value="LA" label="Home studio" size="md" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <PullNumber value="1:1" label="Private only" size="md" />
+                </div>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal delayMs={400}>
+              <ul className="mt-10 grid gap-3 text-[15px] leading-relaxed text-[color:var(--ink-600)] sm:grid-cols-1">
+                {points.map((point) => (
+                  <li key={point} className="flex items-start gap-4 border-t border-[color:var(--bronze-200)] pt-3">
+                    <span aria-hidden="true" className="mt-[11px] h-px w-5 shrink-0 bg-[color:var(--bronze-500)]" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </ScrollReveal>
           </div>
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

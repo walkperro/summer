@@ -2,6 +2,7 @@ import Image from "next/image";
 
 import { CheckoutButton } from "@/components/summer/CheckoutButton";
 import { ScrollReveal } from "@/components/summer/ScrollReveal";
+import { cn } from "@/lib/cn";
 
 export type PlanCardItem = {
   id: string;
@@ -22,15 +23,20 @@ function formatPrice(cents: number) {
   return `$${dollars}`;
 }
 
-export function PlanCard({ item }: { item: PlanCardItem }) {
+export function PlanCard({ item, index = 0 }: { item: PlanCardItem; index?: number }) {
   const kindLabel =
     item.kind === "meal_plan" ? "Meal Plan" : item.kind === "bundle" ? "Bundle" : "Guide";
+
   return (
     <ScrollReveal
       as="article"
-      className={`flex h-full flex-col overflow-hidden ${item.featured ? "luxe-card-featured luxe-card" : "luxe-card"}`}
+      delayMs={index * 70}
+      className={cn(
+        "relative flex h-full flex-col overflow-hidden",
+        item.featured ? "luxe-card-featured luxe-card" : "luxe-card",
+      )}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#e8ddd0]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-[color:var(--paper-200)]">
         {item.coverUrl ? (
           <Image
             src={item.coverUrl}
@@ -40,36 +46,74 @@ export function PlanCard({ item }: { item: PlanCardItem }) {
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-xs uppercase tracking-[0.28em] text-[#8a7d72]">
-            {kindLabel}
+          <div className="relative flex h-full flex-col items-center justify-center overflow-hidden bg-[color:var(--paper-200)]">
+            <svg
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full text-[color:var(--bronze-300)]"
+              preserveAspectRatio="none"
+            >
+              <line x1="0" y1="0" x2="100%" y2="100%" stroke="currentColor" strokeWidth="1" />
+              <line x1="100%" y1="0" x2="0" y2="100%" stroke="currentColor" strokeWidth="1" />
+            </svg>
+            <span className="relative font-editorial-italic text-5xl text-[color:var(--bronze-500)] sm:text-6xl">
+              {kindLabel}
+            </span>
+            <span className="relative mt-2 font-mono-editorial text-[10.5px] uppercase tracking-[0.3em] text-[color:var(--ink-400)]">
+              Awaiting cover
+            </span>
           </div>
         )}
-        <span className="absolute left-3 top-3 rounded-full bg-white/85 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-[#2a241f] backdrop-blur">
-          {kindLabel}
+        <span
+          className={cn(
+            "absolute left-4 top-4 font-mono-editorial text-[9.5px] uppercase tracking-[0.3em]",
+            item.featured
+              ? "rounded-full bg-[color:var(--oxblood-500)] px-3 py-1 text-white"
+              : "rounded-full bg-[color:var(--paper-50)]/90 px-3 py-1 text-[color:var(--ink-700)] backdrop-blur",
+          )}
+        >
+          {item.featured ? "Most Reached For" : kindLabel}
         </span>
       </div>
       <div className="flex flex-1 flex-col p-7">
-        <h3 className="font-editorial text-2xl leading-tight tracking-[-0.005em]">{item.title}</h3>
-        {item.subtitle ? <p className="mt-2 text-sm text-[#5f5650]">{item.subtitle}</p> : null}
-        {item.description ? (
-          <p className="mt-4 text-sm leading-relaxed text-[#3a322c]">{item.description}</p>
-        ) : null}
-        {item.includes?.length ? (
-          <ul className="mt-5 space-y-2 text-sm text-[#2a241f]">
+        <span className="font-mono-editorial text-[10.5px] uppercase tracking-[0.3em] text-[color:var(--bronze-600)]">
+          №{String(index + 1).padStart(2, "0")} · {kindLabel}
+        </span>
+        <h3 className="font-editorial mt-3 text-[1.75rem] leading-[1.02] tracking-[-0.02em] text-[color:var(--ink-900)]">
+          {item.title}
+        </h3>
+        {item.subtitle && (
+          <p className="mt-2 font-editorial-italic text-[15px] text-[color:var(--bronze-700)]">
+            {item.subtitle}
+          </p>
+        )}
+        {item.description && (
+          <p className="mt-4 text-[14.5px] leading-[1.7] text-[color:var(--ink-500)]">
+            {item.description}
+          </p>
+        )}
+        {item.includes?.length && (
+          <ul className="mt-5 space-y-2 text-[14.5px] text-[color:var(--ink-700)]">
             {item.includes.slice(0, 4).map((line) => (
               <li key={line} className="flex items-start gap-3">
-                <span aria-hidden="true" className="mt-[9px] block h-px w-4 shrink-0 bg-[#a8896b]" />
+                <span
+                  aria-hidden="true"
+                  className="mt-[10px] block h-px w-4 shrink-0 bg-[color:var(--bronze-500)]"
+                />
                 <span>{line}</span>
               </li>
             ))}
           </ul>
-        ) : null}
-        <div className="mt-8 flex-1" />
-        <div className="mt-6 flex items-baseline justify-between gap-4">
-          <span className="font-editorial text-3xl leading-none tracking-[-0.02em]">{formatPrice(item.priceCents)}</span>
-          {item.pageCount ? (
-            <span className="text-[10px] uppercase tracking-[0.24em] text-[#8a7d72]">{item.pageCount} pages</span>
-          ) : null}
+        )}
+        <div className="mt-6 flex-1" />
+        <div className="flex items-baseline justify-between gap-4 border-t border-[color:var(--bronze-200)] pt-5">
+          <span className="font-editorial text-4xl leading-none tracking-[-0.03em] text-[color:var(--ink-900)]">
+            {formatPrice(item.priceCents)}
+          </span>
+          {item.pageCount && (
+            <span className="font-mono-editorial text-[10.5px] uppercase tracking-[0.28em] text-[color:var(--ink-400)]">
+              {item.pageCount} pages
+            </span>
+          )}
         </div>
         <div className="mt-5">
           <CheckoutButton

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { Container } from "@/components/ui/Container";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { hasSummerSupabaseAdminConfig } from "@/lib/summer/supabase";
 import { getSummerAdminSession } from "@/lib/summer/admin-auth";
 import { adminLoginAction } from "@/server/summer/admin-actions";
@@ -20,41 +22,84 @@ export default async function AdminLoginPage({
   const configured = hasSummerSupabaseAdminConfig();
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f6f1ea] px-4 py-10 text-[#181512]">
-      <div className="w-full max-w-md border border-black/8 bg-[#fbf7f2] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.06)] sm:p-8">
-        <p className="font-editorial text-4xl leading-none tracking-[0.04em]">Summer Loffler</p>
-        <p className="mt-3 text-xs uppercase tracking-[0.28em] text-[#7a6f67]">Admin Login</p>
-        <h1 className="font-editorial mt-6 text-4xl leading-none tracking-[-0.03em]">Protected access.</h1>
-        <p className="mt-4 text-sm leading-6 text-[#5f5650]">
-          Sign in with a Supabase account that is allowed in `summer.admin_users`.
-        </p>
-
-        {!configured ? (
-          <div className="mt-6 border border-[#a66d3d]/20 bg-[#fff4e8] p-4 text-sm leading-6 text-[#7b4c1f]">
-            Supabase admin env vars are missing. Configure them before using `/admin`.
+    <main className="flex min-h-screen items-center bg-[color:var(--paper-100)] text-[color:var(--ink-900)]">
+      <Container size="md" className="py-16">
+        <div className="mx-auto w-full max-w-md border border-[color:var(--bronze-300)] bg-[color:var(--paper-50)] p-8 sm:p-10">
+          <span className="font-editorial text-3xl leading-[0.95] tracking-[-0.02em]">
+            Summer Loffler
+          </span>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="h-px w-6 bg-[color:var(--bronze-500)]" aria-hidden="true" />
+            <Eyebrow variant="mono" tone="bronze">
+              Admin · Protected
+            </Eyebrow>
           </div>
-        ) : null}
+          <h1 className="font-editorial mt-6 text-5xl leading-[0.95] tracking-[-0.035em]">
+            Protected access.
+          </h1>
+          <p className="mt-5 text-[15px] leading-[1.7] text-[color:var(--ink-500)]">
+            Sign in with a Supabase account allowed in{" "}
+            <code className="rounded bg-[color:var(--paper-200)] px-1.5 py-0.5 font-mono-editorial text-[12px]">
+              summer.admin_users
+            </code>
+            .
+          </p>
 
-        {error ? <div className="mt-6 border border-[#8a2b2b]/20 bg-[#fff1f1] p-4 text-sm leading-6 text-[#8a2b2b]">{error}</div> : null}
+          {!configured && (
+            <div className="mt-6 border border-[color:var(--bronze-400)] bg-[color:var(--bronze-100)] p-4 font-editorial-italic text-[14px] leading-[1.55] text-[color:var(--ink-700)]">
+              Supabase admin env vars are missing. Configure them before using{" "}
+              <code className="font-mono-editorial">/admin</code>.
+            </div>
+          )}
 
-        <form action={adminLoginAction} className="mt-8 space-y-5">
-          <label className="block">
-            <span className="mb-2 block text-xs uppercase tracking-[0.24em] text-[#7a6f67]">Email</span>
-            <input name="email" type="email" required className="min-h-12 w-full border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/35" />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-xs uppercase tracking-[0.24em] text-[#7a6f67]">Password</span>
-            <input name="password" type="password" required className="min-h-12 w-full border border-black/10 bg-white px-4 text-sm outline-none focus:border-black/35" />
-          </label>
-          <button
-            type="submit"
-            disabled={!configured}
-            className="inline-flex min-h-12 w-full items-center justify-center border border-[#1d1814] bg-[#191512] px-6 text-sm font-medium tracking-[0.03em] text-white transition enabled:hover:bg-[#2a241f] disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            Sign in
-          </button>
-        </form>
-      </div>
+          {error && (
+            <div className="mt-6 border border-[color:var(--danger-700)]/30 bg-[color:var(--danger-50)] p-4 font-editorial-italic text-[14px] leading-[1.55] text-[color:var(--danger-700)]">
+              {error}
+            </div>
+          )}
+
+          <form action={adminLoginAction} className="mt-8 flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="admin-email" className="eyebrow eyebrow-bronze">
+                Email
+              </label>
+              <div className="flex items-center border-b border-[color:var(--ink-900)]/15 pb-2 transition focus-within:border-[color:var(--bronze-500)]">
+                <input
+                  id="admin-email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  inputMode="email"
+                  className="min-h-10 w-full bg-transparent text-base focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="admin-password" className="eyebrow eyebrow-bronze">
+                Password
+              </label>
+              <div className="flex items-center border-b border-[color:var(--ink-900)]/15 pb-2 transition focus-within:border-[color:var(--bronze-500)]">
+                <input
+                  id="admin-password"
+                  name="password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="min-h-10 w-full bg-transparent text-base focus:outline-none"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={!configured}
+              className="press-effect focus-ring mt-3 inline-flex min-h-12 w-full items-center justify-center border border-[color:var(--ink-900)] bg-[color:var(--ink-900)] font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-white transition enabled:hover:bg-[color:var(--ink-700)] disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              Sign in
+            </button>
+          </form>
+        </div>
+      </Container>
     </main>
   );
 }

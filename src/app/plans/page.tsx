@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { PlanCard } from "@/components/summer/PlanCard";
 import { ScrollReveal } from "@/components/summer/ScrollReveal";
+import { Container } from "@/components/ui/Container";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { getSummerPublicSnapshot } from "@/lib/summer/site-content";
 
 export const metadata: Metadata = {
@@ -22,32 +25,51 @@ export default async function PlansPage() {
   const products = snapshot.digitalProducts.filter((p) => p.is_visible);
 
   return (
-    <main className="bg-[#f6f1ea] text-[#181512]">
+    <main className="bg-[color:var(--paper-100)] text-[color:var(--ink-900)]">
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 pb-12 pt-40 md:px-10 md:pb-20 md:pt-48">
-        <div className="mx-auto max-w-7xl">
-          <ScrollReveal>
-            <p className="text-[11px] uppercase tracking-[0.34em] text-[#8a7d72]">Guides & Meal Plans</p>
-          </ScrollReveal>
-          <ScrollReveal delayMs={80}>
-            <h1 className="font-editorial mt-4 max-w-4xl text-balance text-5xl leading-[1.02] tracking-[-0.01em] md:text-7xl">
-              {snapshot.plansIntro.heading}
-            </h1>
-          </ScrollReveal>
-          <ScrollReveal delayMs={160}>
-            <p className="mt-6 max-w-2xl text-base text-[#3a322c] md:text-lg">
-              {snapshot.plansIntro.subheading}
-            </p>
-          </ScrollReveal>
-        </div>
+      <section className="relative overflow-hidden bg-[color:var(--paper-50)]">
+        <Container
+          size="xl"
+          className="pb-16 pt-36 md:pb-24 md:pt-48"
+          style={{ paddingTop: "calc(9rem + env(safe-area-inset-top))" }}
+        >
+          <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-8">
+              <ScrollReveal>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--bronze-600)]">
+                    § Collection
+                  </span>
+                  <Eyebrow variant="mono" tone="bronze">
+                    Guides &amp; Meal Plans
+                  </Eyebrow>
+                </div>
+              </ScrollReveal>
+              <ScrollReveal delayMs={80}>
+                <h1 className="font-editorial mt-5 max-w-[22ch] text-balance text-5xl leading-[0.9] font-medium tracking-[-0.04em] md:text-[7.5rem]">
+                  {snapshot.plansIntro.heading}
+                </h1>
+              </ScrollReveal>
+            </div>
+            <div className="lg:col-span-4">
+              <ScrollReveal delayMs={160}>
+                <p className="font-editorial-italic text-[17px] leading-[1.7] text-[color:var(--ink-500)]">
+                  {snapshot.plansIntro.subheading}
+                </p>
+              </ScrollReveal>
+            </div>
+          </div>
+        </Container>
       </section>
 
-      <section className="relative overflow-hidden px-6 pb-24 md:px-10 md:pb-32">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {products.map((p) => (
+      {/* Products */}
+      <section className="relative bg-[color:var(--paper-100)]">
+        <Container size="xl" className="py-20 md:py-28">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-10">
+            {products.map((p, idx) => (
               <PlanCard
                 key={p.id}
+                index={idx}
                 item={{
                   id: p.id,
                   slug: p.slug,
@@ -64,37 +86,47 @@ export default async function PlansPage() {
               />
             ))}
           </div>
-        </div>
+        </Container>
       </section>
 
-      {/* CTA strip */}
-      <section className="relative overflow-hidden bg-[#191512] px-6 py-20 text-white md:px-10 md:py-28">
-        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.34em] text-white/55">Bundle</p>
-            <h2 className="font-editorial mt-4 max-w-xl text-balance text-4xl leading-[1.05] tracking-[-0.01em] md:text-5xl">
-              Pair a guide with a subscription and the progress compounds.
-            </h2>
+      {/* Cinematic CTA strip */}
+      <section className="relative overflow-hidden bg-[color:var(--ink-900)] text-white">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            opacity: 0.11,
+            mixBlendMode: "overlay",
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
+        <Container size="xl" className="relative py-24 md:py-32 lg:py-40">
+          <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+            <div>
+              <Eyebrow variant="mono" tone="light">
+                Or start with everything
+              </Eyebrow>
+              <h2 className="font-editorial-italic mt-6 max-w-[24ch] text-balance text-5xl leading-[0.98] tracking-[-0.035em] md:text-[5rem]">
+                Pair a guide with a subscription and the progress compounds.
+              </h2>
+              <p className="mt-6 max-w-xl text-[15px] leading-[1.7] text-white/70">
+                Bring any guide into your weekly sessions with Summer — the classes pick up where
+                the printable leaves off.
+              </p>
+            </div>
+            <div className="flex md:justify-end">
+              <Link
+                href="/classes"
+                className="press-effect focus-ring inline-flex min-h-12 items-center justify-center gap-2 border border-white bg-white px-7 font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--ink-900)] transition hover:border-[color:var(--bronze-500)] hover:bg-[color:var(--bronze-500)] hover:text-white"
+              >
+                See subscription tiers
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
           </div>
-          <div className="flex items-end">
-            <a
-              href="/classes"
-              className="inline-flex min-h-12 items-center justify-center border border-white bg-white px-6 text-[11px] uppercase tracking-[0.28em] text-[#181512] transition hover:bg-[#a8896b] hover:text-white hover:border-[#a8896b]"
-            >
-              See subscription tiers
-            </a>
-          </div>
-        </div>
+        </Container>
       </section>
-
-      <footer className="border-t border-black/6 bg-[#f6f1ea] px-6 py-12 md:px-10">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <p className="font-editorial text-2xl leading-none tracking-[0.03em]">Summer Loffler</p>
-          <p className="text-[11px] uppercase tracking-[0.28em] text-[#8a7d72]">
-            Los Angeles · Playa Del Rey · Manhattan Beach
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import { CheckoutButton } from "@/components/summer/CheckoutButton";
 import { ScrollReveal } from "@/components/summer/ScrollReveal";
+import { cn } from "@/lib/cn";
 
 export type PricingCardProps = {
   tierId: string;
@@ -13,6 +14,7 @@ export type PricingCardProps = {
   badge?: string | null;
   featured?: boolean;
   hasStripePrice: boolean;
+  index?: number;
 };
 
 function formatPrice(cents: number, interval: string) {
@@ -35,38 +37,73 @@ export function PricingCard({
   badge,
   featured,
   hasStripePrice,
+  index = 0,
 }: PricingCardProps) {
   const { amount, unit } = formatPrice(priceCents, interval);
+  const accentText = featured
+    ? "text-[color:var(--oxblood-500)]"
+    : "text-[color:var(--bronze-600)]";
+
   return (
     <ScrollReveal
       as="article"
-      className={`relative flex h-full flex-col p-8 md:p-10 ${featured ? "luxe-card-featured luxe-card" : "luxe-card"}`}
+      delayMs={index * 100}
+      className={cn(
+        "relative flex h-full flex-col p-8 md:p-10",
+        featured ? "luxe-card-featured luxe-card" : "luxe-card",
+      )}
     >
-      {badge ? (
+      {featured && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-[1px] left-1/2 -translate-x-1/2 bg-[color:var(--oxblood-500)] px-4 py-1"
+        >
+          <span className="font-mono-editorial text-[9.5px] uppercase tracking-[0.32em] text-[color:var(--paper-100)]">
+            {badge || "Most Chosen"}
+          </span>
+        </div>
+      )}
+      {!featured && badge && (
         <span
-          className={`absolute right-6 top-6 text-[10px] uppercase tracking-[0.28em] ${
-            featured ? "text-[#a8896b]" : "text-[#8a7d72]"
-          }`}
+          className={cn(
+            "absolute right-6 top-6 font-mono-editorial text-[10px] uppercase tracking-[0.28em]",
+            accentText,
+          )}
         >
           {badge}
         </span>
-      ) : null}
-      <p className="text-[11px] uppercase tracking-[0.28em] text-[#8a7d72]">Tier</p>
-      <h3 className="font-editorial mt-4 text-4xl leading-none tracking-[-0.01em]">{title}</h3>
-      {subtitle ? <p className="mt-3 text-sm text-[#5f5650]">{subtitle}</p> : null}
+      )}
 
-      <div className="mt-8 flex items-baseline gap-2">
-        <span className="font-editorial text-5xl leading-none tracking-[-0.02em]">{amount}</span>
-        <span className="text-xs uppercase tracking-[0.22em] text-[#8a7d72]">{unit}</span>
+      <span className="font-mono-editorial text-[11px] uppercase tracking-[0.3em] text-[color:var(--bronze-600)]">
+        Tier №{String(index + 1).padStart(2, "0")}
+      </span>
+      <h3 className="font-editorial mt-4 text-4xl leading-[0.98] tracking-[-0.025em] text-[color:var(--ink-900)] md:text-5xl">
+        {title}
+      </h3>
+      {subtitle && (
+        <p className="mt-3 font-editorial-italic text-[15px] text-[color:var(--bronze-700)]">
+          {subtitle}
+        </p>
+      )}
+
+      <div className="mt-7 flex items-baseline gap-2 border-t border-[color:var(--bronze-200)] pt-7">
+        <span className="font-editorial text-6xl leading-none tracking-[-0.03em]">{amount}</span>
+        <span className="font-mono-editorial text-[10.5px] uppercase tracking-[0.24em] text-[color:var(--ink-400)]">
+          {unit}
+        </span>
       </div>
-      {description ? <p className="mt-5 text-sm leading-relaxed text-[#3a322c]">{description}</p> : null}
+      {description && (
+        <p className="mt-5 text-[14.5px] leading-[1.7] text-[color:var(--ink-500)]">
+          {description}
+        </p>
+      )}
 
-      <ul className="mt-7 space-y-3 text-sm text-[#2a241f]">
+      <ul className="mt-7 space-y-3 text-[14.5px] text-[color:var(--ink-700)]">
         {features.map((f) => (
           <li key={f} className="flex items-start gap-3">
             <span
               aria-hidden="true"
-              className="mt-[9px] block h-px w-4 shrink-0 bg-[#a8896b]"
+              className="mt-[10px] block h-px w-4 shrink-0 bg-[color:var(--bronze-500)]"
             />
             <span>{f}</span>
           </li>
@@ -82,11 +119,11 @@ export function PricingCard({
       >
         {hasStripePrice ? `Subscribe · ${amount} ${unit}` : "Get notified at launch"}
       </CheckoutButton>
-      {!hasStripePrice ? (
-        <p className="mt-3 text-[11px] uppercase tracking-[0.22em] text-[#8a7d72]">
+      {!hasStripePrice && (
+        <p className="mt-3 font-mono-editorial text-[10.5px] uppercase tracking-[0.24em] text-[color:var(--ink-400)]">
           Pricing connects to Stripe on go-live
         </p>
-      ) : null}
+      )}
     </ScrollReveal>
   );
 }

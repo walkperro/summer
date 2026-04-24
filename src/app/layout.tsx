@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
 
 import { config as faConfig } from "@fortawesome/fontawesome-svg-core";
 import "@fortawesome/fontawesome-svg-core/styles.css";
 
+import { FooterMount } from "@/components/summer/FooterMount";
 import { Header as SiteHeader } from "@/components/summer/Header";
+import { PageShell } from "@/components/summer/PageShell";
+import { getSummerPublicSnapshot } from "@/lib/summer/site-content";
 
 import "./globals.css";
 
@@ -53,7 +56,7 @@ export const metadata: Metadata = {
     template: "%s | Summer Loffler",
   },
   description:
-    "Summer Loffler offers private training, online coaching, and refined fitness work in Los Angeles, serving Playa Del Rey, Manhattan Beach, and surrounding areas.",
+    "Private training, online coaching, and refined fitness work in Los Angeles — heavy lifting, glute-focused programming, and editorial direction by Summer Loffler.",
   openGraph: {
     siteName: "Summer Loffler",
     type: "website",
@@ -63,19 +66,32 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export const viewport: Viewport = {
+  themeColor: "#f6f1ea",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const snapshot = await getSummerPublicSnapshot();
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        <div className="flex min-h-full flex-col pt-0">{children}</div>
+      <body className="flex min-h-full flex-col bg-[color:var(--paper-100)] text-[color:var(--ink-900)]">
+        <SiteHeader instagramUrl={snapshot.instagramUrl} />
+        <PageShell>{children}</PageShell>
+        <FooterMount
+          instagramUrl={snapshot.instagramUrl}
+          contactEmail={snapshot.contactEmail}
+        />
       </body>
     </html>
   );

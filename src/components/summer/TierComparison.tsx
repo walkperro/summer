@@ -1,3 +1,5 @@
+import { Container } from "@/components/ui/Container";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { PricingCard } from "@/components/summer/PricingCard";
 import { ScrollReveal } from "@/components/summer/ScrollReveal";
 
@@ -22,26 +24,47 @@ type Props = {
   tiers: TierComparisonItem[];
 };
 
-export function TierComparison({ eyebrow = "Subscribe", heading = "Pick a tier. Move with Summer.", subheading, tiers }: Props) {
+export function TierComparison({
+  eyebrow = "Subscribe",
+  heading = "Pick a tier. Move with Summer.",
+  subheading,
+  tiers,
+}: Props) {
   if (!tiers.length) return null;
   return (
-    <section id="subscriptions" className="relative overflow-hidden bg-[#f6f1ea] px-6 py-24 md:px-10 md:py-32">
-      <div className="mx-auto max-w-7xl">
-        <ScrollReveal>
-          <p className="text-[11px] uppercase tracking-[0.34em] text-[#8a7d72]">{eyebrow}</p>
-        </ScrollReveal>
-        <ScrollReveal delayMs={80}>
-          <h2 className="font-editorial mt-4 max-w-3xl text-balance text-4xl leading-[1.04] tracking-[-0.01em] md:text-6xl">
-            {heading}
-          </h2>
-        </ScrollReveal>
-        {subheading ? (
-          <ScrollReveal delayMs={160}>
-            <p className="mt-5 max-w-3xl text-base text-[#3a322c] md:text-lg">{subheading}</p>
-          </ScrollReveal>
-        ) : null}
-        <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {tiers.map((tier) => (
+    <section
+      id="subscriptions"
+      className="relative overflow-hidden border-y border-[color:var(--bronze-300)] bg-[color:var(--paper-50)]"
+    >
+      <Container size="xl" className="py-24 md:py-32 lg:py-40">
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-12">
+          <div className="lg:col-span-7">
+            <ScrollReveal>
+              <div className="flex items-center gap-3">
+                <span className="font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--bronze-600)]">
+                  § IX
+                </span>
+                <Eyebrow variant="mono" tone="bronze">
+                  {eyebrow}
+                </Eyebrow>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delayMs={80}>
+              <h2 className="font-editorial mt-5 max-w-[22ch] text-balance text-5xl leading-[0.95] font-medium tracking-[-0.035em] md:text-[4.75rem]">
+                {heading}
+              </h2>
+            </ScrollReveal>
+          </div>
+          {subheading && (
+            <div className="lg:col-span-5">
+              <ScrollReveal delayMs={160}>
+                <p className="text-[15px] leading-[1.75] text-[color:var(--ink-500)]">{subheading}</p>
+              </ScrollReveal>
+            </div>
+          )}
+        </div>
+        <div className="mt-16 grid gap-6 md:grid-cols-2 xl:grid-cols-3 md:mt-20">
+          {tiers.map((tier, idx) => (
             <PricingCard
               key={tier.id}
               tierId={tier.id}
@@ -55,10 +78,11 @@ export function TierComparison({ eyebrow = "Subscribe", heading = "Pick a tier. 
               badge={tier.badge}
               featured={tier.is_featured}
               hasStripePrice={Boolean(tier.stripe_price_id)}
+              index={idx}
             />
           ))}
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

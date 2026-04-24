@@ -2,24 +2,19 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { EmailCaptureDialog } from "@/components/ui/EmailCaptureDialog";
+import { cn } from "@/lib/cn";
+
+type Variant = "primary" | "secondary" | "link";
+
 type Props = {
   endpoint: "/api/checkout/subscribe" | "/api/checkout/product";
   payload: Record<string, unknown>;
   children: React.ReactNode;
   className?: string;
-  variant?: "primary" | "secondary" | "link";
+  variant?: Variant;
   emailPrompt?: boolean;
-};
-
-const base =
-  "group inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium uppercase tracking-[0.18em] transition";
-
-const variants: Record<NonNullable<Props["variant"]>, string> = {
-  primary:
-    "min-h-12 border border-[#1d1814] bg-[#191512] px-6 text-white hover:bg-[#2a241f]",
-  secondary:
-    "min-h-12 border border-black/18 bg-transparent px-6 text-[#181512] hover:border-[#a8896b] hover:text-[#a8896b]",
-  link: "text-[#181512] accent-underline",
 };
 
 export function CheckoutButton({
@@ -32,20 +27,12 @@ export function CheckoutButton({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
 
-  async function onClick() {
+  async function startCheckout(email?: string) {
     setError(null);
     setLoading(true);
     try {
-      let email: string | undefined;
-      if (emailPrompt) {
-        const input = window.prompt("Enter the email to attach this order to:");
-        if (!input) {
-          setLoading(false);
-          return;
-        }
-        email = input.trim().toLowerCase();
-      }
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,17 +51,40 @@ export function CheckoutButton({
     }
   }
 
+  function onClick() {
+    if (emailPrompt) {
+      setEmailOpen(true);
+    } else {
+      void startCheckout();
+    }
+  }
+
   return (
-    <div className="flex flex-col items-start gap-2">
-      <button
+    <div className={cn("flex flex-col items-start gap-2", variant === "link" ? "" : "w-full")}>
+      <Button
         type="button"
         onClick={onClick}
-        disabled={loading}
-        className={`${base} ${variants[variant]} ${className || ""} ${loading ? "opacity-60" : ""}`}
+        loading={loading}
+        variant={variant}
+        fullWidth={variant !== "link"}
+        className={className}
       >
         {loading ? "Opening checkout…" : children}
-      </button>
-      {error ? <p className="text-xs text-red-700">{error}</p> : null}
+      </Button>
+      {error && (
+        <p className="font-editorial-italic text-[13px] text-[color:var(--danger-700)]">{error}</p>
+      )}
+      {emailPrompt && (
+        <EmailCaptureDialog
+          open={emailOpen}
+          busy={loading}
+          onClose={() => setEmailOpen(false)}
+          onSubmit={async (email) => {
+            setEmailOpen(false);
+            await startCheckout(email.toLowerCase());
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -196,15 +196,12 @@ export default async function Home() {
   };
 
   return (
-    <main className="overflow-x-hidden bg-[#f6f1ea] text-[#181512]">
+    <main className="overflow-x-hidden bg-[color:var(--paper-100)] text-[color:var(--ink-900)]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Hero
-        slides={snapshot.heroSlides}
-        heading={snapshot.heroHeading}
-        subheading={snapshot.heroSubheading}
         primaryCtaLabel={snapshot.primaryCtaLabel}
         primaryCtaHref={snapshot.primaryCtaHref}
         secondaryCtaLabel={snapshot.secondaryCtaLabel}
@@ -255,28 +252,6 @@ export default async function Home() {
       {snapshot.contact.isVisible ? (
         <ContactCta section={snapshot.contact} contactEmail={snapshot.contactEmail} instagramUrl={snapshot.instagramUrl} />
       ) : null}
-      <footer className="border-t border-black/6 bg-[#f6f1ea] px-6 pb-28 pt-8 md:px-10 md:pb-10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="font-editorial text-3xl leading-none tracking-[0.05em] text-[#181512]">Summer Loffler</p>
-            <p className="mt-3 text-[11px] uppercase tracking-[0.28em] text-[#8a7d72]">Los Angeles / Playa Del Rey / Manhattan Beach</p>
-          </div>
-          <div className="flex flex-wrap gap-5 text-sm text-[#5f5650]">
-            <a href="#about" className="transition hover:text-[#181512]">
-              About
-            </a>
-            <a href="#training" className="transition hover:text-[#181512]">
-              Training
-            </a>
-            <a href="#portfolio" className="transition hover:text-[#181512]">
-              Portfolio
-            </a>
-            <a href="#contact" className="transition hover:text-[#181512]">
-              Inquiry
-            </a>
-          </div>
-        </div>
-      </footer>
       <MobileCtaBar />
     </main>
   );
