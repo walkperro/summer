@@ -3,7 +3,12 @@ import Link from "next/link";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminImage } from "@/components/admin/AdminImage";
 import { AdminPage } from "@/components/admin/AdminPage";
+import { OnboardingChecklist } from "@/components/admin/OnboardingChecklist";
+import { TipsCard } from "@/components/admin/TipsCard";
 import { getSummerAdminDashboardData } from "@/lib/summer/admin-data";
+import { isStripeConfigured } from "@/lib/summer/stripe";
+import { selectSummerRows } from "@/lib/summer/supabase";
+import type { SummerClass, SummerDigitalProduct, SummerSubscriptionTier } from "@/lib/summer/types";
 
 export default async function AdminDashboardPage({
   searchParams,
@@ -14,12 +19,57 @@ export default async function AdminDashboardPage({
   const result = typeof params?.result === "string" ? params.result : undefined;
   const dashboard = await getSummerAdminDashboardData();
 
+  const [tiers, products, classes] = await Promise.all([
+    selectSummerRows<SummerSubscriptionTier>("subscription_tiers", {}).catch(() => []),
+    selectSummerRows<SummerDigitalProduct>("digital_products", {}).catch(() => []),
+    selectSummerRows<SummerClass>("classes", {}).catch(() => []),
+  ]);
+
+  const steps = [
+    {
+      label: "Add your Stripe keys to .env.local",
+      done: isStripeConfigured(),
+      href: "/admin/settings",
+      hint: "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+    },
+    {
+      label: "Link a Stripe price id to each subscription tier",
+      done: tiers.some((t) => Boolean(t.stripe_price_id)),
+      href: "/admin/subscriptions",
+    },
+    {
+      label: "Publish at least one class to the library",
+      done: classes.length > 0,
+      href: "/admin/classes",
+    },
+    {
+      label: "Publish at least one digital guide",
+      done: products.length > 0,
+      href: "/admin/plans",
+    },
+    {
+      label: "Approve hero + about imagery",
+      done: dashboard.totals.approvedMedia > 0,
+      href: "/admin/media",
+    },
+    {
+      label: "Send the subscription link to five warmest DMs",
+      done: false,
+      hint: "This one only counts when you actually do it.",
+    },
+  ];
+
   return (
     <AdminPage
       title="Dashboard"
-      description="A clean overview of inquiries, media, offers, and image tooling activity across the Summer system."
+      description="A clean overview of your business — inquiries, subscriptions, purchases, and what to do next."
       result={result}
     >
+      <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <TipsCard pageKey="dashboard" />
+        <OnboardingChecklist steps={steps} />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
           ["Total inquiries", dashboard.totals.inquiries],

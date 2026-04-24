@@ -5,17 +5,41 @@ import { usePathname } from "next/navigation";
 
 import { adminLogoutAction } from "@/server/summer/admin-actions";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/content", label: "Content" },
-  { href: "/admin/offers", label: "Ways to Work Together" },
-  { href: "/admin/media", label: "Media" },
-  { href: "/admin/hero", label: "Hero" },
-  { href: "/admin/gallery", label: "Gallery" },
-  { href: "/admin/inquiries", label: "Inquiries" },
-  { href: "/admin/image-studio", label: "Image Studio" },
-  { href: "/admin/settings", label: "Settings" },
-] as const;
+const NAV_SECTIONS: ReadonlyArray<{
+  label: string;
+  items: ReadonlyArray<{ href: string; label: string }>;
+}> = [
+  {
+    label: "Sell & serve",
+    items: [
+      { href: "/admin", label: "Dashboard" },
+      { href: "/admin/clients", label: "Clients" },
+      { href: "/admin/inquiries", label: "Inquiries" },
+      { href: "/admin/subscriptions", label: "Subscriptions" },
+      { href: "/admin/revenue", label: "Revenue" },
+    ],
+  },
+  {
+    label: "Programs",
+    items: [
+      { href: "/admin/classes", label: "Classes" },
+      { href: "/admin/plans", label: "Guides & Meal Plans" },
+      { href: "/admin/testimonials", label: "Testimonials" },
+    ],
+  },
+  {
+    label: "Brand",
+    items: [
+      { href: "/admin/content", label: "Content" },
+      { href: "/admin/offers", label: "Ways to Work Together" },
+      { href: "/admin/hero", label: "Hero" },
+      { href: "/admin/gallery", label: "Gallery" },
+      { href: "/admin/media", label: "Media" },
+      { href: "/admin/image-studio", label: "Image Studio" },
+      { href: "/admin/settings", label: "Settings" },
+    ],
+  },
+];
 
 export function AdminShell({
   children,
@@ -37,22 +61,30 @@ export function AdminShell({
               <p className="mt-4 text-sm text-[#5f5650]">Signed in as {adminEmail}</p>
             </div>
 
-            <nav className="mt-6 space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center justify-between px-4 py-3 text-sm transition ${
-                      active ? "bg-[#191512] text-white" : "text-[#2f2823] hover:bg-white/60"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+            <nav className="mt-6 space-y-6">
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.label}>
+                  <p className="px-2 text-[10px] uppercase tracking-[0.28em] text-[#a8896b]">{section.label}</p>
+                  <div className="mt-2 space-y-1">
+                    {section.items.map((item) => {
+                      const active =
+                        currentPath === item.href ||
+                        (item.href !== "/admin" && currentPath?.startsWith(`${item.href}/`));
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex items-center justify-between px-4 py-3 text-sm transition ${
+                            active ? "bg-[#191512] text-white" : "text-[#2f2823] hover:bg-white/60"
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
 
             <form action={adminLogoutAction} className="mt-8">

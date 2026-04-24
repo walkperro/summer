@@ -3,11 +3,21 @@
 :root {
   --background: #f6f1ea;
   --foreground: #181512;
+
+  /* Accent + luxury tokens — kept minimal so the palette stays editorial. */
+  --accent-bronze: #a8896b;
+  --accent-bronze-soft: #c8b193;
+  --accent-hairline: #d8c8b4;
+  --accent-ink: #2a241f;
+  --accent-shadow: rgba(24, 21, 18, 0.08);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent-bronze);
+  --color-accent-soft: var(--accent-bronze-soft);
+  --color-hairline: var(--accent-hairline);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-cormorant-garamond);
@@ -39,6 +49,101 @@ body {
   font-family: var(--font-cormorant-garamond), Georgia, serif;
 }
 
+.font-editorial-italic {
+  font-family: var(--font-cormorant-garamond), Georgia, serif;
+  font-style: italic;
+}
+
 .text-balance {
   text-wrap: balance;
+}
+
+/* Hairline divider used across sections. */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-hairline), transparent);
+}
+
+/* Bronze underline reveal — used on nav + CTAs. */
+.accent-underline {
+  position: relative;
+}
+.accent-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 1px;
+  background: var(--accent-bronze);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.accent-underline:hover::after,
+.accent-underline[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+/* Scroll-reveal: base state + revealed state. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+[data-reveal][data-revealed="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Hero ken-burns — gentle scale, respects reduced motion. */
+@keyframes hero-ken-burns {
+  0% { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.055) translate3d(0, -1.5%, 0); }
+}
+.hero-ken-burns {
+  animation: hero-ken-burns 12s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-ken-burns {
+    animation: none;
+  }
+}
+
+/* Editorial pull-quote decoration. */
+.pull-quote-mark {
+  font-family: var(--font-cormorant-garamond), Georgia, serif;
+  font-style: italic;
+  color: var(--accent-bronze);
+}
+
+/* Shadow used on subtle cards (pricing, class cards). */
+.luxe-card {
+  background: #fff;
+  border: 1px solid rgba(24, 21, 18, 0.06);
+  box-shadow: 0 1px 0 rgba(24, 21, 18, 0.02), 0 24px 48px -36px rgba(24, 21, 18, 0.12);
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.luxe-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(24, 21, 18, 0.02), 0 32px 60px -32px rgba(24, 21, 18, 0.18);
+}
+
+/* Featured card — soft bronze ring. */
+.luxe-card-featured {
+  border-color: var(--accent-bronze-soft);
+  box-shadow:
+    0 0 0 1px var(--accent-bronze-soft) inset,
+    0 1px 0 rgba(24, 21, 18, 0.02),
+    0 32px 64px -36px rgba(168, 137, 107, 0.28);
 }

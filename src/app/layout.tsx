@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
+
+import { config as faConfig } from "@fortawesome/fontawesome-svg-core";
+import "@fortawesome/fontawesome-svg-core/styles.css";
+
+import { Header as SiteHeader } from "@/components/summer/Header";
+
 import "./globals.css";
+
+// FA: we're already bringing in the CSS manually, so Next's server render
+// shouldn't re-inject it on hydration.
+faConfig.autoAddCss = false;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,7 +73,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <SiteHeader />
+        <div className="flex min-h-full flex-col pt-0">{children}</div>
+      </body>
     </html>
   );
 }

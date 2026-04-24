@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 
 import { About } from "@/components/summer/About";
+import { ClassesTeaser } from "@/components/summer/ClassesTeaser";
 import { ContactCta } from "@/components/summer/ContactCta";
+import { FaqAccordion } from "@/components/summer/FaqAccordion";
 import { Gallery } from "@/components/summer/Gallery";
 import { Hero } from "@/components/summer/Hero";
 import { MobileCtaBar } from "@/components/summer/MobileCtaBar";
 import { Offers } from "@/components/summer/Offers";
+import { PlansTeaser } from "@/components/summer/PlansTeaser";
+import { PullQuote } from "@/components/summer/PullQuote";
 import { SignatureBreak } from "@/components/summer/SignatureBreak";
+import { TestimonialsStrip } from "@/components/summer/TestimonialsStrip";
 import { TrainWithMe } from "@/components/summer/TrainWithMe";
 import { getSummerPublicSnapshot } from "@/lib/summer/site-content";
 
@@ -62,6 +67,20 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Home() {
   const snapshot = await getSummerPublicSnapshot();
   const siteTitle = snapshot.siteTitle || "Summer Loffler";
+  const faqSchema = snapshot.faqItems.length
+    ? [
+        {
+          "@type": "FAQPage",
+          "@id": "/#faq",
+          mainEntity: snapshot.faqItems.map((item) => ({
+            "@type": "Question",
+            name: item.question,
+            acceptedAnswer: { "@type": "Answer", text: item.answer },
+          })),
+        },
+      ]
+    : [];
+
   const structuredData = {
     "@context": "https://schema.org",
     "@graph": [
@@ -71,45 +90,74 @@ export default async function Home() {
         name: siteTitle,
         url: "/",
         description:
-          "Private training, online coaching, and refined fitness work with Summer Loffler in Los Angeles.",
+          "Private training, online coaching, classes, and digital guides with Summer Loffler in Los Angeles.",
       },
       {
         "@type": "Person",
         "@id": "/#person",
         name: siteTitle,
         url: "/",
-        jobTitle: "Private Trainer and Fitness Coach",
+        jobTitle: "Private Trainer, Fitness Coach, and Glutes Specialist",
         description:
-          "Private trainer, online coach, and refined fitness talent based in Los Angeles.",
-        homeLocation: {
-          "@type": "City",
-          name: "Los Angeles",
-        },
+          "Heavy-lifting and glutes specialist coaching private clients in Los Angeles and online.",
+        homeLocation: { "@type": "City", name: "Los Angeles" },
         areaServed: [
           { "@type": "City", name: "Los Angeles" },
           { "@type": "City", name: "Playa Del Rey" },
           { "@type": "City", name: "Manhattan Beach" },
+          { "@type": "City", name: "Venice" },
+          { "@type": "City", name: "Santa Monica" },
+          { "@type": "City", name: "Marina Del Rey" },
+          { "@type": "City", name: "El Segundo" },
         ],
         knowsAbout: [
           "Private Training",
           "Online Coaching",
           "Personal Training",
           "Strength Training",
+          "Heavy Lifting",
           "Glute-Focused Training",
           "Nutrition Guidance",
-          "Fitness Coaching",
-          "Refined Fitness Portfolio",
+          "Meal Planning",
+          "Fitness Subscriptions",
+          "Editorial Fitness Portfolio",
         ],
         sameAs: snapshot.instagramUrl ? [snapshot.instagramUrl] : undefined,
+      },
+      {
+        "@type": "LocalBusiness",
+        "@id": "/#local-business",
+        name: `${siteTitle} — Private Training`,
+        url: "/",
+        image: "/images/summer/accent/signature_16_9_aspect_ratio.jpg",
+        priceRange: "$$$",
+        telephone: undefined,
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "Playa Del Rey",
+          addressRegion: "CA",
+          addressCountry: "US",
+        },
+        areaServed: [
+          "Playa Del Rey",
+          "Manhattan Beach",
+          "Venice",
+          "Santa Monica",
+          "Marina Del Rey",
+          "El Segundo",
+          "Los Angeles",
+        ],
+        geo: { "@type": "GeoCoordinates", latitude: 33.9617, longitude: -118.4487 },
       },
       {
         "@type": "Service",
         "@id": "/#private-training",
         serviceType: "Private Training",
         provider: { "@id": "/#person" },
-        areaServed: ["Los Angeles", "Playa Del Rey", "Manhattan Beach"],
+        areaServed: ["Playa Del Rey", "Manhattan Beach", "Los Angeles"],
         description:
-          "Private training in Los Angeles for clients seeking serious coaching, strength training, and polished presentation.",
+          "Hands-on private training for clients who want Summer's eye on every rep — heavy lifting, glutes, nutrition.",
+        offers: { "@type": "Offer", priceCurrency: "USD", price: 149, priceSpecification: "from $149 per session" },
       },
       {
         "@type": "Service",
@@ -117,7 +165,23 @@ export default async function Home() {
         serviceType: "Online Coaching",
         provider: { "@id": "/#person" },
         description:
-          "Online coaching with structured programming, strength training, glute-focused work, and nutrition guidance.",
+          "Remote 1:1 programming and weekly adjustments — heavy lifting, glute-focused work, nutrition.",
+        offers: { "@type": "Offer", priceCurrency: "USD", price: 349 },
+      },
+      {
+        "@type": "Service",
+        "@id": "/#online-classes",
+        serviceType: "Online Class Subscription",
+        provider: { "@id": "/#person" },
+        description:
+          "Subscribe to Summer's on-demand class library — heavy lifting, glutes, mobility, and live classes.",
+        offers: {
+          "@type": "AggregateOffer",
+          priceCurrency: "USD",
+          lowPrice: 29,
+          highPrice: 149,
+          offerCount: snapshot.tiers.length,
+        },
       },
       {
         "@type": "Service",
@@ -125,9 +189,9 @@ export default async function Home() {
         serviceType: "Refined Fitness Portfolio and Brand Bookings",
         provider: { "@id": "/#person" },
         areaServed: ["Los Angeles"],
-        description:
-          "Refined fitness portfolio work and select campaign bookings with a polished, athletic point of view.",
+        description: "Editorial and campaign work with a strong, directable on-camera presence.",
       },
+      ...faqSchema,
     ],
   };
 
@@ -148,6 +212,19 @@ export default async function Home() {
       />
       {snapshot.about.section.isVisible ? <About section={snapshot.about.section} images={snapshot.about.images} points={snapshot.about.points} /> : null}
       {snapshot.offersIntro.isVisible ? <Offers intro={snapshot.offersIntro} offers={snapshot.offers} /> : null}
+      <ClassesTeaser
+        eyebrow={snapshot.classesIntro.eyebrow}
+        heading={snapshot.classesIntro.heading}
+        subheading={snapshot.classesIntro.subheading}
+        cta={{ label: "See Subscriptions", href: "/classes" }}
+      />
+      {snapshot.signature.isVisible ? (
+        <PullQuote
+          eyebrow={snapshot.signature.eyebrow || "Mindset"}
+          quote={snapshot.signature.heading || "My summer body isn't a deadline."}
+          attribution={snapshot.signature.subheading || "— Summer Loffler"}
+        />
+      ) : null}
       {snapshot.trainWithMe.section.isVisible ? (
         <TrainWithMe
           section={snapshot.trainWithMe.section}
@@ -156,8 +233,25 @@ export default async function Home() {
           cards={snapshot.trainWithMe.cards}
         />
       ) : null}
-      {snapshot.signature.isVisible ? <SignatureBreak section={snapshot.signature} /> : null}
+      <PlansTeaser
+        eyebrow={snapshot.plansIntro.eyebrow}
+        heading={snapshot.plansIntro.heading}
+        subheading={snapshot.plansIntro.subheading}
+      />
+      <SignatureBreak section={snapshot.galleryIntro} />
       {snapshot.galleryIntro.isVisible ? <Gallery intro={snapshot.galleryIntro} items={snapshot.galleryItems} /> : null}
+      <TestimonialsStrip
+        eyebrow={snapshot.testimonialsIntro.eyebrow}
+        heading={snapshot.testimonialsIntro.heading}
+        subheading={snapshot.testimonialsIntro.subheading}
+        items={snapshot.testimonials}
+      />
+      <FaqAccordion
+        eyebrow={snapshot.faqIntro.eyebrow}
+        heading={snapshot.faqIntro.heading}
+        subheading={snapshot.faqIntro.subheading}
+        items={snapshot.faqItems}
+      />
       {snapshot.contact.isVisible ? (
         <ContactCta section={snapshot.contact} contactEmail={snapshot.contactEmail} instagramUrl={snapshot.instagramUrl} />
       ) : null}
