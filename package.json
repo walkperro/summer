@@ -7,12 +7,23 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "generate:camera-previews": "set -a && [ -f .env.local ] && . ./.env.local ; set +a ; node scripts/generate-camera-preview-assets.mjs"
+    "generate:camera-previews": "set -a && [ -f .env.local ] && . ./.env.local ; set +a ; node scripts/generate-camera-preview-assets.mjs",
+    "migrate": "node scripts/apply-migrations.mjs",
+    "migrate:local": "node scripts/apply-migrations.mjs --local",
+    "migrate:linked": "node scripts/apply-migrations.mjs --linked",
+    "migrate:paste": "node scripts/apply-migrations.mjs --paste",
+    "reframe:imported": "node scripts/reframe-imported-images.mjs",
+    "supabase": "supabase"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.2.0",
+    "@fortawesome/free-regular-svg-icons": "^7.2.0",
+    "@fortawesome/free-solid-svg-icons": "^7.2.0",
+    "@fortawesome/react-fontawesome": "^3.3.1",
     "next": "16.2.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "stripe": "^22.1.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -22,6 +33,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
+    "supabase": "^2.95.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

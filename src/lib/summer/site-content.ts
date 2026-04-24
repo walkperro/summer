@@ -14,12 +14,17 @@ import {
   selectSummerSingle,
 } from "@/lib/summer/supabase";
 import type {
+  SummerClass,
+  SummerDigitalProduct,
+  SummerFaqItem,
   SummerGalleryItem,
   SummerHeroItem,
   SummerMediaAsset,
   SummerOfferRecord,
   SummerSectionContent,
   SummerSiteSettings,
+  SummerSubscriptionTier,
+  SummerTestimonial,
 } from "@/lib/summer/types";
 
 export type SummerPublicSection = {
@@ -70,10 +75,415 @@ export type SummerPublicSnapshot = {
     cards: typeof trainingCards;
   };
   signature: SummerPublicSection;
+  classesIntro: SummerPublicSection;
+  plansIntro: SummerPublicSection;
+  testimonialsIntro: SummerPublicSection;
+  faqIntro: SummerPublicSection;
   galleryIntro: SummerPublicSection;
   galleryItems: typeof defaultGalleryItems;
   contact: SummerPublicSection;
+  tiers: SummerSubscriptionTier[];
+  digitalProducts: SummerDigitalProduct[];
+  testimonials: (SummerTestimonial & { beforeUrl?: string | null; afterUrl?: string | null })[];
+  faqItems: SummerFaqItem[];
+  classes: (SummerClass & { coverUrl?: string | null })[];
 };
+
+const DEFAULT_TIERS: SummerSubscriptionTier[] = [
+  {
+    id: "tier-essentials",
+    slug: "essentials-monthly",
+    title: "Essentials",
+    subtitle: "Start moving with Summer",
+    description:
+      "On-demand library access with new classes added monthly. A confident entry point for clients who want to train with Summer on their own schedule.",
+    price_cents: 2900,
+    interval: "month",
+    stripe_price_id: null,
+    features: [
+      "Full on-demand class library",
+      "2 new classes added monthly",
+      "Warm-ups, mobility, strength basics",
+      "Private community access",
+      "Cancel anytime",
+    ],
+    access_level: 1,
+    badge: null,
+    is_featured: false,
+    is_visible: true,
+    sort_order: 10,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "tier-signature",
+    slug: "signature-monthly",
+    title: "Signature",
+    subtitle: "The full program",
+    description:
+      "Everything in Essentials plus weekly live classes and a rotating four-week strength program. Built for clients committed to consistent results.",
+    price_cents: 7900,
+    interval: "month",
+    stripe_price_id: null,
+    features: [
+      "Everything in Essentials",
+      "Weekly live classes with Summer",
+      "Monthly glute-focused program",
+      "Seasonal nutrition guide drops",
+      "10% off private sessions",
+      "Priority class booking",
+    ],
+    access_level: 2,
+    badge: "Most Popular",
+    is_featured: true,
+    is_visible: true,
+    sort_order: 20,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "tier-inner-circle",
+    slug: "inner-circle-monthly",
+    title: "Inner Circle",
+    subtitle: "Close coaching without the in-person",
+    description:
+      "Everything in Signature plus direct messaging with Summer, a monthly 1:1 video check-in, and your programming tuned to you. The closest thing to private training without being in LA.",
+    price_cents: 14900,
+    interval: "month",
+    stripe_price_id: null,
+    features: [
+      "Everything in Signature",
+      "Monthly 1:1 video check-in with Summer",
+      "DM access for form and mindset",
+      "Programming tuned to your week",
+      "Custom macros + meal guidance",
+      "Guest pass for a friend each quarter",
+    ],
+    access_level: 3,
+    badge: "Limited Seats",
+    is_featured: false,
+    is_visible: true,
+    sort_order: 30,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_PRODUCTS: SummerDigitalProduct[] = [
+  {
+    id: "product-glute",
+    slug: "glute-sculpt-guide",
+    kind: "guide",
+    title: "Glute Sculpt Guide",
+    subtitle: "The heavy-lifting foundation.",
+    description:
+      "Summer's signature glute program in a printable PDF. Six weeks of progressive strength work built around the lifts she uses with her private clients.",
+    price_cents: 4900,
+    stripe_price_id: null,
+    cover_media_id: null,
+    file_url: null,
+    page_count: 52,
+    preview_url: null,
+    includes: [
+      "6-week progressive strength program",
+      "Heavy lifting foundations + form cues",
+      "Glute-focused accessory library",
+      "Warm-up + deload protocol",
+      "Printable tracking sheets",
+    ],
+    is_featured: true,
+    is_visible: true,
+    sort_order: 10,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "product-nutrition",
+    slug: "nutrition-starter-plan",
+    kind: "guide",
+    title: "Nutrition Starter Plan",
+    subtitle: "Eat for the body you're building.",
+    description:
+      "A realistic nutrition framework with macro guidance, grocery lists, and meal structures that fit a busy LA schedule. Not a diet — a way of eating you can keep.",
+    price_cents: 3900,
+    stripe_price_id: null,
+    cover_media_id: null,
+    file_url: null,
+    page_count: 38,
+    preview_url: null,
+    includes: [
+      "Macro + calorie starting points",
+      "Grocery list you can actually use",
+      "Breakfast, lunch, dinner frameworks",
+      "Dining-out cheat sheet",
+      "Hydration + supplement notes",
+    ],
+    is_featured: false,
+    is_visible: true,
+    sort_order: 20,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "product-reset",
+    slug: "7-day-reset-meal-plan",
+    kind: "meal_plan",
+    title: "7-Day Reset Meal Plan",
+    subtitle: "A clean restart, done right.",
+    description:
+      "A one-week meal plan built to get you back on rhythm without feeling punished. Real food, precise portions, minimal prep, designed for women training hard.",
+    price_cents: 2900,
+    stripe_price_id: null,
+    cover_media_id: null,
+    file_url: null,
+    page_count: 22,
+    preview_url: null,
+    includes: [
+      "7 days of breakfast, lunch, dinner",
+      "Aligned with heavy-lifting training days",
+      "Prep-ahead shopping list",
+      "Snack + travel swaps",
+      "Reset over, now what — next-step guide",
+    ],
+    is_featured: false,
+    is_visible: true,
+    sort_order: 30,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_TESTIMONIALS: (SummerTestimonial & { beforeUrl?: string | null; afterUrl?: string | null })[] = [
+  {
+    id: "t-1",
+    client_id: null,
+    name: "J. Winters",
+    location: "Manhattan Beach",
+    quote:
+      "Three months in and I finally trust my own strength. Summer made me slow the lifts down until they felt right — then the progress actually stuck.",
+    rating: 5,
+    before_media_id: null,
+    after_media_id: null,
+    is_featured: true,
+    is_visible: true,
+    sort_order: 10,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    beforeUrl: null,
+    afterUrl: "/images/summer/refined/summer-partner-train-portrait.png",
+  },
+  {
+    id: "t-2",
+    client_id: null,
+    name: "Amelia R.",
+    location: "Playa Del Rey",
+    quote:
+      "The glute guide is exactly what I needed — specific lifts, honest progressions, no fluff. I use it every single week.",
+    rating: 5,
+    before_media_id: null,
+    after_media_id: null,
+    is_featured: false,
+    is_visible: true,
+    sort_order: 20,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    beforeUrl: null,
+    afterUrl: null,
+  },
+  {
+    id: "t-3",
+    client_id: null,
+    name: "Marina H.",
+    location: "Venice",
+    quote:
+      "I came in skeptical about online coaching. Summer reviews my lifts like she's in the room with me. It's the first program I've actually kept.",
+    rating: 5,
+    before_media_id: null,
+    after_media_id: null,
+    is_featured: false,
+    is_visible: true,
+    sort_order: 30,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    beforeUrl: null,
+    afterUrl: null,
+  },
+];
+
+const DEFAULT_FAQ: SummerFaqItem[] = [
+  {
+    id: "faq-1",
+    topic: "General",
+    question: "Where in LA does Summer train clients in person?",
+    answer:
+      "Private training is based in Playa Del Rey with clients across Manhattan Beach, Venice, Santa Monica, Marina Del Rey, and El Segundo. On-site bookings elsewhere are considered case by case.",
+    sort_order: 10,
+    is_visible: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "faq-2",
+    topic: "General",
+    question: "What's the difference between online coaching and the subscription?",
+    answer:
+      "Subscriptions give you access to the class library and group programming. Online coaching is 1:1 — Summer builds your program, reviews your form, and adjusts every week. The Inner Circle tier sits in between.",
+    sort_order: 20,
+    is_visible: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "faq-3",
+    topic: "Training",
+    question: "Do I need a gym with full equipment?",
+    answer:
+      "A commercial gym or equivalent home setup (barbell, plates, bench, cable tower) gets you every class and program. A minimal-equipment track is available in the library for travel weeks.",
+    sort_order: 30,
+    is_visible: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "faq-4",
+    topic: "Billing",
+    question: "Can I cancel a subscription anytime?",
+    answer:
+      "Yes. Subscriptions cancel at the end of the current billing period — you keep full access until then. Manage it from your client dashboard or email hello@summerloffler.com.",
+    sort_order: 40,
+    is_visible: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "faq-5",
+    topic: "Brand",
+    question: "Is Summer available for editorial or brand campaigns?",
+    answer:
+      "Yes — selectively. Use the inquiry form and mark 'Brand / Campaign Booking' so it routes correctly. Response within one business day.",
+    sort_order: 50,
+    is_visible: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_CLASSES: (SummerClass & { coverUrl?: string | null })[] = [
+  {
+    id: "class-1",
+    slug: "heavy-lift-foundation",
+    title: "Heavy Lift Foundation",
+    summary: "The cues Summer starts every lifter with — bracing, foot pressure, bar path.",
+    body: null,
+    cover_media_id: null,
+    video_url: null,
+    duration_minutes: 42,
+    difficulty: "Foundational",
+    category: "Strength",
+    access_level_min: 1,
+    is_featured: true,
+    is_visible: true,
+    sort_order: 10,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    coverUrl: "/images/summer/refined/summer-hero-action-desktop.png",
+  },
+  {
+    id: "class-2",
+    slug: "glute-focus-block",
+    title: "Glute Focus Block",
+    summary: "Hip-dominant lifts and accessory work with the precision Summer uses in private sessions.",
+    body: null,
+    cover_media_id: null,
+    video_url: null,
+    duration_minutes: 48,
+    difficulty: "Intermediate",
+    category: "Glutes",
+    access_level_min: 1,
+    is_featured: true,
+    is_visible: true,
+    sort_order: 20,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    coverUrl: "/images/summer/refined/summer-splits-venice-feature.png",
+  },
+  {
+    id: "class-3",
+    slug: "mobility-reset",
+    title: "Mobility Reset",
+    summary: "A 30-minute session you can run between hard lifts — hips, spine, shoulders.",
+    body: null,
+    cover_media_id: null,
+    video_url: null,
+    duration_minutes: 28,
+    difficulty: "All levels",
+    category: "Mobility",
+    access_level_min: 1,
+    is_featured: false,
+    is_visible: true,
+    sort_order: 30,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    coverUrl: "/images/summer/refined/summer-mat-portrait-about.png",
+  },
+  {
+    id: "class-4",
+    slug: "venice-outdoor-strength",
+    title: "Venice Outdoor Strength",
+    summary: "Rings, bars, bodyweight work shot on the boardwalk — bring the beach into your program.",
+    body: null,
+    cover_media_id: null,
+    video_url: null,
+    duration_minutes: 36,
+    difficulty: "Intermediate",
+    category: "Calisthenics",
+    access_level_min: 2,
+    is_featured: true,
+    is_visible: true,
+    sort_order: 40,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    coverUrl: "/images/summer/refined/summer-rings-venice-card.png",
+  },
+  {
+    id: "class-5",
+    slug: "partner-training-primer",
+    title: "Partner Training Primer",
+    summary: "A class you can run with a training partner — built on synced tempo and honest accountability.",
+    body: null,
+    cover_media_id: null,
+    video_url: null,
+    duration_minutes: 38,
+    difficulty: "All levels",
+    category: "Community",
+    access_level_min: 2,
+    is_featured: false,
+    is_visible: true,
+    sort_order: 50,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    coverUrl: "/images/summer/refined/summer-partner-train-portrait.png",
+  },
+  {
+    id: "class-6",
+    slug: "inner-circle-check-in",
+    title: "Inner Circle Check-In",
+    summary: "A monthly live call for Inner Circle members — form review, goal recalibration, Q&A.",
+    body: null,
+    cover_media_id: null,
+    video_url: null,
+    duration_minutes: 60,
+    difficulty: "All levels",
+    category: "Live",
+    access_level_min: 3,
+    is_featured: true,
+    is_visible: true,
+    sort_order: 60,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    coverUrl: null,
+  },
+];
 
 const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
   about: {
@@ -127,11 +537,49 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
     meta: {},
     isVisible: true,
   },
+  classes_intro: {
+    eyebrow: "Online Classes",
+    heading: "Train with Summer, wherever you are.",
+    subheading:
+      "A library built around heavy lifting, glute-focused work, and finishers shot in clean, full frame. New classes every week.",
+    body: {
+      supporting:
+        "Every class is shot clean and in full frame so you can see exactly what the lift should look like — no loud music, no filler.",
+    },
+    meta: {},
+    isVisible: true,
+  },
+  plans_intro: {
+    eyebrow: "Guides & Meal Plans",
+    heading: "The guides Summer built for her own clients.",
+    subheading:
+      "Printable, specific, and priced to actually try. Start with a guide, bring it to a private session, or layer it under a subscription.",
+    body: {},
+    meta: {},
+    isVisible: true,
+  },
+  testimonials_intro: {
+    eyebrow: "Client Words",
+    heading: "Results people actually felt.",
+    subheading:
+      "Short notes from clients who started with Summer. We keep these quiet and specific — the way she coaches.",
+    body: {},
+    meta: {},
+    isVisible: true,
+  },
+  faq_intro: {
+    eyebrow: "Questions",
+    heading: "What you'll probably ask.",
+    subheading: "The most common questions we get about training, subscriptions, and how to start.",
+    body: {},
+    meta: {},
+    isVisible: true,
+  },
   gallery_intro: {
     eyebrow: "Gallery / Portfolio",
-    heading: "Refined Fitness Portfolio",
+    heading: "The work, in a few frames.",
     subheading:
-      "A closer look at the work — performance, portraiture, and polished campaign imagery shaped by strength and presence.",
+      "Shot in Playa Del Rey, Venice, and Manhattan Beach — performance, portraiture, and the small cues that separate a coach from a face.",
     body: {
       supporting_sentence:
         "Each image reflects a balance of athletic credibility, clean presentation, and editorial restraint.",
@@ -194,9 +642,18 @@ function getDefaultSnapshot(): SummerPublicSnapshot {
       cards: trainingCards,
     },
     signature: DEFAULT_SECTIONS.signature,
+    classesIntro: DEFAULT_SECTIONS.classes_intro,
+    plansIntro: DEFAULT_SECTIONS.plans_intro,
+    testimonialsIntro: DEFAULT_SECTIONS.testimonials_intro,
+    faqIntro: DEFAULT_SECTIONS.faq_intro,
     galleryIntro: DEFAULT_SECTIONS.gallery_intro,
     galleryItems: defaultGalleryItems,
     contact: DEFAULT_SECTIONS.contact_cta,
+    tiers: DEFAULT_TIERS,
+    digitalProducts: DEFAULT_PRODUCTS,
+    testimonials: DEFAULT_TESTIMONIALS,
+    faqItems: DEFAULT_FAQ,
+    classes: DEFAULT_CLASSES,
   };
 }
 
@@ -288,6 +745,29 @@ function mapGalleryItems(rows: SummerGalleryItem[], assets: SummerMediaAsset[]) 
   return mapped.length ? mapped : defaultGalleryItems;
 }
 
+function mapTestimonials(
+  rows: SummerTestimonial[],
+  assets: SummerMediaAsset[],
+): (SummerTestimonial & { beforeUrl?: string | null; afterUrl?: string | null })[] {
+  const byId = new Map(assets.map((a) => [a.id, a]));
+  return rows.map((row) => ({
+    ...row,
+    beforeUrl: row.before_media_id ? assetUrl(byId.get(row.before_media_id)) : null,
+    afterUrl: row.after_media_id ? assetUrl(byId.get(row.after_media_id)) : null,
+  }));
+}
+
+function mapClasses(
+  rows: SummerClass[],
+  assets: SummerMediaAsset[],
+): (SummerClass & { coverUrl?: string | null })[] {
+  const byId = new Map(assets.map((a) => [a.id, a]));
+  return rows.map((row) => ({
+    ...row,
+    coverUrl: row.cover_media_id ? assetUrl(byId.get(row.cover_media_id)) || null : null,
+  }));
+}
+
 function mapOffers(rows: SummerOfferRecord[]) {
   const mapped = rows
     .filter((offer) => offer.is_visible)
@@ -317,13 +797,30 @@ export async function getSummerPublicSnapshot() {
   }
 
   try {
-    const [settings, sections, offers, mediaAssets, heroItems, galleryRows] = await Promise.all([
+    const [
+      settings,
+      sections,
+      offers,
+      mediaAssets,
+      heroItems,
+      galleryRows,
+      tiersRows,
+      productRows,
+      testimonialRows,
+      faqRows,
+      classRows,
+    ] = await Promise.all([
       selectSummerSingle<SummerSiteSettings>("site_settings", { order: "updated_at.desc" }),
       selectSummerRows<SummerSectionContent>("section_content", { order: "sort_order.asc" }),
       selectSummerRows<SummerOfferRecord>("offers", { order: "sort_order.asc" }),
       selectSummerRows<SummerMediaAsset>("media_assets", { is_visible: "eq.true", order: "sort_order.asc" }),
       selectSummerRows<SummerHeroItem>("hero_items", { order: "sort_order.asc" }),
       selectSummerRows<SummerGalleryItem>("gallery_items", { order: "sort_order.asc" }),
+      selectSummerRows<SummerSubscriptionTier>("subscription_tiers", { is_visible: "eq.true", order: "sort_order.asc" }).catch(() => []),
+      selectSummerRows<SummerDigitalProduct>("digital_products", { is_visible: "eq.true", order: "sort_order.asc" }).catch(() => []),
+      selectSummerRows<SummerTestimonial>("testimonials", { is_visible: "eq.true", order: "sort_order.asc" }).catch(() => []),
+      selectSummerRows<SummerFaqItem>("faq", { is_visible: "eq.true", order: "sort_order.asc" }).catch(() => []),
+      selectSummerRows<SummerClass>("classes", { is_visible: "eq.true", order: "sort_order.asc" }).catch(() => []),
     ]);
 
     const sectionMap = new Map(sections.map((section) => [section.section_key, section]));
@@ -357,9 +854,20 @@ export async function getSummerPublicSnapshot() {
         cards: defaults.trainWithMe.cards,
       },
       signature: normalizeSection(sectionMap.get("signature") || null, defaults.signature),
+      classesIntro: normalizeSection(sectionMap.get("classes_intro") || null, defaults.classesIntro),
+      plansIntro: normalizeSection(sectionMap.get("plans_intro") || null, defaults.plansIntro),
+      testimonialsIntro: normalizeSection(sectionMap.get("testimonials_intro") || null, defaults.testimonialsIntro),
+      faqIntro: normalizeSection(sectionMap.get("faq_intro") || null, defaults.faqIntro),
       galleryIntro: normalizeSection(sectionMap.get("gallery_intro") || null, defaults.galleryIntro),
       galleryItems: mapGalleryItems(galleryRows, mediaAssets),
       contact: normalizeSection(sectionMap.get("contact_cta") || null, defaults.contact),
+      tiers: tiersRows.length ? tiersRows : defaults.tiers,
+      digitalProducts: productRows.length ? productRows : defaults.digitalProducts,
+      testimonials: testimonialRows.length
+        ? mapTestimonials(testimonialRows, mediaAssets)
+        : defaults.testimonials,
+      faqItems: faqRows.length ? faqRows : defaults.faqItems,
+      classes: classRows.length ? mapClasses(classRows, mediaAssets) : defaults.classes,
     } satisfies SummerPublicSnapshot;
   } catch {
     return defaults;

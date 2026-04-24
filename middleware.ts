@@ -1,7 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { SUMMER_ADMIN_ACCESS_COOKIE } from "@/lib/summer/admin-constants";
+import {
+  SUMMER_ADMIN_ACCESS_COOKIE,
+  SUMMER_CLIENT_ACCESS_COOKIE,
+} from "@/lib/summer/admin-constants";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -9,26 +12,53 @@ export function middleware(request: NextRequest) {
   const isAdminPath = pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
   const isReviewPage = pathname === "/review" || pathname.startsWith("/review/");
   const isReviewApi = pathname.startsWith("/api/review");
+  const isClientPath =
+    pathname.startsWith("/client") &&
+    !pathname.startsWith("/client/login") &&
+    !pathname.startsWith("/client/signup");
 
-  if (!isAdminPath && !isReviewPage && !isReviewApi) {
+  if (isAdminPath || isReviewApi) {
+    const token = request.cookies.get(SUMMER_ADMIN_ACCESS_COOKIE)?.value;
+    if (!token) {
+      if (isReviewApi) {
+        return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+      }
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
     return NextResponse.next();
   }
 
-  const accessToken = request.cookies.get(SUMMER_ADMIN_ACCESS_COOKIE)?.value;
-
-  if (!accessToken) {
-    if (isReviewApi) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (isReviewPage) {
+    const token = request.cookies.get(SUMMER_ADMIN_ACCESS_COOKIE)?.value;
+    if (!token) {
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
     }
+    return NextResponse.next();
+  }
 
-    const loginUrl = new URL("/admin/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isClientPath) {
+    const token = request.cookies.get(SUMMER_CLIENT_ACCESS_COOKIE)?.value;
+    if (!token) {
+      const loginUrl = new URL("/client/login", request.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/review", "/review/:path*", "/api/review/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/review",
+    "/review/:path*",
+    "/api/review/:path*",
+    "/client/:path*",
+  ],
 };

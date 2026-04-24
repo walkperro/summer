@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push -u origin *)",
+      "Bash(git push origin *)",
+      "Bash(git fetch)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git stash push *)",
+      "Bash(git stash pop)",
+      "Bash(git merge --no-ff *)",
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm run dev)",
+      "Bash(npm test)",
+      "Bash(npx tsc)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx next build)",
+      "Bash(npx next lint)",
+      "Bash(curl -s *)",
+      "Bash(curl -sI *)",
+      "Bash(curl -sL *)",
+      "Bash(curl -sS *)",
+      "Bash(curl -fsSL *)",
+      "Bash(mkdir -p *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(touch *)"
+    ]
+  }
+}
