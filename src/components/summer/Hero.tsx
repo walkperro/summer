@@ -59,7 +59,7 @@ const VOLUME_LINES = [
   "By invitation · Selectively accepting",
 ];
 
-const SLIDE_INTERVAL_MS = 7600;
+const SLIDE_INTERVAL_MS = 8400;
 
 export function Hero({
   eyebrow = "Los Angeles · Private Training · Est. MMXVIII",
@@ -99,94 +99,79 @@ export function Hero({
     return () => window.clearInterval(id);
   }, [reducedMotion]);
 
-  // Image stack — same JSX used in both desktop (absolute, right column) and mobile (block, top).
-  const ImageStack = (
-    <div className="relative h-full w-full overflow-hidden">
-      {SLIDES.map((slide, idx) => {
-        const isActive = idx === activeIndex;
-        return (
-          <div
-            key={slide.id}
-            className={cn(
-              "absolute inset-0 transition-[opacity,filter] duration-[2400ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-              isActive ? "opacity-100 blur-0" : "opacity-0 blur-[3px]",
-              "motion-reduce:transition-none",
-            )}
-          >
-            <Image
-              src={slide.desktopSrc}
-              alt={slide.alt}
-              fill
-              priority={idx === 0}
-              sizes="(min-width: 768px) 62vw, 100vw"
-              className={cn(
-                "hidden object-cover md:block",
-                isActive && "hero-ken-burns",
-              )}
-              style={{ objectPosition: slide.desktopPosition }}
-            />
-            <Image
-              src={slide.mobileSrc}
-              alt={slide.alt}
-              fill
-              priority={idx === 0}
-              sizes="100vw"
-              className={cn(
-                "object-cover md:hidden",
-                isActive && "hero-ken-burns",
-              )}
-              style={{ objectPosition: slide.mobilePosition }}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-
   return (
     <section
       id="top"
-      className="relative isolate overflow-hidden bg-[color:var(--paper-100)] text-[color:var(--ink-900)]"
+      className="relative isolate min-h-[100svh] overflow-hidden bg-[color:var(--paper-100)] text-[color:var(--ink-900)]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
     >
-      {/* Mobile: image as a block at the top (~62svh) */}
-      <div className="relative h-[62svh] w-full md:hidden">
-        {ImageStack}
-        {/* Subtle bottom feather into paper so the image hands off cleanly to the text below */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(246,241,234,0)_0%,var(--paper-100)_100%)]"
-        />
-        {/* Grain on the image area */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{
-            opacity: 0.05,
-            mixBlendMode: "multiply",
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-          }}
-        />
+      {/* Image stack — full-bleed on mobile, right 62% on desktop */}
+      <div
+        className="pointer-events-none absolute inset-0 md:left-[38%]"
+        aria-hidden="true"
+      >
+        <div className="relative h-full w-full overflow-hidden">
+          {SLIDES.map((slide, idx) => {
+            const isActive = idx === activeIndex;
+            return (
+              <div
+                key={slide.id}
+                className={cn(
+                  // Mobile: pure opacity fade at 3200ms (very soft).
+                  // Desktop: opacity + soft blur at 2400ms.
+                  "absolute inset-0 transition-[opacity,filter] duration-[3200ms] ease-[cubic-bezier(0.22,1,0.36,1)] md:duration-[2400ms]",
+                  isActive
+                    ? "opacity-100 blur-0"
+                    : "opacity-0 blur-0 md:blur-[3px]",
+                  "motion-reduce:transition-none",
+                )}
+              >
+                <Image
+                  src={slide.desktopSrc}
+                  alt={slide.alt}
+                  fill
+                  priority={idx === 0}
+                  sizes="(min-width: 768px) 62vw, 100vw"
+                  className={cn(
+                    "hidden object-cover md:block",
+                    isActive && "hero-ken-burns",
+                  )}
+                  style={{ objectPosition: slide.desktopPosition }}
+                />
+                <Image
+                  src={slide.mobileSrc}
+                  alt={slide.alt}
+                  fill
+                  priority={idx === 0}
+                  sizes="100vw"
+                  className="object-cover md:hidden"
+                  style={{ objectPosition: slide.mobilePosition }}
+                />
+              </div>
+            );
+          })}
+          {/* Desktop edge feather toward the text column */}
+          <div
+            className="absolute inset-0 hidden md:block md:bg-[linear-gradient(270deg,transparent_0%,transparent_45%,rgba(246,241,234,0.2)_75%,var(--paper-100)_100%)]"
+            aria-hidden="true"
+          />
+        </div>
       </div>
 
-      {/* Desktop: image absolute, right 62% of the section */}
+      {/* Mobile-only paper wash behind the text — light highlight for legibility */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 left-[38%] hidden md:block"
-      >
-        {ImageStack}
-        {/* Edge feather toward the text column */}
-        <div
-          className="absolute inset-0 bg-[linear-gradient(270deg,transparent_0%,transparent_45%,rgba(246,241,234,0.2)_75%,var(--paper-100)_100%)]"
-          aria-hidden="true"
-        />
-      </div>
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[60svh] md:hidden"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(246,241,234,0) 0%, rgba(246,241,234,0.35) 30%, rgba(246,241,234,0.82) 58%, rgba(246,241,234,0.97) 80%, var(--paper-100) 100%)",
+        }}
+      />
 
-      {/* Desktop grain */}
+      {/* Grain — desktop only, mobile already has the paper wash */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-[1] hidden md:block"
@@ -201,13 +186,13 @@ export function Hero({
       {/* Composition */}
       <Container
         size="xl"
-        className="relative z-[2] flex flex-col md:min-h-[100svh]"
+        className="relative z-[2] flex min-h-[100svh] flex-col"
       >
         <div className="grid flex-1 grid-cols-1 gap-10 md:grid-cols-12 md:gap-6">
-          {/* Title column */}
+          {/* Title column — bottom-aligned on mobile so it sits over the paper wash */}
           <div
-            className="flex flex-col justify-end pb-10 pt-10 md:col-span-7 md:pb-16 md:pt-36 lg:col-span-6"
-            style={{ paddingTop: undefined }}
+            className="flex flex-col justify-end pb-10 pt-28 md:col-span-7 md:pb-16 md:pt-36 lg:col-span-6"
+            style={{ paddingTop: "calc(7rem + env(safe-area-inset-top))" }}
           >
             <Eyebrow variant="mono" tone="bronze" className="mb-6 md:mb-8">
               {eyebrow}
@@ -275,7 +260,7 @@ export function Hero({
         </div>
 
         {/* Bottom row — scroll cue + dot indicators */}
-        <div className="relative z-[2] flex items-end justify-between gap-6 pb-10 pt-10 md:pb-14 md:pt-4">
+        <div className="relative z-[2] flex items-end justify-between gap-6 pb-10 pt-4 md:pb-14">
           <ScrollCue tone="ink" />
           <div
             className="flex items-center gap-2"
