@@ -36,7 +36,7 @@ const SLIDES: Slide[] = [
     mobileSrc: "/images/summer/hero/summer_hero_bw_2_mobile.jpg",
     alt: "Black and white profile of Summer Loffler in a sculptural training space.",
     desktopPosition: "62% 38%",
-    mobilePosition: "56% 35%",
+    mobilePosition: "35% 35%",
   },
   {
     id: "hero-bw-1",
