@@ -1,35 +1,38 @@
 -- =============================================================================
 -- Fix: Offers had grown to 4-5 rows because an earlier migration (20260424010000)
--- accidentally double-wrote the `online-coaching` slug with "Online Classes"
--- content (the "safety no-op" block) and then inserted a separate `online-classes`
--- row alongside it. Result: the home Offers section showed two cards titled
--- "Online Classes" and the canonical Online Coaching content was lost.
+-- inserted a separate `online-classes` row alongside the `online-coaching` row
+-- (which had been repurposed to carry "Online Classes" copy). Result: the home
+-- Offers section showed two cards titled "Online Classes".
 --
--- This migration restores Online Coaching content on the `online-coaching` slug
--- and hides the duplicate `online-classes` row + the `guides-and-plans` row so
--- the home page lands back at the original three offers (Private Training,
--- Online Coaching, Brand / Campaign Bookings).
+-- We're keeping the Online Classes title + description on the existing
+-- `online-coaching` slug (it's the version we want to render) and hiding the
+-- duplicate `online-classes` row + the extra `guides-and-plans` row so the
+-- home page sits at three offers (Private Training, Online Classes, Brand /
+-- Campaign Bookings).
 -- =============================================================================
 
+-- Make sure the `online-coaching` row carries the Online Classes copy explicitly,
+-- and is visible/sorted at position 20 (between Private Training and Brand).
 update summer.offers
 set
-  title = 'Online Coaching',
-  subtitle = 'Remote structure, personal oversight.',
-  description = 'Remote programming with structured heavy lifting, glute-focused work, and nutrition guidance that stays personal. For clients who want the real thing without generic templates.',
+  title = 'Online Classes',
+  subtitle = 'The library, on your schedule.',
+  description = 'A subscription to Summer''s full class library — heavy lifting foundations, glute-focused sessions, and finishers shot in clean, full frame so you can see every cue.',
   bullets = jsonb_build_array(
-    'Programming built for consistency and visible progress.',
-    'Form review and weekly adjustments on the lifts that matter.',
-    'Nutrition guidance that respects how you live.',
-    'From $349 / month — 8-week minimum.'
+    'Full class library + new drops each week.',
+    'Weekly live classes on Signature and Inner Circle tiers.',
+    'Private community + priority booking.',
+    'From $29 / month — cancel anytime.'
   ),
-  cta_label = 'Explore coaching',
-  cta_href = '#contact',
+  cta_label = 'See Subscriptions',
+  cta_href = '/classes',
   badge = null,
   is_featured = false,
   is_visible = true,
   sort_order = 20
 where slug = 'online-coaching';
 
+-- Hide the duplicate Online Classes row + the extra Guides & Meal Plans row.
 update summer.offers
 set is_visible = false
 where slug in ('online-classes', 'guides-and-plans');
