@@ -200,13 +200,23 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Hero
-        primaryCtaLabel="Train with Summer"
+        primaryCtaLabel="Apply for training"
         primaryCtaHref="/classes"
         secondaryCtaLabel="About Summer"
         secondaryCtaHref="/about"
       />
       {snapshot.about.section.isVisible ? <About section={snapshot.about.section} images={snapshot.about.images} points={snapshot.about.points} /> : null}
-      {snapshot.offersIntro.isVisible ? <Offers intro={snapshot.offersIntro} offers={snapshot.offers} /> : null}
+      {snapshot.offersIntro.isVisible ? (
+        <Offers
+          intro={{
+            ...snapshot.offersIntro,
+            heading: "Three ways to train with Summer.",
+            subheading:
+              "Private one-to-one coaching in LA, a subscription library of classes, and brand collaborations — each priced to match the depth of attention.",
+          }}
+          offers={snapshot.offers}
+        />
+      ) : null}
       <ClassesTeaser
         eyebrow={snapshot.classesIntro.eyebrow}
         heading={snapshot.classesIntro.heading}
