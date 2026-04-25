@@ -63,12 +63,12 @@ export default async function AboutPage() {
             <ScrollReveal className="lg:col-span-5">
               <div className="relative aspect-[4/5] overflow-hidden bg-[color:var(--paper-300)]">
                 <Image
-                  src="/images/summer/hero/summer_hero_bw_3_desktop.jpg"
-                  alt="Black and white studio image of Summer Loffler standing in a refined private gym."
+                  src="/images/summer/gallery/summer_gallery_lifestyle.jpg"
+                  alt="Summer Loffler seated in a calm interior setting with strong natural light."
                   fill
                   priority
                   sizes="(min-width: 1024px) 42vw, 100vw"
-                  className="object-cover object-[68%_30%]"
+                  className="object-cover object-[34%_32%]"
                 />
                 <span className="absolute left-4 bottom-4 font-mono-editorial text-[10.5px] uppercase tracking-[0.3em] text-white/95 mix-blend-difference">
                   Summer Loffler · Private Setting · MMXXV
