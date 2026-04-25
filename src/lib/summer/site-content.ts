@@ -514,9 +514,9 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
   },
   train_with_me: {
     eyebrow: "Private Training / Online Coaching",
-    heading: "Personal training and coaching built on strength, discipline, and clarity.",
+    heading: "A small coaching practice. In the room, or in your phone.",
     subheading:
-      "For clients who want private training, online coaching, strength training, glute-focused programming, and nutrition guidance delivered with structure and real attention.",
+      "A handful of private clients in LA. A smaller online roster. Same eye on every lift, same answer to every check-in.",
     body: {
       pillars: [
         "Squat, hinge, press — coached rep by rep, with the cue you need that day.",
