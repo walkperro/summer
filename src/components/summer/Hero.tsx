@@ -29,7 +29,7 @@ const SLIDES: Slide[] = [
   },
   {
     id: "hero-bw-2",
-    desktopSrc: "/images/summer/hero/summer_hero_bw_2_desktop.png",
+    desktopSrc: "/images/summer/refined/summer-hero-bw-2-desktop.png",
     mobileSrc: "/images/summer/hero/summer_hero_bw_2_mobile.jpg",
     alt: "Black and white profile of Summer Loffler in a sculptural training space.",
     desktopPosition: "62% 38%",
@@ -59,7 +59,7 @@ const VOLUME_LINES = [
   "By invitation · Selectively accepting",
 ];
 
-const SLIDE_INTERVAL_MS = 7200;
+const SLIDE_INTERVAL_MS = 7600;
 
 export function Hero({
   eyebrow = "Los Angeles · Private Training · Est. MMXVIII",
@@ -99,79 +99,68 @@ export function Hero({
     return () => window.clearInterval(id);
   }, [reducedMotion]);
 
+  // Image stack — same JSX used in both desktop (absolute, right column) and mobile (block, top).
+  const ImageStack = (
+    <div className="relative h-full w-full overflow-hidden">
+      {SLIDES.map((slide, idx) => {
+        const isActive = idx === activeIndex;
+        return (
+          <div
+            key={slide.id}
+            className={cn(
+              "absolute inset-0 transition-[opacity,filter] duration-[2400ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isActive ? "opacity-100 blur-0" : "opacity-0 blur-[3px]",
+              "motion-reduce:transition-none",
+            )}
+          >
+            <Image
+              src={slide.desktopSrc}
+              alt={slide.alt}
+              fill
+              priority={idx === 0}
+              sizes="(min-width: 768px) 62vw, 100vw"
+              className={cn(
+                "hidden object-cover md:block",
+                isActive && "hero-ken-burns",
+              )}
+              style={{ objectPosition: slide.desktopPosition }}
+            />
+            <Image
+              src={slide.mobileSrc}
+              alt={slide.alt}
+              fill
+              priority={idx === 0}
+              sizes="100vw"
+              className={cn(
+                "object-cover md:hidden",
+                isActive && "hero-ken-burns",
+              )}
+              style={{ objectPosition: slide.mobilePosition }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <section
       id="top"
       className="relative isolate overflow-hidden bg-[color:var(--paper-100)] text-[color:var(--ink-900)]"
-      style={{ minHeight: "calc(100svh - 0px)" }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
     >
-      <div className="relative flex min-h-[100svh] flex-col md:min-h-0">
-        {/* Image stack with cinematic cross-fade */}
+      {/* Mobile: image as a block at the top (~62svh) */}
+      <div className="relative h-[62svh] w-full md:hidden">
+        {ImageStack}
+        {/* Subtle bottom feather into paper so the image hands off cleanly to the text below */}
         <div
-          className="pointer-events-none absolute inset-0 md:left-[38%]"
           aria-hidden="true"
-        >
-          <div className="relative h-full w-full overflow-hidden">
-            {SLIDES.map((slide, idx) => {
-              const isActive = idx === activeIndex;
-              return (
-                <div
-                  key={slide.id}
-                  className={cn(
-                    "absolute inset-0 transition-all duration-[1800ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    isActive
-                      ? "opacity-100 scale-100"
-                      : "opacity-0 scale-[1.03]",
-                    "motion-reduce:transition-none",
-                  )}
-                  style={{
-                    transitionProperty: "opacity, transform, filter",
-                  }}
-                >
-                  <Image
-                    src={slide.desktopSrc}
-                    alt={slide.alt}
-                    fill
-                    priority={idx === 0}
-                    sizes="(min-width: 768px) 62vw, 100vw"
-                    className={cn(
-                      "hidden object-cover md:block",
-                      isActive && "hero-ken-burns",
-                    )}
-                    style={{ objectPosition: slide.desktopPosition }}
-                  />
-                  <Image
-                    src={slide.mobileSrc}
-                    alt={slide.alt}
-                    fill
-                    priority={idx === 0}
-                    sizes="100vw"
-                    className={cn(
-                      "object-cover md:hidden",
-                      isActive && "hero-ken-burns",
-                    )}
-                    style={{ objectPosition: slide.mobilePosition }}
-                  />
-                </div>
-              );
-            })}
-            {/* Desktop edge feather + mobile bottom scrim */}
-            <div
-              className="absolute inset-0 md:bg-[linear-gradient(270deg,transparent_0%,transparent_45%,rgba(246,241,234,0.2)_75%,var(--paper-100)_100%)]"
-              aria-hidden="true"
-            />
-            <div
-              className="absolute inset-0 md:hidden bg-[linear-gradient(180deg,rgba(12,10,7,0)_0%,rgba(12,10,7,0)_40%,rgba(12,10,7,0.35)_100%)]"
-              aria-hidden="true"
-            />
-          </div>
-        </div>
-
-        {/* Grain */}
+          className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(246,241,234,0)_0%,var(--paper-100)_100%)]"
+        />
+        {/* Grain on the image area */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-[1]"
@@ -182,120 +171,146 @@ export function Hero({
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         />
-
-        <Container
-          size="xl"
-          className="relative z-[2] flex flex-1 flex-col md:min-h-[100svh]"
-        >
-          <div className="grid flex-1 grid-cols-1 gap-10 md:grid-cols-12 md:gap-6">
-            {/* Title column */}
-            <div
-              className="flex flex-col justify-end pb-10 pt-28 md:col-span-7 md:pb-16 md:pt-36 lg:col-span-6"
-              style={{ paddingTop: "calc(7rem + env(safe-area-inset-top))" }}
-            >
-              <Eyebrow variant="mono" tone="bronze" className="mb-6 md:mb-8">
-                {eyebrow}
-              </Eyebrow>
-
-              <h1
-                className="font-editorial text-balance text-[color:var(--ink-950)] mask-wipe-in"
-                style={{
-                  fontSize: "clamp(2.8rem, 10.5vw, 8.5rem)",
-                  lineHeight: 0.92,
-                  letterSpacing: "-0.045em",
-                  fontWeight: 500,
-                }}
-              >
-                <span className="block">Your summer body,</span>
-                <span
-                  className="block font-editorial-italic text-[color:var(--ink-600)]"
-                  style={{ fontSize: "0.68em", lineHeight: 1 }}
-                >
-                  in every
-                </span>
-                <span className="block">
-                  <span className="accent-underline-static text-[color:var(--ink-950)]">
-                    season.
-                  </span>
-                </span>
-              </h1>
-
-              <p className="mt-7 max-w-[48ch] text-base leading-7 text-[color:var(--ink-500)] sm:text-lg sm:leading-8">
-                Private training, online coaching, and glute-specific programming — built for a
-                body you keep.
-              </p>
-
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href={primaryCtaHref}
-                  className="press-effect focus-ring inline-flex min-h-12 items-center justify-center border border-[color:var(--ink-900)] bg-[color:var(--ink-900)] px-6 text-sm font-medium uppercase tracking-[0.18em] text-white transition hover:bg-[color:var(--ink-700)]"
-                >
-                  {primaryCtaLabel}
-                </a>
-                <a
-                  href={secondaryCtaHref}
-                  className="press-effect focus-ring inline-flex min-h-12 items-center justify-center border border-[color:var(--ink-900)]/22 bg-transparent px-6 text-sm font-medium uppercase tracking-[0.18em] text-[color:var(--ink-900)] transition hover:border-[color:var(--bronze-500)] hover:text-[color:var(--bronze-700)]"
-                >
-                  {secondaryCtaLabel}
-                </a>
-              </div>
-            </div>
-
-            {/* Right ornament column */}
-            <div className="hidden md:col-span-5 md:col-start-8 md:flex md:flex-col md:items-end md:justify-end md:pb-16 lg:col-span-5">
-              <div className="flex items-center gap-5">
-                <div className="relative h-20 w-px">
-                  <div className="absolute inset-0 hairline-v" aria-hidden="true" />
-                </div>
-                <span
-                  key={VOLUME_LINES[volumeIdx]}
-                  className="mask-wipe-in font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--ink-400)]"
-                  aria-live="polite"
-                >
-                  {VOLUME_LINES[volumeIdx]}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom row — scroll cue + dot indicators */}
-          <div className="relative z-[2] flex items-end justify-between gap-6 pb-10 pt-4 md:pb-14">
-            <ScrollCue tone="ink" />
-            <div
-              className="flex items-center gap-2"
-              role="tablist"
-              aria-label="Hero slides"
-            >
-              {SLIDES.map((slide, idx) => {
-                const isActive = idx === activeIndex;
-                return (
-                  <button
-                    key={slide.id}
-                    type="button"
-                    onClick={() => setActiveIndex(idx)}
-                    aria-label={`Show slide ${idx + 1}`}
-                    aria-pressed={isActive}
-                    className={cn(
-                      "relative inline-flex h-8 items-center justify-center px-1 focus-ring",
-                      "touch-manipulation",
-                    )}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "block h-[2px] transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                        isActive
-                          ? "w-10 bg-[color:var(--bronze-500)]"
-                          : "w-6 bg-[color:var(--ink-900)]/25 group-hover:bg-[color:var(--ink-900)]/45",
-                      )}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </Container>
       </div>
+
+      {/* Desktop: image absolute, right 62% of the section */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 left-[38%] hidden md:block"
+      >
+        {ImageStack}
+        {/* Edge feather toward the text column */}
+        <div
+          className="absolute inset-0 bg-[linear-gradient(270deg,transparent_0%,transparent_45%,rgba(246,241,234,0.2)_75%,var(--paper-100)_100%)]"
+          aria-hidden="true"
+        />
+      </div>
+
+      {/* Desktop grain */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-[1] hidden md:block"
+        style={{
+          opacity: 0.05,
+          mixBlendMode: "multiply",
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
+
+      {/* Composition */}
+      <Container
+        size="xl"
+        className="relative z-[2] flex flex-col md:min-h-[100svh]"
+      >
+        <div className="grid flex-1 grid-cols-1 gap-10 md:grid-cols-12 md:gap-6">
+          {/* Title column */}
+          <div
+            className="flex flex-col justify-end pb-10 pt-10 md:col-span-7 md:pb-16 md:pt-36 lg:col-span-6"
+            style={{ paddingTop: undefined }}
+          >
+            <Eyebrow variant="mono" tone="bronze" className="mb-6 md:mb-8">
+              {eyebrow}
+            </Eyebrow>
+
+            <h1
+              className="font-editorial text-balance text-[color:var(--ink-950)] mask-wipe-in"
+              style={{
+                fontSize: "clamp(2.8rem, 10.5vw, 8.5rem)",
+                lineHeight: 0.92,
+                letterSpacing: "-0.045em",
+                fontWeight: 500,
+              }}
+            >
+              <span className="block">Your summer body,</span>
+              <span
+                className="block font-editorial-italic text-[color:var(--ink-600)]"
+                style={{ fontSize: "0.68em", lineHeight: 1 }}
+              >
+                in every
+              </span>
+              <span className="block">
+                <span className="accent-underline-static text-[color:var(--ink-950)]">
+                  season.
+                </span>
+              </span>
+            </h1>
+
+            <p className="mt-7 max-w-[48ch] text-base leading-7 text-[color:var(--ink-500)] sm:text-lg sm:leading-8">
+              Private training, online coaching, and glute-specific programming — built for a
+              body you keep.
+            </p>
+
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <a
+                href={primaryCtaHref}
+                className="press-effect focus-ring inline-flex min-h-12 items-center justify-center border border-[color:var(--ink-900)] bg-[color:var(--ink-900)] px-6 text-sm font-medium uppercase tracking-[0.18em] text-white transition hover:bg-[color:var(--ink-700)]"
+              >
+                {primaryCtaLabel}
+              </a>
+              <a
+                href={secondaryCtaHref}
+                className="press-effect focus-ring inline-flex min-h-12 items-center justify-center border border-[color:var(--ink-900)]/22 bg-transparent px-6 text-sm font-medium uppercase tracking-[0.18em] text-[color:var(--ink-900)] transition hover:border-[color:var(--bronze-500)] hover:text-[color:var(--bronze-700)]"
+              >
+                {secondaryCtaLabel}
+              </a>
+            </div>
+          </div>
+
+          {/* Right ornament column (desktop only) */}
+          <div className="hidden md:col-span-5 md:col-start-8 md:flex md:flex-col md:items-end md:justify-end md:pb-16 lg:col-span-5">
+            <div className="flex items-center gap-5">
+              <div className="relative h-20 w-px">
+                <div className="absolute inset-0 hairline-v" aria-hidden="true" />
+              </div>
+              <span
+                key={VOLUME_LINES[volumeIdx]}
+                className="mask-wipe-in font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--ink-400)]"
+                aria-live="polite"
+              >
+                {VOLUME_LINES[volumeIdx]}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom row — scroll cue + dot indicators */}
+        <div className="relative z-[2] flex items-end justify-between gap-6 pb-10 pt-10 md:pb-14 md:pt-4">
+          <ScrollCue tone="ink" />
+          <div
+            className="flex items-center gap-2"
+            role="tablist"
+            aria-label="Hero slides"
+          >
+            {SLIDES.map((slide, idx) => {
+              const isActive = idx === activeIndex;
+              return (
+                <button
+                  key={slide.id}
+                  type="button"
+                  onClick={() => setActiveIndex(idx)}
+                  aria-label={`Show slide ${idx + 1}`}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "relative inline-flex h-8 items-center justify-center px-1 focus-ring",
+                    "touch-manipulation",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "block h-[2px] transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      isActive
+                        ? "w-10 bg-[color:var(--bronze-500)]"
+                        : "w-6 bg-[color:var(--ink-900)]/25 group-hover:bg-[color:var(--ink-900)]/45",
+                    )}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Container>
     </section>
   );
 }

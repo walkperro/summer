@@ -21,10 +21,10 @@ export const metadata: Metadata = {
     url: "/classes",
     images: [
       {
-        url: "/images/summer/gallery/summer_gallery_fitness_2.jpg",
+        url: "/images/summer/refined/summer-fitness-campaign-hero.png",
         width: 1920,
         height: 1080,
-        alt: "Summer Loffler on gymnastic rings at Venice Beach.",
+        alt: "Summer Loffler in an athletic campaign frame.",
       },
     ],
     type: "website",
@@ -40,12 +40,20 @@ export default async function ClassesPage() {
       {/* Cinematic hero */}
       <section className="relative h-[86vh] min-h-[620px] w-full overflow-hidden">
         <Image
-          src="/images/summer/gallery/summer_gallery_fitness_2.jpg"
+          src="/images/summer/refined/summer-fitness-campaign-hero.png"
           alt="Summer Loffler in an athletic campaign frame, emphasizing form and control."
           fill
           sizes="100vw"
           priority
-          className="hero-ken-burns object-cover object-[50%_30%]"
+          className="hero-ken-burns hidden object-cover object-[50%_30%] md:block"
+        />
+        <Image
+          src="/images/summer/refined/summer-fitness-campaign-mobile.png"
+          alt="Summer Loffler in an athletic campaign frame, emphasizing form and control."
+          fill
+          sizes="100vw"
+          priority
+          className="hero-ken-burns object-cover object-[50%_30%] md:hidden"
         />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,10,7,0.2)_0%,rgba(12,10,7,0.1)_35%,rgba(12,10,7,0.62)_100%)]" />
         <div

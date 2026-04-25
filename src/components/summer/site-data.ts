@@ -149,15 +149,6 @@ export const galleryItems: GalleryItem[] = [
     spanClass: "xl:col-span-4",
     imagePosition: "object-center",
   },
-  {
-    title: "Private Setting",
-    category: "Lifestyle",
-    imageSrc: "/images/summer/gallery/summer_gallery_lifestyle.jpg",
-    imageAlt: "Summer Loffler seated in a calm interior setting with strong natural light.",
-    aspectClass: "aspect-[16/10]",
-    spanClass: "xl:col-span-12",
-    imagePosition: "object-[34%_32%]",
-  },
 ];
 
 export const inquiryOptions = [

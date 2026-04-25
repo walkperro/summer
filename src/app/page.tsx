@@ -10,7 +10,6 @@ import { MobileCtaBar } from "@/components/summer/MobileCtaBar";
 import { Offers } from "@/components/summer/Offers";
 import { PlansTeaser } from "@/components/summer/PlansTeaser";
 import { PullQuote } from "@/components/summer/PullQuote";
-import { SignatureBreak } from "@/components/summer/SignatureBreak";
 import { TestimonialsStrip } from "@/components/summer/TestimonialsStrip";
 import { TrainWithMe } from "@/components/summer/TrainWithMe";
 import { getSummerPublicSnapshot } from "@/lib/summer/site-content";
@@ -204,8 +203,8 @@ export default async function Home() {
       <Hero
         primaryCtaLabel={snapshot.primaryCtaLabel}
         primaryCtaHref={snapshot.primaryCtaHref}
-        secondaryCtaLabel={snapshot.secondaryCtaLabel}
-        secondaryCtaHref={snapshot.secondaryCtaHref}
+        secondaryCtaLabel="View the lookbook"
+        secondaryCtaHref="#portfolio"
       />
       {snapshot.about.section.isVisible ? <About section={snapshot.about.section} images={snapshot.about.images} points={snapshot.about.points} /> : null}
       {snapshot.offersIntro.isVisible ? <Offers intro={snapshot.offersIntro} offers={snapshot.offers} /> : null}
@@ -235,7 +234,6 @@ export default async function Home() {
         heading={snapshot.plansIntro.heading}
         subheading={snapshot.plansIntro.subheading}
       />
-      <SignatureBreak section={snapshot.galleryIntro} />
       {snapshot.galleryIntro.isVisible ? <Gallery intro={snapshot.galleryIntro} items={snapshot.galleryItems} /> : null}
       <TestimonialsStrip
         eyebrow={snapshot.testimonialsIntro.eyebrow}

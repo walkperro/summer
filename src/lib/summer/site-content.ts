@@ -578,12 +578,8 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
   gallery_intro: {
     eyebrow: "Gallery / Portfolio",
     heading: "The work, in a few frames.",
-    subheading:
-      "Shot in Playa Del Rey, Venice, and Manhattan Beach — performance, portraiture, and the small cues that separate a coach from a face.",
-    body: {
-      supporting_sentence:
-        "Each image reflects a balance of athletic credibility, clean presentation, and editorial restraint.",
-    },
+    subheading: "Mostly mid-set. A few are still.",
+    body: {},
     meta: {},
     isVisible: true,
   },

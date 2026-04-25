@@ -50,7 +50,8 @@ const BASE_PROMPT =
   "Gently clean up lighting, soften harsh shadows only where natural, and remove small distracting elements " +
   "in the background if any. Preserve subject identity, skin tone, tattoos, hair, and outfit exactly. " +
   "Keep the athletic editorial tone. Do not add props, text, or watermarks. Do not stylize — the original " +
-  "photograph should still look like a photograph, just a cleaner version of itself.";
+  "photograph should still look like a photograph, just a cleaner version of itself. " +
+  "Render at the requested resolution with crisp detail and sharp focus throughout — do not soften the subject.";
 
 const TARGETS = {
   // { slug: [{ ratio, width, height, crop hint }] }
@@ -73,6 +74,13 @@ const TARGETS = {
   "summer-partner-train": [
     { suffix: "landscape", aspect: "16:9", width: 1920, height: 1080, crop: "landscape, both subjects in frame with environment" },
     { suffix: "portrait", aspect: "4:5", width: 1080, height: 1350, crop: "vertical, both subjects in frame, composed symmetry" },
+  ],
+  "summer-hero-bw-2": [
+    { suffix: "desktop", aspect: "16:9", width: 1920, height: 1080, crop: "cinematic landscape hero, subject framed slightly right of center, full body, architectural training space visible" },
+  ],
+  "summer-fitness-campaign": [
+    { suffix: "hero", aspect: "16:9", width: 1920, height: 1080, crop: "full-bleed classes hero, subject mid-action, emphasize form and control, generous breathing room around the figure" },
+    { suffix: "mobile", aspect: "9:16", width: 1080, height: 1920, crop: "vertical mobile crop, subject mid-action centered, preserve background context" },
   ],
 };
 
