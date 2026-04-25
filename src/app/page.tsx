@@ -200,9 +200,9 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Hero
-        primaryCtaLabel={snapshot.primaryCtaLabel}
-        primaryCtaHref={snapshot.primaryCtaHref}
-        secondaryCtaLabel="Read more about Summer"
+        primaryCtaLabel="Train with Summer"
+        primaryCtaHref="/classes"
+        secondaryCtaLabel="About Summer"
         secondaryCtaHref="/about"
       />
       {snapshot.about.section.isVisible ? <About section={snapshot.about.section} images={snapshot.about.images} points={snapshot.about.points} /> : null}

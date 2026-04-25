@@ -171,6 +171,46 @@ export default async function ClassesPage() {
           stripe_price_id: t.stripe_price_id,
         }))}
       />
+
+      {/* Private Training — final, premium funnel */}
+      <section className="relative overflow-hidden bg-[color:var(--ink-900)] text-[color:var(--paper-100)]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            opacity: 0.11,
+            mixBlendMode: "overlay",
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
+        <Container size="xl" className="relative py-24 md:py-32 lg:py-40">
+          <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+            <div>
+              <Eyebrow variant="mono" tone="light">
+                Private Training · By application
+              </Eyebrow>
+              <h2 className="font-editorial-italic mt-6 max-w-[24ch] text-balance text-5xl leading-[0.98] tracking-[-0.035em] md:text-[5rem]">
+                Want Summer&rsquo;s eyes on every rep?
+              </h2>
+              <p className="mt-6 max-w-xl text-[15px] leading-[1.7] text-white/70">
+                Hands-on coaching in Los Angeles for clients who want a program built around them
+                — heavy lifting, glute-focused work, and nutrition guidance, reviewed week by
+                week. Limited spots, by application.
+              </p>
+            </div>
+            <div className="flex md:justify-end">
+              <Link
+                href="/#contact"
+                className="press-effect focus-ring inline-flex min-h-12 items-center justify-center gap-2 border border-white bg-white px-7 font-mono-editorial text-[11px] uppercase tracking-[0.28em] text-[color:var(--ink-900)] transition hover:border-[color:var(--bronze-500)] hover:bg-[color:var(--bronze-500)] hover:text-white"
+              >
+                Apply for Private Training
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          </div>
+        </Container>
+      </section>
     </main>
   );
 }

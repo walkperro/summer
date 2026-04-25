@@ -85,6 +85,9 @@ const TARGETS = {
   "summer-contact": [
     { suffix: "portrait", aspect: "4:5", width: 1080, height: 1350, crop: "vertical 4:5 portrait, subject seated in a calm interior with strong natural light, full upper body in frame, shoulders down" },
   ],
+  "summer-private-setting": [
+    { suffix: "portrait", aspect: "4:5", width: 1350, height: 1688, crop: "vertical 4:5 about-page portrait, subject seated in a calm interior with strong natural light, generous breathing room above and around the head" },
+  ],
 };
 
 async function ensureDir(dir) {
