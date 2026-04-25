@@ -764,23 +764,66 @@ function mapClasses(
   }));
 }
 
+// Runtime defense: an earlier migration (20260424010000) accidentally overwrote the
+// `online-coaching` row title to "Online Classes" and inserted a second `online-classes`
+// row. Until that DB fix is applied, hide the duplicates and heal the mangled row.
+const HIDDEN_OFFER_SLUGS = new Set(["online-classes", "guides-and-plans"]);
+
+const ONLINE_COACHING_FALLBACK = {
+  title: "Online Coaching",
+  subtitle: "Remote structure, personal oversight.",
+  description:
+    "Remote programming with structured heavy lifting, glute-focused work, and nutrition guidance that stays personal. For clients who want the real thing without generic templates.",
+  bullets: [
+    "Programming built for consistency and visible progress.",
+    "Form review and weekly adjustments on the lifts that matter.",
+    "Nutrition guidance that respects how you live.",
+    "From $349 / month — 8-week minimum.",
+  ],
+  cta: "Explore coaching",
+  href: "#contact",
+};
+
 function mapOffers(rows: SummerOfferRecord[]) {
   const mapped = rows
-    .filter((offer) => offer.is_visible)
+    .filter((offer) => offer.is_visible && !HIDDEN_OFFER_SLUGS.has(offer.slug))
     .sort((left, right) => left.sort_order - right.sort_order)
-    .map((offer) => ({
-      id: offer.id,
-      title: offer.title,
-      subtitle: offer.subtitle,
-      description: offer.description || "",
-      detail: offer.bullets?.join(" ") || offer.subtitle || "",
-      cta: offer.cta_label || "Learn more",
-      href: offer.cta_href || "#contact",
-      badge: offer.badge,
-      featured: offer.is_featured,
-      visible: offer.is_visible,
-      bullets: Array.isArray(offer.bullets) ? offer.bullets : [],
-    }));
+    .map((offer) => {
+      const isCoachingMangled =
+        offer.slug === "online-coaching" &&
+        typeof offer.title === "string" &&
+        /classes/i.test(offer.title);
+
+      if (isCoachingMangled) {
+        return {
+          id: offer.id,
+          title: ONLINE_COACHING_FALLBACK.title,
+          subtitle: ONLINE_COACHING_FALLBACK.subtitle,
+          description: ONLINE_COACHING_FALLBACK.description,
+          detail: ONLINE_COACHING_FALLBACK.bullets.join(" "),
+          cta: ONLINE_COACHING_FALLBACK.cta,
+          href: ONLINE_COACHING_FALLBACK.href,
+          badge: null,
+          featured: false,
+          visible: true,
+          bullets: ONLINE_COACHING_FALLBACK.bullets,
+        };
+      }
+
+      return {
+        id: offer.id,
+        title: offer.title,
+        subtitle: offer.subtitle,
+        description: offer.description || "",
+        detail: offer.bullets?.join(" ") || offer.subtitle || "",
+        cta: offer.cta_label || "Learn more",
+        href: offer.cta_href || "#contact",
+        badge: offer.badge,
+        featured: offer.is_featured,
+        visible: offer.is_visible,
+        bullets: Array.isArray(offer.bullets) ? offer.bullets : [],
+      };
+    });
 
   return mapped.length ? mapped : getDefaultSnapshot().offers;
 }
