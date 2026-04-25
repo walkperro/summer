@@ -108,22 +108,22 @@ export const offers: Offer[] = [
 
 export const trainingCards: TrainingCard[] = [
   {
-    title: "Technique that holds under pressure",
-    description: "Every session is grounded in movement quality, pacing, and repeatable standards that build real progress.",
+    title: "Form that holds on the last rep.",
+    description: "Bracing, bar path, tempo — coached set by set, not summarized at the end of the hour.",
     imageSrc: "/images/summer/train_with_me/summer_train_supporting_1.jpg",
     imageAlt: "Summer Loffler seated on a gym floor after training, composed and focused.",
     imagePosition: "object-[60%_28%]",
   },
   {
-    title: "Programming with intention",
-    description: "Training blocks are tailored for consistency, strength, and visible progress rather than novelty for its own sake.",
+    title: "Programs written for your lifts — not pulled off a shelf.",
+    description: "Twelve-week blocks built around what you're chasing, what your joints will tolerate, and how often you can actually train. Re-cut weekly.",
     imageSrc: "/images/summer/train_with_me/summer_train_supporting_2.jpg",
     imageAlt: "Summer Loffler training outdoors with resistance work in an athletic editorial frame.",
     imagePosition: "object-center",
   },
   {
-    title: "Accountability without noise",
-    description: "Clear communication, honest feedback, and a private coaching environment that stays focused.",
+    title: "A coach who reads the room.",
+    description: "Form-check videos returned same day. Weekly check-ins. Plain answers when a lift, a meal, or a week isn't working.",
     imageSrc: "/images/summer/train_with_me/summer_train_supporting_3.jpg",
     imageAlt: "Summer Loffler standing in a refined activewear portrait after a training session.",
     imagePosition: "object-[52%_26%]",

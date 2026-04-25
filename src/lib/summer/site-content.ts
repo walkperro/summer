@@ -519,12 +519,12 @@ const DEFAULT_SECTIONS: Record<string, SummerPublicSection> = {
       "For clients who want private training, online coaching, strength training, glute-focused programming, and nutrition guidance delivered with structure and real attention.",
     body: {
       pillars: [
-        "Strength training coached closely.",
-        "Glute-focused work where it serves the goal.",
-        "Nutrition guidance and accountability that stay realistic.",
+        "Squat, hinge, press — coached rep by rep, with the cue you need that day.",
+        "Posterior-chain work programmed to move the lift, not pad the hour.",
+        "Nutrition that survives a real week — protein, training-day calories, honest check-ins.",
       ],
       lead_card:
-        "Progress comes from disciplined, repeatable work. Each session is tailored, closely coached, and built to move you forward with clarity.",
+        "Most programs are loud. The ones that work are patient — heavy lifts, watched closely, repeated until the form is yours.",
     },
     meta: {},
     isVisible: true,
