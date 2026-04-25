@@ -27,7 +27,7 @@ const SLIDES: Slide[] = [
     mobileSrc: "/images/summer/refined/summer-hero-action-mobile.png",
     alt: "Summer Loffler in a cinematic editorial portrait.",
     desktopPosition: "55% 30%",
-    mobilePosition: "0% 30%",
+    mobilePosition: "15% 30%",
     mobileScale: "scale-[1.1]",
   },
   {
