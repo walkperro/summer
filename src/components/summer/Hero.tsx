@@ -28,7 +28,7 @@ const SLIDES: Slide[] = [
     alt: "Summer Loffler in a cinematic editorial portrait.",
     desktopPosition: "55% 30%",
     mobilePosition: "0% 30%",
-    mobileScale: "scale-[1.2]",
+    mobileScale: "scale-[1.1]",
   },
   {
     id: "hero-bw-2",
