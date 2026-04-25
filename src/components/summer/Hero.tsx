@@ -16,6 +16,8 @@ type Slide = {
   alt: string;
   desktopPosition: string;
   mobilePosition: string;
+  /** Optional CSS scale class applied to the mobile <Image>, e.g. "scale-110". */
+  mobileScale?: string;
 };
 
 const SLIDES: Slide[] = [
@@ -25,7 +27,8 @@ const SLIDES: Slide[] = [
     mobileSrc: "/images/summer/refined/summer-hero-action-mobile.png",
     alt: "Summer Loffler in a cinematic editorial portrait.",
     desktopPosition: "55% 30%",
-    mobilePosition: "50% 30%",
+    mobilePosition: "68% 30%",
+    mobileScale: "scale-[1.12]",
   },
   {
     id: "hero-bw-2",
@@ -144,7 +147,10 @@ export function Hero({
                   fill
                   priority={idx === 0}
                   sizes="100vw"
-                  className="object-cover md:hidden"
+                  className={cn(
+                    "object-cover md:hidden",
+                    slide.mobileScale,
+                  )}
                   style={{ objectPosition: slide.mobilePosition }}
                 />
               </div>

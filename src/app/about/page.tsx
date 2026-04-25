@@ -63,7 +63,7 @@ export default async function AboutPage() {
             <ScrollReveal className="lg:col-span-5">
               <div className="relative aspect-[4/5] overflow-hidden bg-[color:var(--paper-300)]">
                 <Image
-                  src="/images/summer/gallery/summer_gallery_lifestyle.jpg"
+                  src="/images/summer/refined/summer-private-setting-portrait.png"
                   alt="Summer Loffler seated in a calm interior setting with strong natural light."
                   fill
                   priority

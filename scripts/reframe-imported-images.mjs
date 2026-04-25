@@ -51,7 +51,9 @@ const BASE_PROMPT =
   "in the background if any. Preserve subject identity, skin tone, tattoos, hair, and outfit exactly. " +
   "Keep the athletic editorial tone. Do not add props, text, or watermarks. Do not stylize — the original " +
   "photograph should still look like a photograph, just a cleaner version of itself. " +
-  "Render at the requested resolution with crisp detail and sharp focus throughout — do not soften the subject.";
+  "This is also an upscale: output must be sharper and noticeably higher-resolution than the input. " +
+  "Render at the requested resolution with crisp detail, clean edges, and tack-sharp focus on the subject — " +
+  "increase fine detail in skin, hair, fabric, and background texture without altering composition or identity.";
 
 const TARGETS = {
   // { slug: [{ ratio, width, height, crop hint }] }
