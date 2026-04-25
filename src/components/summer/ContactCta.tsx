@@ -131,11 +131,11 @@ export function ContactCta({
           <ScrollReveal className="lg:col-span-5">
             <figure className="relative aspect-[4/5] overflow-hidden bg-[color:var(--paper-300)] lg:aspect-auto lg:h-full lg:min-h-[48rem]">
               <Image
-                src="/images/summer/contact/summer_contact.jpg"
+                src="/images/summer/refined/summer-contact-portrait.png"
                 alt="Summer Loffler seated in a calm interior, ready for inquiries about private training or bookings in Los Angeles."
                 fill
                 sizes="(min-width: 1024px) 40vw, 100vw"
-                className="object-cover object-[54%_28%] grayscale-[8%] hero-ken-burns"
+                className="object-cover object-[54%_28%] grayscale-[8%]"
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05)_50%,rgba(0,0,0,0.5)_100%)]" />
               <figcaption className="absolute inset-x-0 bottom-0 p-8 sm:p-10">

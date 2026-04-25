@@ -203,7 +203,7 @@ export default async function Home() {
       <Hero
         primaryCtaLabel={snapshot.primaryCtaLabel}
         primaryCtaHref={snapshot.primaryCtaHref}
-        secondaryCtaLabel="View the lookbook"
+        secondaryCtaLabel="View Portfolio"
         secondaryCtaHref="#portfolio"
       />
       {snapshot.about.section.isVisible ? <About section={snapshot.about.section} images={snapshot.about.images} points={snapshot.about.points} /> : null}

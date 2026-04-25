@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { cn } from "@/lib/cn";
@@ -24,6 +24,7 @@ export function MaisonMenu({
   clientHref = "/client/login",
 }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -69,9 +70,13 @@ export function MaisonMenu({
               (link.href !== "/" && !link.href.startsWith("/#") && pathname?.startsWith(link.href));
             const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
               onClose();
-              if (link.href === "/" && pathname === "/") {
+              if (link.href === "/") {
                 event.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                if (pathname === "/") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                } else {
+                  router.push("/");
+                }
               }
             };
             return (

@@ -82,6 +82,9 @@ const TARGETS = {
     { suffix: "hero", aspect: "16:9", width: 1920, height: 1080, crop: "full-bleed classes hero, subject mid-action, emphasize form and control, generous breathing room around the figure" },
     { suffix: "mobile", aspect: "9:16", width: 1080, height: 1920, crop: "vertical mobile crop, subject mid-action centered, preserve background context" },
   ],
+  "summer-contact": [
+    { suffix: "portrait", aspect: "4:5", width: 1080, height: 1350, crop: "vertical 4:5 portrait, subject seated in a calm interior with strong natural light, full upper body in frame, shoulders down" },
+  ],
 };
 
 async function ensureDir(dir) {

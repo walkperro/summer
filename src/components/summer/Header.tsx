@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -40,6 +40,7 @@ function Burger({ open }: { open: boolean }) {
 
 export function Header({ instagramUrl }: { instagramUrl?: string | null } = {}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -52,9 +53,11 @@ export function Header({ instagramUrl }: { instagramUrl?: string | null } = {}) 
 
   function handleHomeClick(event: React.MouseEvent<HTMLAnchorElement>) {
     setOpen(false);
+    event.preventDefault();
     if (pathname === "/") {
-      event.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      router.push("/");
     }
   }
 

@@ -135,10 +135,7 @@ export function Hero({
                   fill
                   priority={idx === 0}
                   sizes="(min-width: 768px) 62vw, 100vw"
-                  className={cn(
-                    "hidden object-cover md:block",
-                    isActive && "hero-ken-burns",
-                  )}
+                  className="hidden object-cover md:block"
                   style={{ objectPosition: slide.desktopPosition }}
                 />
                 <Image
