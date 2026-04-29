@@ -38,17 +38,12 @@ export default async function AdminLoginPage({
             Protected access.
           </h1>
           <p className="mt-5 text-[15px] leading-[1.7] text-[color:var(--ink-500)]">
-            Sign in with a Supabase account allowed in{" "}
-            <code className="rounded bg-[color:var(--paper-200)] px-1.5 py-0.5 font-mono-editorial text-[12px]">
-              summer.admin_users
-            </code>
-            .
+            Sign in to manage the studio.
           </p>
 
           {!configured && (
             <div className="mt-6 border border-[color:var(--bronze-400)] bg-[color:var(--bronze-100)] p-4 font-editorial-italic text-[14px] leading-[1.55] text-[color:var(--ink-700)]">
-              Supabase admin env vars are missing. Configure them before using{" "}
-              <code className="font-mono-editorial">/admin</code>.
+              Sign-in is temporarily unavailable. Please try again shortly.
             </div>
           )}
 

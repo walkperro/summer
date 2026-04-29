@@ -57,22 +57,27 @@ async function maybeBootstrapAdmin(email: string) {
 
 export async function loginSummerAdmin(email: string, password: string) {
   if (!hasSummerSupabaseAdminConfig()) {
-    throw new Error("Supabase admin configuration is missing.");
+    throw new Error("Sign-in is temporarily unavailable. Please try again shortly.");
   }
 
-  const session = await fetchSupabaseAuth<PasswordAuthResponse>("/auth/v1/token?grant_type=password", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-    keyKind: "anon",
-  });
+  let session: PasswordAuthResponse;
+  try {
+    session = await fetchSupabaseAuth<PasswordAuthResponse>("/auth/v1/token?grant_type=password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+      keyKind: "anon",
+    });
+  } catch {
+    throw new Error("Invalid email or password.");
+  }
 
   const normalizedEmail = session.user.email?.toLowerCase();
 
   if (!normalizedEmail) {
-    throw new Error("Supabase did not return an email for this account.");
+    throw new Error("We couldn't read an email for this account. Contact the studio.");
   }
 
   let adminUser = await getAdminUserByEmail(normalizedEmail);
@@ -82,7 +87,7 @@ export async function loginSummerAdmin(email: string, password: string) {
   }
 
   if (!adminUser) {
-    throw new Error("This account is not authorized for Summer admin.");
+    throw new Error("This account isn't authorized for the admin area.");
   }
 
   const cookieStore = await cookies();
